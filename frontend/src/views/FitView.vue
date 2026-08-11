@@ -7,6 +7,7 @@ import * as api from '../api'
 import ScanBar from '../components/ScanBar.vue'
 import StatTile from '../components/StatTile.vue'
 import EChart from '../components/EChart.vue'
+import Latex from '../components/Latex.vue'
 import { getPalette } from '../lib/palette'
 import { bodeOpt, nyquistOpt } from '../lib/charts'
 import * as fmt from '../lib/format'
@@ -36,6 +37,16 @@ async function run() {
 }
 
 const units: Record<string, string> = { R: 'Ω', L: 'H', C: 'F' }
+
+const MODEL_TEX: Record<string, string> = {
+  series_RLC: String.raw`Z = R + j\left(\omega L - \frac{1}{\omega C}\right)`,
+  series_RC: String.raw`Z = R - \frac{j}{\omega C}`,
+  series_RL: String.raw`Z = R + j\omega L`,
+  parallel_RLC: String.raw`Z = \cfrac{1}{\dfrac{1}{R} + j\left(\omega C - \dfrac{1}{\omega L}\right)}`,
+  parallel_RC: String.raw`Z = \cfrac{1}{\dfrac{1}{R} + j\omega C}`,
+  parallel_RL: String.raw`Z = \cfrac{1}{\dfrac{1}{R} - \dfrac{j}{\omega L}}`,
+}
+const modelTex = computed(() => MODEL_TEX[selected.value] ?? '')
 const f0 = computed(() => {
   const P = fit.value?.params
   if (!P || P.L == null || P.C == null) return null
@@ -74,6 +85,10 @@ const nyqOpt = computed(() => fit.value ? nyquistOpt(p.value, { measured: measur
           </label>
           <button class="btn primary" @click="run" :disabled="fitting || !measurements.length">{{ fitting ? '拟合中…' : '▶ 开始拟合' }}</button>
           <span v-if="error" style="color:var(--critical)">{{ error }}</span>
+        </div>
+        <div class="eq-block" style="margin:0 18px 18px">
+          <div class="eq-tag">所选模型的阻抗表达式</div>
+          <Latex :tex="modelTex" :display="true" />
         </div>
       </section>
 

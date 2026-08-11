@@ -5,10 +5,14 @@
 
 ## 时间约定
 
-- 采样间隔 `dt`（秒），采样率 `fs = 1/dt`。
-- 样本索引 `k = 0..n`，共 **n+1** 个样本；时间轴 `t[k] = k * dt`。
-- 激励频率 `frequency`（Hz），角频率 `ω = 2π·frequency`。
-- 建议每个频率采集 ≥10 个完整周期、每周期 ≥32 点（例如 16 周期 × 64 点 = 1024 点）。
+- 采样间隔 `dt`（秒），采样率 $f_s = 1/dt$。
+- 样本索引 $k = 0..n$，共 $n+1$ 个样本；时间轴 $t[k] = k\cdot dt$。
+- 激励频率 `frequency`（Hz），角频率 $\omega = 2\pi f$。
+- 建议每频率采集 ≥10 个完整周期、每周期 ≥32 点（如 16 周期 × 64 点 = 1024 点）。
+
+后端对每个频率做正弦拟合 $u(t)=a\sin\omega t+b\cos\omega t+c$，得 $V_\text{amp},\varphi_v$ 与 $I_\text{amp},\varphi_i$，于是
+
+$$Z=\frac{V_\text{amp}}{I_\text{amp}}\,e^{\,j(\varphi_v-\varphi_i)}=R+jX$$
 
 ## 1. 开始一次扫频
 

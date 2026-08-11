@@ -8,6 +8,7 @@ import ScanBar from '../components/ScanBar.vue'
 import PanelStage from '../components/PanelStage.vue'
 import StatTile from '../components/StatTile.vue'
 import EChart from '../components/EChart.vue'
+import Latex from '../components/Latex.vue'
 import { getPalette } from '../lib/palette'
 import { waveformOpt, spectrumOpt, complexPointOpt } from '../lib/charts'
 import * as fmt from '../lib/format'
@@ -179,6 +180,13 @@ const cpOpt = computed(() => {
       <!-- stage 1 -->
       <PanelStage no="1" title="采集 · 去直流 · 正弦拟合"
         desc="对 u(t)、i(t) 各做 IEEE 1057 三参数正弦最小二乘拟合：u(t)=a·sinωt+b·cosωt+c。c 即直流偏置（自动去除），幅值/相位用于后续阻抗。">
+        <template #side>
+          <div class="eq-block">
+            <div class="eq-tag">正弦拟合 · IEEE 1057</div>
+            <Latex tex="u(t)=a\sin(\omega t)+b\cos(\omega t)+c" :display="true" />
+            <div style="margin-top:6px"><Latex tex="A=\sqrt{a^2+b^2},\ \ \varphi=\operatorname{atan2}(b,a)" /></div>
+          </div>
+        </template>
         <div class="stat-grid cols-4" style="margin-bottom:14px">
           <StatTile k="u 幅值" :v="fmt.fmt(md?.v_amp, 4)" unit="V" />
           <StatTile k="u 相位" :v="fmt.degFromDeg(md?.v_phase_deg)" />
@@ -202,6 +210,11 @@ const cpOpt = computed(() => {
       <!-- stage 2 -->
       <PanelStage no="2" title="残差分析" desc="残差 = 原始 − 拟合。随机散布＝噪声主导；含周期结构＝存在谐波（u 非纯正弦）。">
         <template #side>
+          <div class="eq-block">
+            <div class="eq-tag">残差 / 信噪比</div>
+            <Latex tex="r[k]=x[k]-\big(a\sin\omega t_k+b\cos\omega t_k+c\big)" :display="true" />
+            <div style="margin-top:6px"><Latex tex="\mathrm{SNR}_{\mathrm{dB}}=20\log_{10}(A/\sigma_r)" /></div>
+          </div>
           <div class="stat-grid cols-2" style="margin-top:14px">
             <StatTile k="u 残差 RMS" :v="fmt.fmt(md?.resid_rms_v, 3)" unit="V" />
             <StatTile k="i 残差 RMS" :v="fmt.fmt(md?.resid_rms_i, 3)" unit="A" />
@@ -219,6 +232,10 @@ const cpOpt = computed(() => {
       <!-- stage 3 -->
       <PanelStage no="3" title="频谱诊断 (FFT)" desc="单边幅值谱（Hann 加窗）。虚线＝激励频率 f₀。用于核对主频、观察谐波与噪声底。阻抗值不依赖 FFT，此处仅供诊断。">
         <template #side>
+          <div class="eq-block">
+            <div class="eq-tag">离散傅里叶变换（诊断用）</div>
+            <Latex tex="X[k]=\sum_{n=0}^{N-1} x[n]\,e^{-j2\pi kn/N}" :display="true" />
+          </div>
           <div class="stat-grid cols-1" style="margin-top:14px">
             <StatTile k="激励主频 f₀" :v="fmt.fmtHz(cur?.frequency ?? 0)" />
             <StatTile k="采样率 fs" :v="fmt.eng(fs, 'Hz')" sub="Nyquist = fs/2" />
@@ -233,6 +250,11 @@ const cpOpt = computed(() => {
       <!-- stage 4 -->
       <PanelStage no="4" title="该频率的阻抗" desc="由 u/i 的幅值比与相位差得到 Z = |Z|∠θ。容性→负虚部，感性→正虚部。">
         <template #side>
+          <div class="eq-block">
+            <div class="eq-tag">阻抗</div>
+            <Latex tex="Z=\dfrac{V_\mathrm{amp}}{I_\mathrm{amp}}\,e^{\,j(\varphi_v-\varphi_i)}=R+jX" :display="true" />
+            <div style="margin-top:6px"><Latex tex="X<0:\,C=-\tfrac{1}{\omega X}\quad X>0:\,L=\tfrac{X}{\omega}" /></div>
+          </div>
           <div class="stat-grid cols-2" style="margin-top:14px">
             <StatTile k="|Z|" :v="fmt.fmt(cur?.z_mag, 4)" unit="Ω" accent />
             <StatTile k="∠Z" :v="fmt.degFromDeg(cur?.z_phase_deg)" accent />
