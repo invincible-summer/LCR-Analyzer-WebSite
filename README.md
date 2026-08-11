@@ -66,7 +66,7 @@ $$
 A\sin(\omega t+\varphi)=\underbrace{A\cos\varphi}_{a}\sin(\omega t)+\underbrace{A\sin\varphi}_{b}\cos(\omega t)
 $$
 
-于是得到 **3 参数正弦拟合模型**（$t_k=k\,\Delta t$，$k=0,\dots,N-1$）：
+于是得到 **3 参数正弦拟合模型**（$t_k=k\Delta t$，$k=0,\dots,N-1$）：
 
 $$
 x[k]\approx a\sin(\omega t_k)+b\cos(\omega t_k)+c
@@ -78,18 +78,18 @@ $$
 J(a,b,c)=\sum_{k=0}^{N-1}\bigl(x[k]-a\sin\omega t_k-b\cos\omega t_k-c\bigr)^{2}
 $$
 
-由于 $J$ 对 $\boldsymbol\theta=(a,b,c)^{\!\top}$ 是线性的，构造设计矩阵 $\mathbf{M}\in\mathbb{R}^{N\times 3}$，其第 $k$ 行为 $[\sin\omega t_k,\ \cos\omega t_k,\ 1]$，求解线性方程组：
+由于 $J$ 对 $\boldsymbol\theta=(a,b,c)^{\top}$ 是线性的，构造设计矩阵 $\mathbf{M}\in\mathbb{R}^{N\times 3}$，其第 $k$ 行为 $[\sin\omega t_k,\ \cos\omega t_k,\ 1]$，求解线性方程组：
 
 $$
 \hat{\boldsymbol\theta}=\arg\min_{\boldsymbol\theta}\lVert \mathbf{x}-\mathbf{M}\boldsymbol\theta\rVert^{2}
 \quad\Longrightarrow\quad
-\mathbf{M}^{\!\top}\mathbf{M}\,\hat{\boldsymbol\theta}=\mathbf{M}^{\!\top}\mathbf{x}
+\mathbf{M}^{\top}\mathbf{M}\hat{\boldsymbol\theta}=\mathbf{M}^{\top}\mathbf{x}
 $$
 
 （后端用 `numpy.linalg.lstsq`。）由 $\hat a,\hat b$ 恢复幅值与相位：
 
 $$
-A=\sqrt{a^{2}+b^{2}},\qquad \varphi=\operatorname{atan2}(b,a)
+A=\sqrt{a^{2}+b^{2}},\qquad \varphi=\mathrm{atan2}(b,a)
 $$
 
 - 直流偏置由 $\hat c$ 直接给出，**无需预处理去直流**；
@@ -107,14 +107,14 @@ $$
 对 V、I 两路分别做 §1 的拟合，得到 $(V_{\text{amp}},\varphi_{v})$ 与 $(I_{\text{amp}},\varphi_{i})$。阻抗即两路相量之比：
 
 $$
-Z(\omega)=\frac{\dot V}{\dot I}=\frac{V_{\text{amp}}}{I_{\text{amp}}}\,e^{\,j(\varphi_{v}-\varphi_{i})}=|Z|\,e^{j\theta}
+Z(\omega)=\frac{\dot V}{\dot I}=\frac{V_{\text{amp}}}{I_{\text{amp}}}e^{j(\varphi_{v}-\varphi_{i})}=|Z|e^{j\theta}
 $$
 
 $$
 |Z|=\frac{V_{\text{amp}}}{I_{\text{amp}}},\qquad \theta=\angle Z=\varphi_{v}-\varphi_{i}
 $$
 
-注意 V、I 必须使用**同一相位约定** $\varphi=\operatorname{atan2}(b,a)$，否则 $\theta$ 出错。转换为直角坐标：
+注意 V、I 必须使用**同一相位约定** $\varphi=\mathrm{atan2}(b,a)$，否则 $\theta$ 出错。转换为直角坐标：
 
 $$
 Z=R+jX,\qquad R=|Z|\cos\theta,\qquad X=|Z|\sin\theta
@@ -141,10 +141,10 @@ $$
 
 | 模型 | $Z_{\text{model}}(\omega)$ |
 |---|---|
-| 串联 RLC | $R+j\!\left(\omega L-\dfrac{1}{\omega C}\right)$ |
+| 串联 RLC | $R+j\left(\omega L-\dfrac{1}{\omega C}\right)$ |
 | 串联 RC | $R-\dfrac{j}{\omega C}$ |
 | 串联 RL | $R+j\omega L$ |
-| 并联 RLC | $\dfrac{1}{\dfrac{1}{R}+j\!\left(\omega C-\dfrac{1}{\omega L}\right)}$ |
+| 并联 RLC | $\dfrac{1}{\dfrac{1}{R}+j\left(\omega C-\dfrac{1}{\omega L}\right)}$ |
 | 并联 RC | $\dfrac{1}{\dfrac{1}{R}+j\omega C}$ |
 | 并联 RL | $\dfrac{1}{\dfrac{1}{R}-\dfrac{j}{\omega L}}$ |
 
@@ -156,7 +156,7 @@ $$
 p_{i}=10^{\hat p_{i}},\qquad \hat p_{i}=\log_{10}p_{i}
 $$
 
-边界在对数空间给出：$R\in[10^{-3},10^{9}]\,\Omega$、$L\in[10^{-9},10^{3}]\,\text{H}$、$C\in[10^{-15},1]\,\text{F}$。
+边界在对数空间给出：$R\in[10^{-3},10^{9}]\Omega$、$L\in[10^{-9},10^{3}]\text{H}$、$C\in[10^{-15},1]\text{F}$。
 
 #### 3.2 加权的实虚部联合残差
 
@@ -187,7 +187,7 @@ $$
 FFT **不参与阻抗计算**，仅用于诊断（核对主频、观察谐波与噪声底）。对去直流后的序列加 Hann 窗 $w[n]$ 做单边幅度谱：
 
 $$
-X[k]=\sum_{n=0}^{N-1}w[n]\,x[n]\,e^{-j2\pi kn/N},\qquad k=0,\dots,N/2
+X[k]=\sum_{n=0}^{N-1}w[n]x[n]e^{-j2\pi kn/N},\qquad k=0,\dots,N/2
 $$
 
 ### 5. OSL 校准
@@ -203,7 +203,7 @@ Z_{2}=\frac{1}{\dfrac{1}{Z_{1}}-\dfrac{1}{Z_{\text{open}}}}\quad(\text{扣除并
 $$
 
 $$
-Z_{\text{DUT}}=k\cdot Z_{2},\qquad k=\operatorname{median}\!\left(\frac{Z_{L}^{\text{true}}}{Z_{2}^{\text{load}}}\right)\quad(\text{增益 / 相位校正})
+Z_{\text{DUT}}=k\cdot Z_{2},\qquad k=\mathrm{median}\left(\frac{Z_{L}^{\text{true}}}{Z_{2}^{\text{load}}}\right)\quad(\text{增益 / 相位校正})
 $$
 
 > 校正算法（`app/dsp/calibration.py`）与数据模型（`CalibSet`）已就位；采集接口随模拟前端硬件定型后启用。
@@ -219,7 +219,7 @@ $$
 每收到一个频率点 `POST /api/scan/{scan_id}/point`，由 `backend/app/services/scan_service.py:add_point`（第 31 行）**同步**完成 DSP 并落库，而非查询时重算：
 
 1. `measure_impedance(voltage, current, dt, frequency)`（`app/dsp/impedance.py`）：
-   - 构造时间轴 $t_k=k\,\Delta t$ 与 $\omega=2\pi f$；
+   - 构造时间轴 $t_k=k\Delta t$ 与 $\omega=2\pi f$；
    - 对 V、I 各调用 `sine_fit`，用 `numpy.linalg.lstsq` 解设计矩阵 $[\sin\omega t,\ \cos\omega t,\ \mathbf 1]$，得 $(V_{\text{amp}},\varphi_v)$、$(I_{\text{amp}},\varphi_i)$、直流 $\hat c$ 与残差 RMS；
    - 按 §2 公式算出 $|Z|,\theta,R,X,D,Q,\text{ESR},C_{\text{eq}}/L_{\text{eq}}$。
 2. `fft_spectrum(voltage/current, dt, window='hann')`（`app/dsp/spectrum.py`）：Hann 加窗、去直流后的单边幅度谱（`np.fft.rfft`），**仅用于诊断**，不参与阻抗。
@@ -245,7 +245,7 @@ $$
 - **边界**（对数空间）：$R\in[10^{-3},10^{9}]$、$L\in[10^{-9},10^{3}]$、$C\in[10^{-15},1]$；初值裁剪进边界内。
 - **加权残差**：`np.concatenate([(Zm.real-Z.real)/s, (Zm.imag-Z.imag)/s])`，其中 $s_m=\max(|Z_m|,10^{-12})$。
 - **求解器**：`scipy.optimize.least_squares(method="trf", max_nfev=4000)`（支持上下界）。
-- **初值启发式**（`_initial_guess`，第 90 行）：$R_0=\operatorname{clip}(\operatorname{median}\Re Z,\,10^{-3},10^{8})$；$C_0$ 取自最负电抗点 $C=-1/(\omega X)$；$L_0$ 取自最正电抗点 $L=X/\omega$；缺失则回退 $L_0=10^{-3}$、$C_0=10^{-6}$。
+- **初值启发式**（`_initial_guess`，第 90 行）：$R_0=\mathrm{clip}(\mathrm{median}\Re Z,10^{-3},10^{8})$；$C_0$ 取自最负电抗点 $C=-1/(\omega X)$；$L_0$ 取自最正电抗点 $L=X/\omega$；缺失则回退 $L_0=10^{-3}$、$C_0=10^{-6}$。
 - **质量与理论曲线**：收敛后计算 RMSE、Accuracy，并在 $[f_{\min},f_{\max}]$ 上 `np.logspace` 取 200 点，输出 `theory = {frequency, z_mag, z_phase_deg, z_real, z_imag}` 供 Bode / Nyquist 叠加。
 
 ---
@@ -327,5 +327,5 @@ POST /api/scan/{scan_id}/point      → { frequency, dt, n, voltage[], current[]
 ## 验证结果
 
 - **pytest**：正弦拟合 / 阻抗（R / C / L）/ 电路拟合（串联 RLC · RC · 并联 RC）全绿。
-- **端到端**：模拟器生成串联 RLC（$R=50\,\Omega$、$L=1\,\text{mH}$、$C=1\,\mu\text{F}$）扫频，平台恢复 $R=49.99\,\Omega$、$L=1.000\,\text{mH}$、$C=1.000\,\mu\text{F}$，精度 **99.9 %**；逐频 $|Z|$ 与相位和理论值吻合。
+- **端到端**：模拟器生成串联 RLC（$R=50\Omega$、$L=1\text{mH}$、$C=1\mu\text{F}$）扫频，平台恢复 $R=49.99\Omega$、$L=1.000\text{mH}$、$C=1.000\mu\text{F}$，精度 **99.9 %**；逐频 $|Z|$ 与相位和理论值吻合。
 - **前端**：`vue-tsc` 类型检查零错误，`vite build` 通过；KaTeX 方程与 ECharts 图表在浏览器实测正确渲染（CVD 安全配色，暗 / 亮主题可切换）。

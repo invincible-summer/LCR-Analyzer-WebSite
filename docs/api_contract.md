@@ -12,7 +12,7 @@
 
 后端对每个频率做正弦拟合 $u(t)=a\sin\omega t+b\cos\omega t+c$，得 $V_\text{amp},\varphi_v$ 与 $I_\text{amp},\varphi_i$，于是
 
-$$Z=\frac{V_\text{amp}}{I_\text{amp}}\,e^{\,j(\varphi_v-\varphi_i)}=R+jX$$
+$$Z=\frac{V_\text{amp}}{I_\text{amp}}e^{j(\varphi_v-\varphi_i)}=R+jX$$
 
 ## 1. 开始一次扫频
 

@@ -11,6 +11,12 @@ processing pipeline in an instrument-style dark UI with KaTeX-rendered equations
 ESP32 firmware is not yet written — the contract it must implement is
 `docs/api_contract.md`.
 
+## Reference docs
+
+- **`README.md`** — §算法原理与公式推导（正弦拟合 / 阻抗 / 电路拟合 / FFT / OSL 的完整公式与推导）与 §实现细节（后端 `add_point` 数据处理流水、前端 `charts.ts` / `EChart.vue` 绘图流程、`circuit_fit` 的 log 空间参数化 / 加权残差 / 初值启发式 / 求解器），**与代码逐项同步**。改 DSP、改拟合或写文档前先读这两节，勿重复推导。
+- **`docs/api_contract.md`** — ESP32 上传契约（固件照此实现）。
+- 仓库：`origin → github.com/invincible-summer/LCR-Analyzer-WebSite`，单分支 `main`，直接提交并推送（不走 PR）。
+
 ## Commands
 
 Backend uses a conda env named `lcr` (Python 3.11); the frontend uses pnpm.
