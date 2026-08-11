@@ -1,0 +1,27 @@
+# ---- secrets / env (never commit) ----
+*.key
+*.pem
+.env
+.env.*
+!.env.example
+*.local
+
+# ---- python ----
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# ---- data / runtime ----
+backend/data/*.db
+backend/data/*.db-journal
+*.sqlite
+*.sqlite3
+
+# ---- node / frontend ----
+node_modules/
+dist/
+dist-ssr/
+*.log
+.DS_Store
