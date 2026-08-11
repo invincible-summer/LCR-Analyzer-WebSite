@@ -22,21 +22,30 @@ Vue3 + ECharts 前端（工业暗色 · KaTeX 方程 · Markdown）
 
 ## 关键技术决策
 
-**1. 阻抗算值用正弦最小二乘拟合（IEEE 1057 三参数），不是 FFT。** 激励频率 $\omega$ 已知，对 $v(t)$、$i(t)$ 各拟合
+**1. 阻抗算值用正弦最小二乘拟合（IEEE 1057 三参数），不是 FFT。** 激励频率 ω 已知，对 `v(t)`、`i(t)` 各拟合：
 
-$$u(t)=a\sin(\omega t)+b\cos(\omega t)+c$$
+```
+u(t) = a·sin(ωt) + b·cos(ωt) + c
+```
 
-得幅值 $A=\sqrt{a^2+b^2}$、相位 $\varphi=\operatorname{atan2}(b,a)$，于是
+得幅值与相位，进而得到阻抗：
 
-$$Z=\frac{V_\text{amp}}{I_\text{amp}}\,e^{\,j(\varphi_v-\varphi_i)}=R+jX$$
+```
+A = √(a² + b²)            φ = atan2(b, a)
+Z = (V_amp / I_amp) · e^{j(φv − φi)} = R + jX
+```
 
-无频谱泄漏、自带去直流（$c$ 项）、相位干净，且**这条拟合曲线就是 u-t 图上要画的曲线**。FFT 仅作频谱诊断（看谐波/噪声底）。
+无频谱泄漏、自带去直流（c 项）、相位干净，且**这条拟合曲线就是 u-t 图上要画的曲线**。FFT 仅作频谱诊断（看谐波/噪声底）。
 
-**2. 两种"拟合"分层**：① **时域**正弦拟合（每频率，得 $Z$，画 u-t）；② **频域**电路模型拟合（跨扫频，得 R/L/C，画 Bode/Nyquist），如串联 RLC：
+**2. 两种"拟合"分层**：① **时域**正弦拟合（每频率，得 Z，画 u-t）；② **频域**电路模型拟合（跨扫频，得 R/L/C，画 Bode/Nyquist）。以串联 RLC 为例：
 
-$$Z = R + j\!\left(\omega L - \frac{1}{\omega C}\right)$$
+```
+Z = R + j·(ωL − 1/(ωC))
+```
 
-**3. OSL 校准**接口已预留（开/短/负载 + 通道相位补偿），随硬件定型启用。
+**3. OSL 校准**接口已预留（开 / 短 / 负载 + 通道相位补偿），随硬件定型启用。
+
+> 完整的数学推导、最小二乘求解、拟合策略与数值验证见 **[`docs/dsp_methodology.md`](docs/dsp_methodology.md)**。
 
 ## 目录
 
@@ -50,7 +59,8 @@ frontend/  Vue3 + Vite + TS + ECharts + Pinia + KaTeX + markdown-it
   src/lib/         palette, format, charts(ECharts 选项库), generate(合成数据)
   src/components/  EChart, Latex, Markdown, StatTile, PanelStage, ScanBar, ...
   src/views/       AnalysisView, SweepView, FitView, LiveView, CalibrateView, HistoryView
-docs/api_contract.md   ← ESP32 固件按此实现上传
+docs/api_contract.md      ← ESP32 固件按此实现上传
+docs/dsp_methodology.md   ← 数据处理方法（DSP 详细推导）
 start.sh               ← 一键启动（见下）
 ```
 
@@ -106,6 +116,6 @@ POST /api/scan/{scan_id}/point               → { frequency, dt, n, voltage[], 
 
 ## 已验证
 
-- **pytest**：正弦拟合 / 阻抗（R/C/L）/ 电路拟合（串联 RLC·RC·并联 RC）全绿。
-- **端到端**：模拟器生成串联 RLC（$R=50\,\Omega,\ L=1\,\text{mH},\ C=1\,\mu\text{F}$）扫频，平台恢复 $R=49.99\,\Omega$ / $L=1.000\,\text{mH}$ / $C=1.000\,\mu\text{F}$，精度 **99.9%**；逐频 $|Z|$ 与相位和理论值吻合。
-- **前端**：`vue-tsc` 类型检查零错误，`vite build` 通过；KaTeX 方程与 ECharts 图表在浏览器实测正确渲染（CVD 安全配色，暗/亮主题可切换）。
+- **pytest**：正弦拟合 / 阻抗（R / C / L）/ 电路拟合（串联 RLC · RC · 并联 RC）全绿。
+- **端到端**：模拟器生成串联 RLC（R = 50 Ω, L = 1 mH, C = 1 µF）扫频，平台恢复 R = 49.99 Ω / L = 1.000 mH / C = 1.000 µF，精度 **99.9%**；逐频 |Z| 与相位和理论值吻合。
+- **前端**：`vue-tsc` 类型检查零错误，`vite build` 通过；KaTeX 方程与 ECharts 图表在浏览器实测正确渲染（CVD 安全配色，暗 / 亮主题可切换）。
