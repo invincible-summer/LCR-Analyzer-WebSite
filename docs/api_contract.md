@@ -64,6 +64,7 @@ $$Z=\frac{V_\text{amp}}{I_\text{amp}}e^{j(\varphi_v-\varphi_i)}=R+jX$$
   "id": 42, "scan_id": "131d44aaa6b2",
   "frequency": 1000.0, "dt": 0.000015625, "n": 1023,
   "z_real": 1.0, "z_imag": -159.15, "z_mag": 159.16, "z_phase_deg": -89.64,
+  "z_sigma": 0.012, "z_phase_sigma_deg": 0.004,
   "R": 1.0, "X": -159.15, "D": 0.0063, "Q": 159.15, "esr": 1.0,
   "L_eq": null, "C_eq": 1.000e-6,
   "v_amp": 1.590, "v_phase_deg": 0.36, "i_amp": 0.010, "i_phase_deg": 90.0,
@@ -81,8 +82,10 @@ $$Z=\frac{V_\text{amp}}{I_\text{amp}}e^{j(\varphi_v-\varphi_i)}=R+jX$$
 | GET | `/api/scans` | 扫描列表 |
 | GET | `/api/scan/{id}` | 扫描详情（全部频率点阻抗） |
 | GET | `/api/scan/{id}/measurement/{mid}` | 单点详情（原始波形 + 拟合曲线 + 残差 + FFT） |
-| GET | `/api/models` | 可拟合的等效电路模型 |
-| POST | `/api/fit` | `{scan_id, model}` → R/L/C/RMSE/精度 + 理论曲线 |
+| GET | `/api/models` | 模型列表（`auto` + 8 种固定拓扑，含 LaTeX 表达式） |
+| POST | `/api/fit` | `{scan_id, model}`，`model="auto"`（矢量拟合+拓扑 AICc 排名）或拓扑名 |
+| GET | `/api/fit/{id}` | 拟合详情（网表树 / 极零点 / CI / 排名 / SPICE 文本） |
+| GET | `/api/fit/{id}/spice` | Foster 综合网表的 `.subckt` 纯文本 |
 | GET | `/api/scan/{id}/export?format=csv\|json` | 导出 |
 | WS  | `/ws/live` | 实时推送：每收到一个点广播 `{type,frequency,z_mag,z_phase_deg}` |
 

@@ -2,7 +2,7 @@
 
 This lets the whole platform run and be validated without real hardware. The
 generated physics is the time-domain counterpart of the circuit models in
-``app.dsp.circuit_fit``:
+``app.dsp.topology_fit``:
 
     drive  i(t) = I0 * sin(w t)
     DUT    Z(w) = R + jX(w)
@@ -22,13 +22,33 @@ from typing import Sequence
 
 import numpy as np
 
-from ..dsp.circuit_fit import MODELS
+from ..dsp.topology_fit import MODELS
 
 
 def ordered_params(model: str, R: float, L: float, C: float) -> list[float]:
     md = MODELS[model]
     table = {"R": R, "L": L, "C": C}
     return [table[k] for k in md.params]
+
+
+# a deliberately non-trivial DUT: two parallel-RLC sections in series --
+# not expressible by any single library topology; only the vector-fitting
+# engine can recover its structure
+TWO_SECTION = {"R1": 1000.0, "L1": 1e-2, "C1": 1e-6,
+               "R2": 50.0, "L2": 1e-5, "C2": 1e-9}
+
+
+def _z_two_section(w: float) -> complex:
+    p = TWO_SECTION
+    z1 = 1.0 / (1.0 / p["R1"] + 1.0 / (1j * w * p["L1"]) + 1j * w * p["C1"])
+    z2 = 1.0 / (1.0 / p["R2"] + 1.0 / (1j * w * p["L2"]) + 1j * w * p["C2"])
+    return z1 + z2
+
+
+def _model_z(model: str, params, w) -> complex:
+    if model == "two_section":
+        return _z_two_section(float(w))
+    return complex(MODELS[model].func(np.asarray(params, dtype=float), np.array([w]))[0])
 
 
 def make_waveforms(model: str, params: Sequence[float], f: float,
@@ -40,7 +60,7 @@ def make_waveforms(model: str, params: Sequence[float], f: float,
     dt = 1.0 / (f * samples_per_cycle)
     t = np.arange(n + 1, dtype=float) * dt
 
-    Z = complex(MODELS[model].func(np.asarray(params, dtype=float), np.array([omega]))[0])
+    Z = _model_z(model, params, omega)
     z_mag, z_ph = abs(Z), math.atan2(Z.imag, Z.real)
 
     i = i0 * np.sin(omega * t)
@@ -86,9 +106,7 @@ async def run(url: str, device: str, freqs: np.ndarray, model: str,
             })
             r.raise_for_status()
             rec = r.json()
-            Z_true = complex(MODELS[model].func(
-                np.asarray(params, dtype=float),
-                np.array([2 * math.pi * f]))[0])
+            Z_true = _model_z(model, params, 2 * math.pi * f)
             print(f"  f={f:>10.1f} Hz  |Z|_meas={rec['z_mag']:>10.3f} "
                   f"(true {abs(Z_true):>10.3f})  phase={rec['z_phase_deg']:>7.2f}° "
                   f"(true {math.degrees(math.atan2(Z_true.imag, Z_true.real)):>7.2f}°)")
@@ -100,7 +118,8 @@ def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description="Mock ESP32 LCR data generator")
     p.add_argument("--url", default="http://localhost:8000")
     p.add_argument("--device", default="ESP32_LCR_SIM")
-    p.add_argument("--model", default="series_RLC", choices=list(MODELS))
+    p.add_argument("--model", default="series_RLC",
+                   choices=list(MODELS) + ["two_section"])
     p.add_argument("--R", type=float, default=50.0)
     p.add_argument("--L", type=float, default=1e-3)
     p.add_argument("--C", type=float, default=1e-6)
@@ -120,7 +139,8 @@ def main(argv: list[str] | None = None) -> int:
     args = p.parse_args(argv)
 
     freqs = build_freqs(args.f_start, args.f_stop, args.f_points)
-    params = ordered_params(args.model, args.R, args.L, args.C)
+    params = [] if args.model == "two_section" else ordered_params(
+        args.model, args.R, args.L, args.C)
     asyncio.run(run(
         args.url, args.device, freqs, args.model, params, args.note, args.seed,
         args.samples_per_cycle, args.cycles, args.i0,

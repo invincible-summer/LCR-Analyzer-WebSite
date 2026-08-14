@@ -20,6 +20,8 @@ export interface Measurement {
   z_imag: number
   z_mag: number
   z_phase_deg: number
+  z_sigma: number
+  z_phase_sigma_deg: number
   R: number
   X: number
   D: number | null
@@ -58,15 +60,38 @@ export interface ModelDef {
   name: string
   params: string[]
   label: string
+  tex?: string
 }
+
+export interface RankingRow {
+  rank: number
+  kind: 'vf' | 'topology'
+  model: string
+  label: string
+  n_params: number
+  chi2_red: number
+  aicc: number
+  rmse: number
+  delta_aicc: number
+  selected: boolean
+}
+
+export type Netlist =
+  | { type: 'R'; R: number }
+  | { type: 'L'; L: number }
+  | { type: 'C'; C: number }
+  | { type: 'series'; children: Netlist[] }
+  | { type: 'parallel'; children: Netlist[] }
 
 export interface FitSummary {
   id: number
   scan_id: string
   model: string
+  kind: 'vf' | 'topology'
   params: Record<string, number>
   rmse: number
-  accuracy: number
+  chi2_red: number
+  aicc: number
   created_at: string
 }
 
@@ -78,9 +103,24 @@ export interface TheoryCurve {
   z_imag: number[]
 }
 
+export interface FitResiduals {
+  frequency: number[]
+  re: number[]
+  im: number[]
+}
+
 export interface FitOut extends FitSummary {
-  cost: number
+  param_ci: Record<string, [number, number]> | null
+  converged: boolean
+  passive: boolean | null
   theory: TheoryCurve
+  residuals: FitResiduals | null
+  netlist: Netlist | null
+  poles: number[][] | null
+  zeros: number[][] | null
+  warnings: string[] | null
+  ranking: RankingRow[] | null
+  spice: string | null
 }
 
 export const listScans = () => http.get<ScanSummary[]>('/scans').then((r) => r.data)
@@ -90,6 +130,7 @@ export const getMeasurement = (scanId: string, measurementId: number) =>
 export const listModels = () => http.get<ModelDef[]>('/models').then((r) => r.data)
 export const runFit = (scanId: string, model: string) =>
   http.post<FitOut>('/fit', { scan_id: scanId, model }).then((r) => r.data)
+export const getFit = (fitId: number) => http.get<FitOut>(`/fit/${fitId}`).then((r) => r.data)
 export const listFits = (scanId: string) =>
   http.get<FitSummary[]>(`/scan/${scanId}/fits`).then((r) => r.data)
 export const deleteScan = (id: string) => http.delete(`/scan/${id}`).then((r) => r.data)

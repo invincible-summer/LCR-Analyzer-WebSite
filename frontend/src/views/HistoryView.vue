@@ -23,6 +23,7 @@ async function remove(id: string) {
     <ScanBar />
     <section class="panel">
       <div class="panel-head"><h3>实验记录</h3><span class="tag">{{ scans.length }} 次扫描</span><div class="spacer" /></div>
+      <div class="panel-body">
       <table class="data">
         <thead>
           <tr>
@@ -47,6 +48,7 @@ async function remove(id: string) {
           <tr v-if="!scans.length"><td colspan="7" class="hint" style="text-align:center;padding:30px">暂无记录，用「生成示例」或在实时页上传数据。</td></tr>
         </tbody>
       </table>
+      </div>
     </section>
   </div>
 </template>

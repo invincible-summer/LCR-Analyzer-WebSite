@@ -135,52 +135,42 @@ $$
 
 等效串联电阻 $\text{ESR}=R$。
 
-### 3. 频域等效电路拟合
-
-跨整个扫频 $\{(f_{m},Z_{m})\}_{m=1}^{M}$，用集总模型 $Z_{\text{model}}(\omega;\mathbf p)$ 拟合测量阻抗。支持的拓扑及其阻抗表达式（见 `app/dsp/circuit_fit.py`）：
-
-| 模型 | $Z_{\text{model}}(\omega)$ |
-|---|---|
-| 串联 RLC | $R+j\left(\omega L-\dfrac{1}{\omega C}\right)$ |
-| 串联 RC | $R-\dfrac{j}{\omega C}$ |
-| 串联 RL | $R+j\omega L$ |
-| 并联 RLC | $\dfrac{1}{\dfrac{1}{R}+j\left(\omega C-\dfrac{1}{\omega L}\right)}$ |
-| 并联 RC | $\dfrac{1}{\dfrac{1}{R}+j\omega C}$ |
-| 并联 RL | $\dfrac{1}{\dfrac{1}{R}-\dfrac{j}{\omega L}}$ |
-
-#### 3.1 log 空间参数化
-
-R / L / C 跨越若干个数量级，直接拟合数值条件差。改在以 10 为底的对数空间优化：
+**不确定度传播**（重构新增）：三参数拟合的幅值/相位标准误为 $\sigma_x\sqrt{2/N}$，于是
 
 $$
-p_{i}=10^{\hat p_{i}},\qquad \hat p_{i}=\log_{10}p_{i}
+\frac{\sigma_{|Z|}}{|Z|}=\sigma_{\angle Z}=\sqrt{\Bigl(\frac{\sigma_v}{V_{\text{amp}}}\Bigr)^2+\Bigl(\frac{\sigma_i}{I_{\text{amp}}}\Bigr)^2}\cdot\sqrt{\frac{2}{N}}
 $$
 
-边界在对数空间给出：$R\in[10^{-3},10^{9}]\Omega$、$L\in[10^{-9},10^{3}]\text{H}$、$C\in[10^{-15},1]\text{F}$。
+$\sigma_{|Z|}$ 与 $\sigma_{\angle Z}$ 随测量点入库（`z_sigma` / `z_phase_sigma_deg`），是 Bode 误差棒与频域加权拟合 $\sigma_m$ 的来源。
 
-#### 3.2 加权的实虚部联合残差
+### 3. 频域等效电路拟合：矢量拟合 + 网络综合 + 拓扑库
 
-为兼顾实部、虚部并适应 $|Z|$ 的动态范围，残差按 $|Z_{m}|$ 归一化：
+频域拟合有两条互补的引擎，全部推导与实现细节见 **[docs/algorithms.md](docs/algorithms.md)**（与代码逐项同步）：
 
-$$
-\mathbf r(\hat{\mathbf p})=
-\begin{bmatrix}
-\bigl(\Re Z_{\text{model}}(\omega_{m})-\Re Z_{m}\bigr)\big/s_{m}\\[2pt]
-\bigl(\Im Z_{\text{model}}(\omega_{m})-\Im Z_{m}\bigr)\big/s_{m}
-\end{bmatrix}_{m=1}^{M},
-\qquad s_{m}=\max\bigl(|Z_{m}|,\ \varepsilon\bigr)
-$$
-
-最小化 $\lVert\mathbf r(\hat{\mathbf p})\rVert^{2}$，由 `scipy.optimize.least_squares`（`method='trf'`，支持上述边界）求解。
-
-#### 3.3 拟合质量
+**(a) 矢量拟合（自动模式，`app/dsp/rational_fit.py`）** —— 不预设任何拓扑公式。
+对 $Z(f)$ 拟合有理函数的极点-留数形式
 
 $$
-\text{RMSE}=\sqrt{\tfrac{1}{M}\sum_{m=1}^{M}\bigl|Z_{m}-Z_{\text{model}}(\omega_{m};\hat{\mathbf p})\bigr|^{2}},\qquad
-\text{Accuracy}=1-\frac{\text{RMSE}}{\overline{|Z_{m}|}}
+Z(s)\;\approx\;\sum_{k=1}^{N}\frac{c_k}{s-a_k}\;+\;\frac{c_0}{s}\;+\;d\;+\;s\,e,
+\qquad s=j2\pi f
 $$
 
-并在 $[f_{\min},f_{\max}]$ 上生成对数均匀密网格（默认 200 点）计算 $Z_{\text{model}}$，作为 Bode / Nyquist 图的理论曲线叠加在测量散点上。
+- 极点位置由 **Sanathanan–Koerner 迭代**（矢量拟合）自动重定位，阶数 $N$ 从 1 逐级升至 $N_{\max}$，以「最小可接受阶」（$\chi^2_{\text{red}}\le4$）选择，回退 AICc；
+- 不可无源实现的极点（负留数实极点、$\gamma$ 越界的极点对，含元件级噪声容差）被**剪枝**后联合重解；
+- **Foster 综合**（`app/dsp/synthesis.py`）把每个极点项翻译成具体 RLC 支路：实极点 → 并联 RC，原点极点 → 串联电容，共轭对 → $\parallel\{C,\ R,\ 串RL\}$，输出**网表树**（前端 SVG 原理图）与 **SPICE `.subckt`**；
+- 电路的**结构与阶数由数据决定**——双谐振网络、带外谐振节等没有任何固定拓扑能表达的电路都能恢复。
+
+**(b) 固定拓扑库（`app/dsp/topology_fit.py`）** —— 可解释对照组，8 种模型
+（串联/并联 RLC·RC·RL、`R+L∥C` 电感 SRF、`Rs+Rp∥C` 电解电容），
+log10 空间 + **Latin 超立方多起点**（每拓扑 24 起点）+ σ 加权残差 + soft_l1 鲁棒损失，
+并从 Jacobian 报告每个参数的 **95% 置信区间**。
+
+**(c) 自动排名（`app/dsp/fit_auto.py`）** —— `POST /api/fit` 的 `model="auto"`：
+VF 候选与全部拓扑候选用同一 σ 加权残差计算 **AICc** 排名；
+$\Delta\text{AICc}\le2$ 或 $\chi^2_{\text{red}}\le4$ 视为统计不可区分，此时优先选用可解释的命名拓扑。
+
+加权与噪声地板约定：残差按每点测量噪声 $\sigma_m$ 加权（来自时域拟合的误差传播，见 §2），
+$\sigma_m$ 下限为 $|Z_m|\times10^{-5}$（~100 ppm 相对噪声地板，低于它的"噪声"是数值残差而非物理）。
 
 ### 4. FFT 频谱诊断
 
@@ -203,9 +193,10 @@ Z_{2}=\frac{1}{\dfrac{1}{Z_{1}}-\dfrac{1}{Z_{\text{open}}}}\quad(\text{扣除并
 $$
 
 $$
-Z_{\text{DUT}}=k\cdot Z_{2},\qquad k=\mathrm{median}\left(\frac{Z_{L}^{\text{true}}}{Z_{2}^{\text{load}}}\right)\quad(\text{增益 / 相位校正})
+Z_{\text{DUT}}(f)=k(f)\cdot Z_{2},\qquad k(f)=\frac{Z_{L}^{\text{true}}}{Z^{\text{load}}(f)}\quad(\text{逐频点复数增益/相位校正})
 $$
 
+$Z_L^{\text{true}}$ 为**复数**（可含相位），校正逐频点进行（未测频点线性插值）。
 > 校正算法（`app/dsp/calibration.py`）与数据模型（`CalibSet`）已就位；采集接口随模拟前端硬件定型后启用。
 
 ---
@@ -223,44 +214,52 @@ $$
    - 对 V、I 各调用 `sine_fit`，用 `numpy.linalg.lstsq` 解设计矩阵 $[\sin\omega t,\ \cos\omega t,\ \mathbf 1]$，得 $(V_{\text{amp}},\varphi_v)$、$(I_{\text{amp}},\varphi_i)$、直流 $\hat c$ 与残差 RMS；
    - 按 §2 公式算出 $|Z|,\theta,R,X,D,Q,\text{ESR},C_{\text{eq}}/L_{\text{eq}}$。
 2. `fft_spectrum(voltage/current, dt, window='hann')`（`app/dsp/spectrum.py`）：Hann 加窗、去直流后的单边幅度谱（`np.fft.rfft`），**仅用于诊断**，不参与阻抗。
-3. 落 SQLite：`Measurement` 表存全部阻抗派生量（`z_real/z_imag/z_mag/z_phase_deg/R/X/D/Q/esr/L_eq/C_eq/v_amp/…/resid_rms_v/i_dc` 等），`RawWave` 表存原始 V/I、正弦拟合曲线、逐点残差、FFT 频率与幅度——单行自足，供后续所有视图读取。
+3. 落 SQLite：`Measurement` 表存全部阻抗派生量（`z_real/z_imag/z_mag/z_phase_deg/z_sigma/z_phase_sigma_deg/R/X/D/Q/esr/L_eq/C_eq/v_amp/…/resid_rms_v/i_dc` 等），`RawWave` 表存原始 V/I、正弦拟合曲线、逐点残差、FFT 频率与幅度——单行自足，供后续所有视图读取。
 
 > 改算法只需动 `app/dsp/`；上传契约、表结构、固件均无感。
 
-### 前端图表绘制流程
+### 前端图表与设计系统
 
-所有图表由 `frontend/src/lib/charts.ts` 中的纯函数生成 ECharts option 对象（`waveformOpt / spectrumOpt / bodeOpt / nyquistOpt / complexPointOpt`），统一传入当前 `Palette`（`src/lib/palette.ts`）。约定：
+浅色"科学期刊"风格（Origin/Keysight IA 质感）：白纸面、发丝网格、扁平无辉光，
+自托管 **IBM Plex Sans/Mono**（数字 `tabular-nums`），图标用 **lucide**（`@lucide/vue`）。
+调色板单一来源：`src/lib/palette.ts` 与 `style.css` 的 CSS 变量镜像同一组 token。
 
-- `src/components/EChart.vue` 封装 `echarts.init` + `ResizeObserver`(自适应缩放) + `setOption(option, true)`(notMerge) + 卸载时 `dispose()`；props `option` 变化即重绘。
-- 每个 option 都是 Vue 的 `computed`，且依赖 `app.theme`——切换主题会重算全部 option、`EChart` 自动重绘（暗 / 亮两套色板均已通过 CVD 安全校验）。
-- **V 与 I 永远是两张独立图**（单位不同 → 不共用纵轴、绝不用双轴）；**测量值 = 散点**（series 1，蓝），**理论 / 拟合 = 折线**（series 2，橙）。
-- 时域图：原始采样点（散点）+ 正弦拟合曲线（折线）+ 直流电平虚线；残差图过零基准线；频谱图对数横轴 + 在激励频率 $f_0$ 处画竖虚线；Bode 横轴对数；Nyquist 横轴 $\Re(Z)$、纵轴 $-\Im(Z)$（容性弧在上半平面）。
-- 数据状态集中在 `src/store/scan.ts`（Pinia），加载时自动选中最近一次扫描，分析 / 扫频 / 拟合页共享同一选中态。
+- 图表卡片为 **`FigBlock`**（`Fig. 1` 编号 + 标题 + 图注），builder 在 `src/lib/charts.ts`：
+  `waveformOpt / spectrumOpt / bodeOpt / nyquistOpt / complexPointOpt / poleZeroOpt / residualsOpt`。
+- **Bode / Nyquist 带 dataZoom**（滚轮/滑块缩放平移）；Bode 幅值叠加 ±1σ 误差棒（ECharts custom series）；
+  拟合页另有 **s 平面极零图**（× 极点 / ○ 零点）与 **残差-频率图**（±1σ 参考带）。
+- **V 与 I 永远是两张独立图**（单位不同 → 不共用纵轴、绝不用双轴）；**测量值 = 散点**（蓝），**理论 / 拟合 = 折线**（橙）。
+- `Schematic.vue` 把 Foster 网表树渲染成 SVG 原理图（IEC 符号：电阻矩形 / 电感弧 / 电容极板，并联节点画汇流轨与结点）。
+- 数据状态集中在 `src/store/scan.ts`（Pinia），加载时自动选中最近一次扫描，各页共享选中态。
 
-### 等效电路拟合实现细节
+### 拟合实现细节（与 docs/algorithms.md 同步）
 
-`backend/app/dsp/circuit_fit.py:fit_circuit`（第 111 行）与 §3 公式一一对应：
-
-- **参数化**：优化变量 $\hat{\mathbf p}=\log_{10}\mathbf p$，残差函数内 $p_i=10^{\hat p_i}$ 再代入模型。
-- **边界**（对数空间）：$R\in[10^{-3},10^{9}]$、$L\in[10^{-9},10^{3}]$、$C\in[10^{-15},1]$；初值裁剪进边界内。
-- **加权残差**：`np.concatenate([(Zm.real-Z.real)/s, (Zm.imag-Z.imag)/s])`，其中 $s_m=\max(|Z_m|,10^{-12})$。
-- **求解器**：`scipy.optimize.least_squares(method="trf", max_nfev=4000)`（支持上下界）。
-- **初值启发式**（`_initial_guess`，第 90 行）：$R_0=\mathrm{clip}(\mathrm{median}\Re Z,10^{-3},10^{8})$；$C_0$ 取自最负电抗点 $C=-1/(\omega X)$；$L_0$ 取自最正电抗点 $L=X/\omega$；缺失则回退 $L_0=10^{-3}$、$C_0=10^{-6}$。
-- **质量与理论曲线**：收敛后计算 RMSE、Accuracy，并在 $[f_{\min},f_{\max}]$ 上 `np.logspace` 取 200 点，输出 `theory = {frequency, z_mag, z_phase_deg, z_real, z_imag}` 供 Bode / Nyquist 叠加。
-
----
+- `rational_fit.vector_fit(freqs, Z, sigma, n_max=6)`：SK 迭代 5 次 × 2 组起点（阻尼 100/10）→
+  极点分类（近实数对拆成两个实极点、合并重合极点、结构性原点极点）→ 实参数化线性终解 →
+  `least_squares` 非线性抛光（极点+留数联合，原点极点钉死）→ 无源性剪枝循环（判据为
+  综合元件 $-R_s\le5\%R_p$，A 在比较中相消）。低阶达到噪声水平即**早停**，高阶不再计算。
+- `synthesis.synthesise(rfit, f_lo, f_hi)`：输出网表树 + 密集网格无源性检查（min Re Z）+
+  `spice()` 导出；带外谐振节在带内自动退化为串联电容（原点极点支路）。
+- `topology_fit.fit_topology(model, freqs, Z, sigma)`：log10 空间 LHS 多起点 + 物理启发式起点
+  （低频端估 L、高频端估 C）；soft_l1（f_scale = 中位 σ）；协方差 $(J^\top J)^{-1}\chi^2_{\text{red}}$
+  → 95% CI 变换回线性空间；报告收敛状态。
+- `fit_auto.fit_auto(freqs, Z, sigma)`：VF（含综合）+ 8 拓扑全部拟合，AICc 排序，
+  平局规则偏好命名拓扑；`to_summary()` 输出排名表 JSON。
+- `scan_service.fit_scan(db, scan_id, model="auto")`：σ 从 `Measurement.z_sigma` 读取
+  （有非零值才用），校准后拟合，结果含网表/极零/CI/排名/SPICE 全部入库 `FitResult`。
 
 ## 目录结构
 
 ```
 backend/   FastAPI + numpy/scipy + SQLAlchemy/SQLite
-  app/dsp/         sine_fit, impedance, spectrum, circuit_fit, calibration
+  app/dsp/         sine_fit, impedance, spectrum, rational_fit(矢量拟合),
+                   synthesis(Foster 综合), topology_fit(拓扑库), fit_auto(排名), calibration
   app/api/         upload, results, fit, experiments, ws
   app/services/    scan_service, simulator, hub
   tests/           pytest（正弦拟合 / 阻抗 / 电路拟合）
 frontend/  Vue3 + Vite + TS + ECharts + Pinia + KaTeX + markdown-it
   src/lib/         palette, format, charts(ECharts 选项库), generate(合成数据)
-  src/components/  EChart, Latex, Markdown, StatTile, PanelStage, ScanBar, ...
+  src/components/  EChart, Latex, Markdown, FigBlock, Schematic(SVG原理图), StatTile, PanelStage, ScanBar
   src/views/       AnalysisView, SweepView, FitView, LiveView, CalibrateView, HistoryView
 docs/api_contract.md   ← ESP32 固件按此实现上传
 start.sh               ← 一键启动
@@ -326,6 +325,12 @@ POST /api/scan/{scan_id}/point      → { frequency, dt, n, voltage[], current[]
 
 ## 验证结果
 
-- **pytest**：正弦拟合 / 阻抗（R / C / L）/ 电路拟合（串联 RLC · RC · 并联 RC）全绿。
-- **端到端**：模拟器生成串联 RLC（$R=50\Omega$、$L=1\text{mH}$、$C=1\mu\text{F}$）扫频，平台恢复 $R=49.99\Omega$、$L=1.000\text{mH}$、$C=1.000\mu\text{F}$，精度 **99.9 %**；逐频 $|Z|$ 与相位和理论值吻合。
-- **前端**：`vue-tsc` 类型检查零错误，`vite build` 通过；KaTeX 方程与 ECharts 图表在浏览器实测正确渲染（CVD 安全配色，暗 / 亮主题可切换）。
+- **pytest**（23 项）：正弦拟合 / 阻抗（含 σ 传播的统计一致性）/ 矢量拟合与 Foster 综合
+  （干净数据精确恢复、含噪数据、带外谐振信息极限）/ 拓扑库全部模型自恢复 / 置信区间覆盖真值 /
+  σ 加权抑制坏点 / 自动排名选对模型。
+- **端到端**（模拟器，无硬件）：
+  - 串联 RLC 恢复 $R=49.99\Omega$、$L=1.000\text{mH}$、$C=1.000\mu\text{F}$；
+  - **双谐振网络**（两节并联 RLC 串联，任何固定拓扑都无法表达）：`model="auto"` 选中矢量拟合，
+    $\chi^2_{\text{red}}\approx10^{-13}$，综合网表恢复真实元件值，全部固定拓扑 $\chi^2\sim10^9$——排名表一目了然；
+  - SPICE `.subckt` 导出可直接仿真。
+- **前端**：`vue-tsc` 零错误、`vite build` 通过；期刊风格浅色 UI + 编号图卡 + SVG 原理图 + 极零图。

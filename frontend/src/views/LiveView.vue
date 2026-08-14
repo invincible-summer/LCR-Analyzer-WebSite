@@ -5,12 +5,14 @@ import ScanBar from '../components/ScanBar.vue'
 import StatTile from '../components/StatTile.vue'
 import EChart from '../components/EChart.vue'
 import { getPalette } from '../lib/palette'
+import FigBlock from '../components/FigBlock.vue'
+import { Radio } from '@lucide/vue'
 import { bodeOpt } from '../lib/charts'
 import * as api from '../api'
 import * as fmt from '../lib/format'
 
 const app = useAppStore()
-const p = computed(() => getPalette(app.theme))
+const p = computed(() => getPalette())
 const status = ref<'idle' | 'connecting' | 'connected' | 'error' | 'closed'>('idle')
 const points = ref<{ f: number; mag: number; phase: number; t: number }[]>([])
 let ws: WebSocket | null = null
@@ -66,7 +68,7 @@ const magOpt = computed(() => bodeOpt(p.value, { mode: 'mag', measured: points.v
     <section class="panel">
       <div class="panel-head">
         <h3>WebSocket 实时数据流</h3>
-        <span class="badge" :class="statusMeta.cls"><span class="led" :class="statusMeta.cls === 'good' ? 'good' : (statusMeta.cls === 'crit' ? 'idle' : 'idle')"></span>{{ statusMeta.txt }}</span>
+        <span class="badge" :class="statusMeta.cls"><span class="dot" :class="statusMeta.cls === 'good' ? 'good' : 'idle'"></span>{{ statusMeta.txt }}</span>
         <span class="hint" style="margin-left:8px">/ws/live</span>
         <div class="spacer" />
         <button class="btn sm" @click="connect">重连</button>
@@ -83,10 +85,9 @@ const magOpt = computed(() => bodeOpt(p.value, { mode: 'mag', measured: points.v
       </div>
     </section>
 
-    <div v-if="points.length" class="chart-card">
-      <div class="ctitle">实时 |Z|(f) <span class="cunit">流式散点</span></div>
+    <FigBlock v-if="points.length" no="Fig. 1" title="实时 |Z|(f)" unit="流式散点">
       <EChart :option="magOpt" :height="300" />
-    </div>
-    <div v-else class="panel empty"><div class="big">◉</div><div>等待数据流…运行「生成示例」或模拟器上传即可在此看到实时点。</div></div>
+    </FigBlock>
+    <div v-else class="panel empty"><Radio /><div>等待数据流…运行「生成示例」或模拟器上传即可在此看到实时点。</div></div>
   </div>
 </template>

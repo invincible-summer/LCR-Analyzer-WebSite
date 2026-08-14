@@ -10,7 +10,8 @@ from ..schemas.upload import PointUpload, ScanStart
 from ..schemas.scan import MeasurementOut, MeasurementDetail, ScanOut, ScanDetail
 from ..dsp.impedance import measure_impedance
 from ..dsp.spectrum import fft_spectrum
-from ..dsp.circuit_fit import fit_circuit
+from ..dsp.topology_fit import MODELS as TOPOLOGIES, fit_topology
+from ..dsp.fit_auto import fit_auto
 from ..dsp.calibration import apply_calibration
 
 
@@ -37,6 +38,8 @@ def add_point(db: Session, scan_id: str, p: PointUpload) -> Measurement:
         scan_id=scan_id, frequency=p.frequency, dt=p.dt, n=p.n,
         z_real=imp.z_real, z_imag=imp.z_imag, z_mag=imp.z_mag,
         z_phase_deg=float(np.degrees(imp.z_phase)),
+        z_sigma=imp.z_sigma,
+        z_phase_sigma_deg=float(np.degrees(imp.z_phase_sigma)),
         R=imp.R, X=imp.X, D=imp.D, Q=imp.Q, esr=imp.esr,
         L_eq=imp.L_eq, C_eq=imp.C_eq,
         v_amp=imp.v_fit.amp, v_phase_deg=float(np.degrees(imp.v_fit.phase)),
@@ -65,6 +68,7 @@ def measurement_to_out(m: Measurement) -> MeasurementOut:
     return MeasurementOut(
         id=m.id, scan_id=m.scan_id, frequency=m.frequency, dt=m.dt, n=m.n,
         z_real=m.z_real, z_imag=m.z_imag, z_mag=m.z_mag, z_phase_deg=m.z_phase_deg,
+        z_sigma=m.z_sigma or 0.0, z_phase_sigma_deg=m.z_phase_sigma_deg or 0.0,
         R=m.R, X=m.X, D=m.D, Q=m.Q, esr=m.esr, L_eq=m.L_eq, C_eq=m.C_eq,
         v_amp=m.v_amp, v_phase_deg=m.v_phase_deg,
         i_amp=m.i_amp, i_phase_deg=m.i_phase_deg,
@@ -119,7 +123,14 @@ def get_measurement_detail(db: Session, scan_id: str, measurement_id: int) -> Me
     return measurement_to_detail(m)
 
 
-def fit_scan(db: Session, scan_id: str, model: str, calib_id: int | None = None) -> FitResult:
+def _cx_list(zs) -> list[list[float]]:
+    return [[float(z.real), float(z.imag)] for z in zs]
+
+
+def fit_scan(db: Session, scan_id: str, model: str = "auto",
+             calib_id: int | None = None) -> FitResult:
+    """Fit a scan. ``model`` is "auto" (VF + topology ranking) or a named
+    topology key from ``dsp.topology_fit.MODELS``."""
     ms = db.query(Measurement).filter(Measurement.scan_id == scan_id)\
         .order_by(Measurement.frequency).all()
     if not ms:
@@ -127,6 +138,8 @@ def fit_scan(db: Session, scan_id: str, model: str, calib_id: int | None = None)
 
     freqs = np.array([m.frequency for m in ms], dtype=float)
     Z = np.array([complex(m.z_real, m.z_imag) for m in ms], dtype=complex)
+    sigma = np.array([m.z_sigma or 0.0 for m in ms], dtype=float)
+    sigma = sigma if np.any(sigma > 0) else None
 
     if calib_id:
         cal = db.get(CalibSet, calib_id)
@@ -136,11 +149,47 @@ def fit_scan(db: Session, scan_id: str, model: str, calib_id: int | None = None)
                 "load": cal.load, "load_true": cal.load_true,
             })
 
-    res = fit_circuit(model, freqs, Z)
-    fr = FitResult(
-        scan_id=scan_id, model=res.model, params=res.params,
-        rmse=res.rmse, accuracy=res.accuracy, cost=res.cost, theory=res.theory,
-    )
+    if model == "auto":
+        auto = fit_auto(freqs, Z, sigma=sigma)
+        best = auto.best
+        if best.kind == "vf":
+            rfit, syn = best.vf, best.synthesis
+            fr = FitResult(
+                scan_id=scan_id, model="auto", kind="vf",
+                params={"d": rfit.d, "e": rfit.e},
+                rmse=best.rmse, chi2_red=best.chi2_red, aicc=best.aicc,
+                converged=rfit.converged, passive=syn.passive,
+                theory=auto.theory,
+                residuals={"frequency": freqs.tolist(),
+                           "re": (rfit.z_fit - Z).real.tolist(),
+                           "im": (rfit.z_fit - Z).imag.tolist()},
+                netlist=syn.netlist,
+                poles=_cx_list(rfit.poles), zeros=_cx_list(rfit.zeros()),
+                warnings=syn.warnings or None,
+                ranking=auto.to_summary(),
+            )
+        else:
+            topo = best.topo
+            fr = FitResult(
+                scan_id=scan_id, model="auto", kind="topology",
+                params=topo.params, param_ci=topo.param_ci,
+                rmse=topo.rmse, chi2_red=topo.chi2_red, aicc=topo.aicc,
+                converged=topo.converged, passive=None,
+                theory=topo.theory, residuals=topo.residuals,
+                ranking=auto.to_summary(),
+            )
+    elif model in TOPOLOGIES:
+        topo = fit_topology(model, freqs, Z, sigma=sigma)
+        fr = FitResult(
+            scan_id=scan_id, model=model, kind="topology",
+            params=topo.params, param_ci=topo.param_ci,
+            rmse=topo.rmse, chi2_red=topo.chi2_red, aicc=topo.aicc,
+            converged=topo.converged, passive=None,
+            theory=topo.theory, residuals=topo.residuals,
+        )
+    else:
+        raise ValueError(f"unknown model {model!r}; choose 'auto' or {list(TOPOLOGIES)}")
+
     db.add(fr)
     db.commit()
     db.refresh(fr)

@@ -6,6 +6,8 @@ import { useAppStore } from '../store/app'
 import * as api from '../api'
 import ScanBar from '../components/ScanBar.vue'
 import PanelStage from '../components/PanelStage.vue'
+import FigBlock from '../components/FigBlock.vue'
+import { ActivitySquare } from '@lucide/vue'
 import StatTile from '../components/StatTile.vue'
 import EChart from '../components/EChart.vue'
 import Latex from '../components/Latex.vue'
@@ -45,7 +47,7 @@ watch(measurements, () => {
   loadDetail()
 })
 
-const p = computed(() => getPalette(app.theme))
+const p = computed(() => getPalette())
 const zip = (a: number[], b: number[]) => a.map((x, i) => [x, b[i]] as [number, number])
 const dcMark = (dc: number) => ({ silent: true, symbol: 'none', lineStyle: { color: p.value.text3, type: 'dotted', width: 1 }, label: { color: p.value.text3, fontSize: 10, formatter: 'DC' }, data: [{ yAxis: dc }] })
 const zeroMark = () => ({ silent: true, symbol: 'none', lineStyle: { color: p.value.baseline, type: 'dashed', width: 1 }, data: [{ yAxis: 0 }] })
@@ -149,7 +151,7 @@ const cpOpt = computed(() => {
     <ScanBar />
 
     <div v-if="!currentId" class="panel empty">
-      <div class="big">∿</div>
+      <ActivitySquare />
       <div>请在上方选择一个扫描，或点击「生成示例」合成一组数据。</div>
       <div class="hint">ESP32 固件就绪后，按数据契约 POST 到 /api/scan/{id}/point 即可在此分析。</div>
     </div>
@@ -198,13 +200,14 @@ const cpOpt = computed(() => {
           <StatTile k="u 残差 RMS" :v="fmt.fmt(md?.resid_rms_v, 3)" unit="V" />
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-          <div class="chart-card"><div class="ctitle">电压 u(t) <span class="cunit">原始采样点 + 正弦拟合</span></div>
-            <EChart :option="vOpt" :height="220" /></div>
-          <div class="chart-card"><div class="ctitle">电流 i(t) <span class="cunit">原始采样点 + 正弦拟合</span></div>
-            <EChart :option="iOpt" :height="220" /></div>
+          <FigBlock no="Fig. 1a" title="电压 u(t)" unit="原始采样点 + 正弦拟合">
+            <EChart :option="vOpt" :height="220" /></FigBlock>
+          <FigBlock no="Fig. 1b" title="电流 i(t)" unit="原始采样点 + 正弦拟合">
+            <EChart :option="iOpt" :height="220" /></FigBlock>
         </div>
-        <div class="chart-card" style="margin-top:12px"><div class="ctitle">归一化 u / i 相位关系 <span class="cunit">各自扣除直流并除以幅值，直接读相位差</span></div>
-          <EChart :option="normOpt" :height="200" /></div>
+        <FigBlock no="Fig. 2" title="归一化 u / i 相位关系" unit="扣直流 ÷ 幅值，直接读相位差"
+          caption="两条曲线的相位差即 ∠Z = φu − φi；幅度一致说明归一化正确。" style="margin-top:12px">
+          <EChart :option="normOpt" :height="200" /></FigBlock>
       </PanelStage>
 
       <!-- stage 2 -->
@@ -224,8 +227,11 @@ const cpOpt = computed(() => {
           <div style="margin-top:12px"><span class="qpill" :class="residDiag.cls">{{ residDiag.t }}</span></div>
         </template>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-          <div class="chart-card"><div class="ctitle">u 残差 Δu(t)</div><EChart :option="residVOpt" :height="200" /></div>
-          <div class="chart-card"><div class="ctitle">i 残差 Δi(t)</div><EChart :option="residIOpt" :height="200" /></div>
+          <FigBlock no="Fig. 3a" title="u 残差 Δu(t)"
+            caption="随机散布＝噪声主导；周期结构＝存在谐波。">
+            <EChart :option="residVOpt" :height="200" /></FigBlock>
+          <FigBlock no="Fig. 3b" title="i 残差 Δi(t)">
+            <EChart :option="residIOpt" :height="200" /></FigBlock>
         </div>
       </PanelStage>
 
@@ -242,8 +248,10 @@ const cpOpt = computed(() => {
           </div>
         </template>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-          <div class="chart-card"><div class="ctitle">电压频谱 |U(f)|</div><EChart :option="specVOpt" :height="220" /></div>
-          <div class="chart-card"><div class="ctitle">电流频谱 |I(f)|</div><EChart :option="specIOpt" :height="220" /></div>
+          <FigBlock no="Fig. 4a" title="电压频谱 |U(f)|" unit="Hann 窗 · 诊断用">
+            <EChart :option="specVOpt" :height="220" /></FigBlock>
+          <FigBlock no="Fig. 4b" title="电流频谱 |I(f)|">
+            <EChart :option="specIOpt" :height="220" /></FigBlock>
         </div>
       </PanelStage>
 
@@ -264,16 +272,18 @@ const cpOpt = computed(() => {
             <StatTile k="Q 品质因数" :v="fmt.fmt(cur?.Q, 3)" />
             <StatTile k="ESR" :v="fmt.fmt(cur?.esr, 4)" unit="Ω" />
             <StatTile k="等效 C / L" :v="cur?.C_eq ? fmt.eng(cur.C_eq,'F') : (cur?.L_eq ? fmt.eng(cur.L_eq,'H') : '—')" />
+            <StatTile k="σ|Z| 不确定度" :v="fmt.fmt(cur?.z_sigma, 2)" unit="Ω" sub="1σ，由双通道残差传播" />
+            <StatTile k="σ∠Z" :v="fmt.degFromDeg(cur?.z_phase_sigma_deg)" sub="1σ" />
           </div>
           <div style="margin-top:12px"><span class="badge" :class="cur && cur.X<0 ? 'good' : (cur && cur.X>0 ? 'warn':'')">{{ typeTag }}</span></div>
         </template>
-        <div class="chart-card"><div class="ctitle">复平面（单点） <span class="cunit">右半平面虚部>0＝感性，<0＝容性</span></div>
-          <EChart :option="cpOpt" :height="280" /></div>
+        <FigBlock no="Fig. 5" title="复平面（单点）" unit="Im>0 感性 · Im<0 容性">
+          <EChart :option="cpOpt" :height="280" /></FigBlock>
       </PanelStage>
     </template>
 
     <div v-else class="panel empty">
-      <div class="big">◌</div>
+      <ActivitySquare />
       <div>该扫描暂无测量点。等待 ESP32 上传，或用「生成示例」合成数据。</div>
     </div>
   </div>

@@ -13,7 +13,8 @@ ESP32 firmware is not yet written — the contract it must implement is
 
 ## Reference docs
 
-- **`README.md`** — §算法原理与公式推导（正弦拟合 / 阻抗 / 电路拟合 / FFT / OSL 的完整公式与推导）与 §实现细节（后端 `add_point` 数据处理流水、前端 `charts.ts` / `EChart.vue` 绘图流程、`circuit_fit` 的 log 空间参数化 / 加权残差 / 初值启发式 / 求解器），**与代码逐项同步**。改 DSP、改拟合或写文档前先读这两节，勿重复推导。
+- **`docs/algorithms.md`** — DSP 与拟合算法的完整推导（矢量拟合 / Foster 综合 / 剪枝与容差 / 拓扑拟合 / AICc / σ 传播），**与代码逐项同步，改 DSP 前先读**。
+- **`README.md`** — 面向用户的总览：算法摘要（引用 algorithms.md）+ 实现细节 + 快速开始。
 - **`docs/api_contract.md`** — ESP32 上传契约（固件照此实现）。
 - 仓库：`origin → github.com/invincible-summer/LCR-Analyzer-WebSite`，单分支 `main`，直接提交并推送（不走 PR）。
 
@@ -58,16 +59,21 @@ Environment gotchas:
 runs the DSP immediately and persists both raw waveforms and derived impedance, so the
 measurement row is self-sufficient for every later view.
 
-**Two distinct "fits" — do not conflate them:**
+**Three distinct "fits" — do not conflate them:**
 - *Time-domain* (`app/dsp/sine_fit.py` + `impedance.py`): per frequency, a 3-parameter
   least-squares sine fit `a·sin(ωt)+b·cos(ωt)+c` at the **known** excitation ω. This is
   the impedance estimator (no FFT leakage) **and** the curve overlaid on the u-t/i-t
   plots. `∠Z = φv − φi`; the phase convention (`φ = atan2(b,a)`) must stay identical
-  across V and I channels — correctness depends on it.
-- *Frequency-domain* (`app/dsp/circuit_fit.py`): across a whole sweep, fits RLC/RC/RL
-  topologies to complex Z(f) via `scipy.optimize.least_squares` in **log10 space**
-  (R/L/C span orders of magnitude). Produces R/L/C + a dense theory curve for
-  Bode/Nyquist overlay. FFT (`dsp/spectrum.py`) is diagnostic-only, never feeds Z.
+  across V and I channels — correctness depends on it. Also propagates per-point noise
+  σ (→ `z_sigma`) used everywhere downstream.
+- *Vector fitting* (`app/dsp/rational_fit.py` + `synthesis.py` + `fit_auto.py`): the
+  automatic engine — rational pole-residue fit, order chosen by the data, passivity
+  pruning with element-level tolerance, Foster synthesis to an RLC netlist tree, and
+  AICc ranking of {VF candidates} ∪ {topology library}. Full derivation in
+  `docs/algorithms.md`.
+- *Topology fit* (`app/dsp/topology_fit.py`): named 2-3-component models, log10 space,
+  Latin-hypercube multi-start, σ-weighted soft_l1 residuals, 95% CIs from the Jacobian.
+  FFT (`dsp/spectrum.py`) is diagnostic-only, never feeds Z.
 
 **Frontend rendering pattern:** `src/lib/charts.ts` builds plain ECharts option objects
 from a `Palette` (`src/lib/palette.ts`); every chart option is a Vue `computed` depending
@@ -93,6 +99,10 @@ front-end topology is fixed — `CalibrateView` is an intentional placeholder.
 - ESP32 contract changes start in `docs/api_contract.md` and `app/schemas/upload.py`
   (pydantic validates `len(voltage)==len(current)==n+1`); mirror any new field through
   `models/db.py`, `services/scan_service.py`, and `schemas/scan.py`.
+- DSP/fitting algorithm changes start in `docs/algorithms.md` (derivation), then the
+  module; keep the doc and code in sync. `FitResult` schema changes must flow through
+  `models/db.py` (incl. the `init_db` migration) → `schemas/fit.py` → `api/fit.py` →
+  `frontend/src/api/index.ts`.
 - Raw arrays are stored as JSON in SQLite — fine for a single-user lab tool, do not
   migrate to Postgres without reason.
 - When adding a chart: reuse a builder in `charts.ts`, pass the active palette, keep

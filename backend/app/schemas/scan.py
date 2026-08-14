@@ -14,6 +14,8 @@ class MeasurementOut(BaseModel):
     z_imag: float
     z_mag: float
     z_phase_deg: float
+    z_sigma: float = 0.0                 # 1-sigma on |Z| (Ω)
+    z_phase_sigma_deg: float = 0.0       # 1-sigma on ∠Z (°)
     R: float
     X: float
     D: float | None

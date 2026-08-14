@@ -23,6 +23,8 @@ class ImpedancePoint:
     esr: float                   # equivalent series resistance
     L_eq: Optional[float]        # henry (inductive)
     C_eq: Optional[float]        # farad (capacitive)
+    z_sigma: float               # 1-sigma uncertainty of |Z| (ohm)
+    z_phase_sigma: float         # 1-sigma uncertainty of angle(Z) (rad)
     v_fit: SineFit
     i_fit: SineFit
 
@@ -31,6 +33,16 @@ def measure_impedance(voltage, current, dt: float, frequency: float) -> Impedanc
     """Compute the complex impedance at ``frequency`` from raw V and I traces.
 
     ``dt`` is the sampling interval (seconds). Time axis is ``t[k] = k*dt``.
+
+    Uncertainty propagation: for an N-point 3-parameter sine fit the standard
+    error of amplitude and phase is sigma_x * sqrt(2/N) (sigma_x = residual
+    RMS). With |Z| = A_v/A_i and phi_Z = phi_v - phi_i,
+
+        sigma_|Z| / |Z| = sqrt( (sv/Av)^2 + (si/Ai)^2 ) * sqrt(2/N)
+        sigma_phi       = sqrt( (sv/Av)^2 + (si/Ai)^2 ) * sqrt(2/N)
+
+    which feeds the weighted frequency-domain fits (sigma array) and the
+    frontend error bars.
     """
     voltage = np.asarray(voltage, dtype=float)
     current = np.asarray(current, dtype=float)
@@ -50,6 +62,11 @@ def measure_impedance(voltage, current, dt: float, frequency: float) -> Impedanc
     z_phase = v_fit.phase - i_fit.phase
     z_real = z_mag * math.cos(z_phase)
     z_imag = z_mag * math.sin(z_phase)
+
+    rel = math.sqrt((v_fit.resid_rms / v_fit.amp) ** 2
+                    + (i_fit.resid_rms / i_fit.amp) ** 2) * math.sqrt(2.0 / n)
+    z_sigma = z_mag * rel
+    z_phase_sigma = rel
 
     R, X = z_real, z_imag
     esr = R
@@ -72,5 +89,7 @@ def measure_impedance(voltage, current, dt: float, frequency: float) -> Impedanc
         esr=float(esr),
         L_eq=(None if L_eq is None else float(L_eq)),
         C_eq=(None if C_eq is None else float(C_eq)),
+        z_sigma=float(z_sigma),
+        z_phase_sigma=float(z_phase_sigma),
         v_fit=v_fit, i_fit=i_fit,
     )

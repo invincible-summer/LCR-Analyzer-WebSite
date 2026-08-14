@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { RefreshCw } from '@lucide/vue'
 import { storeToRefs } from 'pinia'
 import { ref } from 'vue'
 import { useScanStore } from '../store/scan'
@@ -39,7 +40,7 @@ async function gen(key: keyof typeof PRESETS) {
           </option>
         </select>
       </label>
-      <button class="btn" @click="refresh" :disabled="loading">↻ 刷新</button>
+      <button class="btn" @click="refresh" :disabled="loading"><RefreshCw /> 刷新</button>
       <span class="muted hint">生成示例：</span>
       <button class="btn sm" @click="gen('rlc')" :disabled="busy">串联 RLC</button>
       <button class="btn sm" @click="gen('rc')" :disabled="busy">RC</button>
