@@ -16,6 +16,9 @@ ESP32 firmware is not yet written — the contract it must implement is
 - **`docs/algorithms.md`** — DSP 与拟合算法的完整推导（矢量拟合 / Foster 综合 / 剪枝与容差 / 拓扑拟合 / AICc / σ 传播），**与代码逐项同步，改 DSP 前先读**。
 - **`README.md`** — 面向用户的总览：算法摘要（引用 algorithms.md）+ 实现细节 + 快速开始。
 - **`docs/api_contract.md`** — ESP32 上传契约（固件照此实现）。
+- **`ino/README.md`** — ESP32 本地仪表固件（TFT UI + 按键/编码器 + 本地 DSP +
+  蓝牙通路）。跨团队接口契约（`ino/LCR_UI/partner_api.h`）与硬件配置
+  （`hw_config.h`）在那边维护，改前先读。
 - 仓库：`origin → github.com/invincible-summer/LCR-Analyzer-WebSite`，单分支 `main`，直接提交并推送（不走 PR）。
 
 ## Commands

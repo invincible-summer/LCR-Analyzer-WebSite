@@ -321,6 +321,13 @@ POST /api/scan/{scan_id}/point      → { frequency, dt, n, voltage[], current[]
 
 文档中还写了三个精度命门：**V / I 同步采样**、**外挂 ADC**、**OSL 校准**。
 
+### 本地仪表固件（TFT 彩屏 UI）
+
+[`ino/`](ino/) 是 ESP32 Arduino 固件：TFT 彩屏 + 4 按键 + 编码器的本地交互
+（信号发生器 / 单频点复阻抗 / 幅相频扫频曲线），全部 DSP 在设备端完成；
+同时保留**经典蓝牙(SPP)通路**——`ino/tools/bt_bridge.py` 把行协议数据按
+api_contract 转发到本后端，前端零改动。详见 **[`ino/README.md`](ino/README.md)**。
+
 ---
 
 ## 验证结果
