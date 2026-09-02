@@ -1,0 +1,1 @@
+/usr/bin/c++ -O2 -Wl,--dependency-file=CMakeFiles/dump.dir/link.d CMakeFiles/dump.dir/apps/dump.cpp.o -o dump  librlc_id.a

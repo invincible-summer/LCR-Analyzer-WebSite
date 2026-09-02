@@ -1,0 +1,1 @@
+/usr/bin/c++ -O2 -Wl,--dependency-file=CMakeFiles/bench_dump.dir/link.d CMakeFiles/bench_dump.dir/apps/bench_dump.cpp.o -o bench_dump  librlc_id.a
