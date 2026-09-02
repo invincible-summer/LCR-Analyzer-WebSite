@@ -89,6 +89,13 @@ imported once in `src/main.ts`. **Gotcha:** in TypeScript strings, write math wi
 `String.raw\`...\`` (or double-escaped `\\frac`); in Vue template attributes (`tex="..."`)
 backslashes are literal, so single `\frac` is correct there.
 
+**Circuit schematics:** `src/lib/schematic.ts` is a pure recursive SP-tree layout engine
+(netlist tree → flat SVG primitives: wires, junction dots, IEC symbols, labels, port
+terminals `1`/`0` matching the SPICE node names); `src/components/Schematic.vue` renders
+those primitives declaratively (no v-html). Fixed-topology fits get their tree from
+`src/lib/modelTopologies.ts` (mirrors the 8 models in `dsp/topology_fit.py`), VF fits use
+the backend `netlist` directly — both render through the same component in `FitView`.
+
 **State:** `src/store/scan.ts` (Pinia) holds the scan list + current scan detail and
 auto-selects the most recent scan on load. Analysis/Sweep/Fit views all read it, so
 selecting a scan on one page carries to the others.

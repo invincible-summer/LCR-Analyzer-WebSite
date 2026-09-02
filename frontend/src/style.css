@@ -330,15 +330,8 @@ table.data td.num, table.data th.num { text-align: right; font-variant-numeric: 
 .scan-select { min-width: 280px; }
 
 /* ---------- schematic (SVG circuit diagram) ---------- */
-.schematic { overflow-x: auto; }
-.schematic svg text {
-  font-family: 'IBM Plex Mono', monospace;
-  fill: var(--text-2);
-}
-.schematic svg .wire { stroke: var(--text-2); stroke-width: 1.3; fill: none; }
-.schematic svg .node-dot { fill: var(--text-2); }
-.schematic svg .comp-label { font-size: 10px; fill: var(--text); }
-.schematic svg .comp-value { font-size: 9.5px; fill: var(--text-3); }
+/* symbol / wire / label styles are scoped inside Schematic.vue */
+.schematic-wrap { display: flex; justify-content: center; overflow-x: auto; padding: 8px 4px; }
 
 /* ---------- scrollbars ---------- */
 ::-webkit-scrollbar { width: 10px; height: 10px; }

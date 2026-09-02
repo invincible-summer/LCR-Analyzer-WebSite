@@ -1,6 +1,6 @@
 # LCR 未知单端口网络识别算法 — 设计文档
 
-版本 v0.1 · 2026-09-01 · 状态：初稿（P1 已实现部分见 §10）
+版本 v1.0 · 2026-09-02 · 状态：**P1 已实现并验证通过**（56 测试全绿，12 合成 DUT 全恢复）
 
 > 目标读者：审查者 + 后续维护者。本文档记录每一次设计决策（标记为 **决策 Dn**）、
 > 其数学推理与合理性证明。所有公式与 `rlc_id/` 代码逐项对应；改算法先改本文档。
@@ -214,11 +214,19 @@ $\mathrm{type} \in \{R, L, C\}$，$\mathrm{value} > 0$。顶层节点可为 SER 
 递归生成：对叶子数预算 $n$，枚举顶层节点类型 $\times$ 子树叶子数拆分（整数划分，
 要求子节点类型交替、叶子类型互异、规范序）。伪代码见附录 B.1。
 
-计数（$n$ = 元件数，代码 `rlc_id.library.stats()` 实测，测试中断言锁定）：
+计数（$n$ = 元件数，`rlc_id.library.stats()` 实测，`tests/test_library.py`
+断言锁定）：
 
 | $n$ | 1 | 2 | 3 | 4 | 5 | 6 |
 |---|---|---|---|---|---|---|
-| 规范拓扑数 | 3 | 6 | 20 | 36 | *代码实测* | *代码实测* |
+| 规范拓扑数（内部深度 ≤ 2，默认库） | 3 | 6 | 20 | 36 | 54 | 78 |
+| 规范拓扑数（内部深度 ≤ 3，供参考） | 3 | 6 | 20 | 90 | — | — |
+
+> **实现注记（深度上限）**：默认枚举库限制非根内部节点的嵌套深度 ≤ 2
+> （`library.DEFAULT_MAX_IDEPTH = 2`），即只允许"一层串/并联套一层"。这覆盖了
+> §8.2 全部 12 个 DUT 与 Foster I/II 的全部输出形式，并恰好复现手算锁定的
+> 3/6/20/36。放开深度到 3 后 $n=4$ 为 90 种（多出 $S(R, P(R, S(R,C)))$ 类深嵌套）。
+> 深度参数可调（`library.get_library(max_n, max_idepth)`），属精度/耗时权衡。
 
 手算验证 $n=3$：顶层 SER 的叶子数拆分为 $\{1,1,1\}$（三叶类型互异：仅
 $\{R,L,C\}$，1 种）与 $\{1,2\}$（单叶 3 选 1 × PAR 双子组 2 选异型
@@ -256,17 +264,33 @@ $$
 $2\pi$ 卷绕；幅值-相位拆分在过零附近梯度爆炸。复残差处处良态，且与 A3 的
 高斯模型严格一致（复高斯 = 实虚部联合高斯）。报告中另输出幅值/相位误差供人读。
 
-### 5.2 Jacobian：复步长法（complex-step）
+### 5.2 Jacobian：前向自动微分（复步长法的修正）
 
-$Z$ 对 $\theta$ 解析（$10^{\theta} = e^{\theta \ln 10}$ 解析；SER/PAR 复合保持解析），故
+**设计修正（P1 实现期发现）**：最初采用复步长法（complex-step）
+$\partial Z/\partial\theta_i = \operatorname{Im} Z(\theta + i h e_i)/h$，
+它要求函数在实参数处取**实值**（$\operatorname{Im} Z(\theta)=0$）。但本问题中
+$Z(j\omega)$ 本身就是复数，$\operatorname{Im} Z(\theta + i h e_i)$ 被
+$\operatorname{Im} Z(\theta)$ 的 $O(1)$ 部分淹没，除以 $h=10^{-20}$ 后完全失真
+——实测残差雅可比各行全零、优化器停滞。因此改用**前向模式自动微分**：
+沿同一棵树递归同时传播 $Z$ 与 $\partial Z/\partial\theta_i$，规则为
 
 $$
-\frac{\partial Z}{\partial \theta_i} = \frac{\operatorname{Im}\, Z(\theta + i h e_i)}{h} + O(h^2),
-\qquad h = 10^{-20}.
+\begin{aligned}
+&\text{叶：} R \to \partial_v = 1,\quad
+  sL \to \partial_v = s,\quad
+  1/(sC) \to \partial_v = -\frac{1}{s v^2};\\[2pt]
+&\text{SER：} \partial Z = \textstyle\sum \partial Z_c;\\[2pt]
+&\text{PAR：} Z = \Big(\textstyle\sum Z_c^{-1}\Big)^{-1}
+  \;\Rightarrow\; \partial Z = Z^2 \sum \frac{\partial Z_c}{Z_c^2};
+\end{aligned}
 $$
 
-无减法相消，导数达机器精度；免去逐拓扑推导解析梯度的出错面。成本 = $p$ 次
-复数求值（$p$ = 参数数），向量化后可忽略。（Squire–Trapp 1998。）
+再乘上 $\mathrm{d}v/\mathrm{d}\theta = \ln(10)\cdot v$（$\log_{10}$ 参数化）。
+每次求值同时得到精确到机器精度的雅可比，成本仅为 1 次树求值（比复步长的
+$p$ 次更省）。代码：`circuits.evaluate_jac`；正确性测试：
+`tests/test_circuits.py::test_evaluate_jac_matches_fd`（与中心差分一致到
+$10^{-9}$ 相对精度）。
+
 
 **决策 D5（求解器）**：`scipy.optimize.least_squares(method='trf', bounds)`，
 损失默认 `linear`；实测有粗差时切 `soft_l1`（开关保留）。多起点策略：
@@ -471,7 +495,7 @@ AlgorithmLcr/
 │   ├── __init__.py           # 对外接口：identify(f, z, weights=None, config=None)
 │   ├── circuits.py           # 串并联树数据结构、Z(s) 向量化求值、参数化、规范化 (R1-R3)
 │   ├── library.py            # 规范串并联拓扑枚举器、预生成拓扑库、计数统计
-│   ├── fit_engine_a.py       # 引擎 A：加权复残差、复步长 Jacobian、多起点 TRF、AICc
+│   ├── fit_engine_a.py       # 引擎 A：加权复残差、前向 AD 精确 Jacobian、多起点 TRF、AICc
 │   ├── fit_engine_b.py       # 引擎 B：SK 迭代有理拟合、极点-留数分解、Foster I/II 综合
 │   ├── pruning.py            # 渐近斜率估计、端接预判、极点结构与储能元件数剪枝
 │   ├── selector.py           # 等价类判定、AICc 主排序、二级判据、Top-K 包装
@@ -491,29 +515,143 @@ AlgorithmLcr/
 
 ## 10. 实现路线与当前进度
 
-- **P1（已规划，当前轮次完成）**：
+- **P1（已完成，2026-09-02 验证通过）**：
   - [x] 形式化与数学证明写入 `DESIGN.md`（§1–§8）
-  - [ ] 串并联树表示 + 规范化 R1–R3（`circuits.py`）
-  - [ ] 拓扑枚举器（$n \le 4$，`library.py`）+ 计数测试锁定
-  - [ ] 引擎 A：复数域加权拟合 + 复步长 Jacobian + 多起点（`fit_engine_a.py`）
-  - [ ] 引擎 B：SK 有理拟合 + 极点留数 + Foster I/II 综合（`fit_engine_b.py`）
-  - [ ] 剪枝 F1–F5 + 选择器与等价类判定（`pruning.py`, `selector.py`）
-  - [ ] 8 类 DUT 的端到端测试与 demo（`tests/`, `demo.py`）
+  - [x] 串并联树表示 + 规范化 R1–R3（`circuits.py`）
+  - [x] 拓扑枚举器（默认 $n \le 4$、深度 ≤ 2，`library.py`）+ 计数测试锁定
+  - [x] 引擎 A：复数域加权拟合 + **前向 AD 精确 Jacobian** + 多起点
+        （`fit_engine_a.py`；复步长 → AD 的设计修正见 §5.2）
+  - [x] 引擎 B：SK 有理拟合 + 极点留数 + Foster I/II 综合（`fit_engine_b.py`）
+  - [x] 剪枝 F1–F5 + 选择器与等价类判定（`pruning.py`, `selector.py`）
+  - [x] 8 类 DUT 的端到端测试与 demo（`tests/`, `demo.py`）
 - **P2（后续）**：Cauer 综合完整梯形链、Bode 图/Nyquist 图导出、与 ESP32 契约集成
 - **P3（扩展）**：Bott–Duffin 完整综合器（支持任意 PR 双二次函数）、FIM 参数置信区间。
+
+### 10.1 P1 实测验证结果
+
+运行环境：conda env `lcr`（Python 3.11，numpy 2.4.6，scipy 1.17.1），WSL2。
+
+- `python -m pytest tests/ -q`：**56 passed**（约 60 s）。
+- `python demo.py`（0.5% 噪声）：**12/12 恢复**——11 个精确拓扑命中（参数最大
+  相对误差 ≤ 9.8e-3，多数 < 2e-3），1 个（dut6_relaxation）落入电气等价类
+  （T2 预期行为，等效实现在扩展频带上与真值最大相对偏差 < 2%）。
+- `python demo.py --noiseless`：**12/12 精确命中**，参数误差 ≤ 1.4e-14
+  （机器精度）；wRMSE ≤ 1e-14。
+- 耗时：全部 12 个 DUT（含枚举 + 双引擎 + 选择器）合计约 25 s，单 DUT ≤ 3.3 s。
+
+关键实现要点（与初稿的偏差说明）：
+
+1. **§5.2 复步长 → 前向 AD**：见该节"设计修正"。
+2. **D10（引擎 B 阶数选择）**：最终采用**差异度原则**——以最佳拟合的
+   每自由度 RSS 估计噪声底，选择不超过其 $\chi^2$ 3σ 波动上界的**最低阶**
+   模型；纯 AICc 在 30 点 × 0.5% 噪声下会偶发追高阶（噪声拟合）。
+3. **F3 保守化**（`conservative_energy_bound`）：极点界取所有
+   ΔAICc ≤ 10 的备选有理模型中的**最小**储能元件数，保证 F3 只可能漏剪、
+   绝不误剪真实拓扑。
+4. **选择器噪声一致简约**：`selector.rank_and_cluster_equivalent` 先用
+   差异度原则圈定"噪声一致"候选集，再在集合内取**最少参数**者为代表；
+   等价类容差自适应为 $\max(10^{-3}, 3\hat\sigma_{\rm rel})$，避免把
+   同一物理电路的两次独立噪声拟合误判为两个类（dut6 的教训）。
+5. **谐振起点启发式**：|Z| 内部极值点检测 + 两端渐近线交点反推
+   $\omega_0 = 1/\sqrt{LC}$；并联谐振时 $R$ 取峰值 `r_peak` 而非频段中位数
+   （dut4/dut7 收敛性的关键）。
 
 ---
 
 ## 附录 A：参考文献
 
-1. Brune, O. (1931). "Synthesis of a finite two-terminal network whose driving-point impedance is a prescribed function of frequency." *J. Math. Phys.*, 10, 191-236.
-2. Foster, R. M. (1924). "A reactance theorem." *Bell System Technical Journal*, 3(2), 259-267.
-3. Cauer, W. (1926). "Die Verwirklichung der Wechselstromwiderstände vorgeschriebener Frequenzabhängigkeit." *Archiv für Elektrotechnik*, 17(4), 355-388.
-4. Bott, R., & Duffin, R. J. (1949). "Impedance synthesis without use of transformers." *J. Appl. Phys.*, 20(8), 816.
-5. Sanathanan, C. K., & Koerner, J. (1963). "Transfer function synthesis as a ratio of two complex polynomials." *IEEE Trans. Autom. Control*, 8(1), 56-70.
-6. Gustavsen, B., & Semlyen, A. (1999). "Rational approximation of frequency domain responses by vector fitting." *IEEE Trans. Power Deliv.*, 14(3), 1052-1061.
-7. Hurvich, C. M., & Tsai, C.-L. (1989). "Regression and time series model selection in small samples." *Biometrika*, 76(2), 297-307.
-8. Squire, W., & Trapp, G. (1998). "Using complex variables to estimate derivatives of real functions." *SIAM Review*, 40(1), 110-112.
+### A.1 网络综合理论（正实函数、Foster/Cauer/Bott–Duffin）
+
+1. **Brune, O. (1931).** "Synthesis of a finite two-terminal network whose
+   driving-point impedance is a prescribed function of frequency."
+   *Journal of Mathematics and Physics*, 10(1–4), 191–236.
+   doi:10.1002/sapm1931101191.
+   —— 正实（positive-real）函数概念的奠基之作；证明"RLC 单端口 ⟺ PR 有理函数"
+   的充分性方向，是本文 §2.1 T1 的原始出处。
+
+2. **Foster, R. M. (1924).** "A reactance theorem."
+   *Bell System Technical Journal*, 3(2), 259–267.
+   doi:10.1002/j.1538-7305.1924.tb01358.x.
+   —— Foster I/II 部分分式综合，本文 §2.3、§6.2 映射表的来源。
+
+3. **Cauer, W. (1926).** "Die Verwirklichung der Wechselstromwiderstände
+   vorgeschriebener Frequenzabhängigkeit."
+   *Archiv für Elektrotechnik*, 17(4), 355–388.
+   doi:10.1007/BF01656400.
+   —— 连分式（梯形）综合，§6.3 的来源。
+
+4. **Bott, R., & Duffin, R. J. (1949).** "Impedance synthesis without use of
+   transformers." *Journal of Applied Physics*, 20(8), 816.
+   doi:10.1063/1.1698532.
+   —— 证明任意 PR 函数都存在无互感 RLC 实现（可能需桥式）；
+   本文 §2.3 的边界声明与 P3 扩展的依据。
+
+5. **Guillemin, E. A. (1957).** *Synthesis of Passive Networks.*
+   John Wiley & Sons, New York.
+   —— 网络综合经典教材；Foster/Cauer 映射表推导细节与二阶节条件的参考。
+
+### A.2 有理拟合 / 系统辨识
+
+6. **Sanathanan, C. K., & Koerner, J. (1963).** "Transfer function synthesis
+   as a ratio of two complex polynomials."
+   *IEEE Transactions on Automatic Control*, 8(1), 56–70.
+   doi:10.1109/TAC.1963.1105517.
+   —— SK 迭代原文，本文 §6.1 引擎 B 的有理拟合核心。
+
+7. **Gustavsen, B., & Semlyen, A. (1999).** "Rational approximation of
+   frequency domain responses by vector fitting."
+   *IEEE Transactions on Power Delivery*, 14(3), 1052–1061.
+   doi:10.1109/61.772353.
+   —— 矢量拟合（VF）标准文献；本文实现采用其"极点重定位"变体
+   （`fit_engine_b._vf_step`），即在极点基下的 SK 迭代。
+
+8. **Levi, E. C. (1959).** "Complex-curve fitting."
+   *IRE Transactions on Automatic Control*, 4(1), 37–43.
+   doi:10.1109/TAC.1959.6429401.
+   —— Levi 方法（SK 迭代的第一步特例），复数域曲线拟合的奠基工作。
+
+### A.3 模型选择与统计判据
+
+9. **Akaike, H. (1974).** "A new look at the statistical model
+   identification." *IEEE Transactions on Automatic Control*, 19(6), 716–723.
+   doi:10.1109/TAC.1974.1100705.
+   —— AIC 原文，§5.5 的基线。
+
+10. **Hurvich, C. M., & Tsai, C.-L. (1989).** "Regression and time series
+    model selection in small samples." *Biometrika*, 76(2), 297–307.
+    doi:10.1093/biomet/76.2.297.
+    —— AICc 小样本二阶修正，本文实际使用的判据（§5.5 公式）。
+
+11. **Burnham, K. P., & Anderson, D. R. (2002).** *Model Selection and
+    Multimodel Inference: A Practical Information-Theoretic Approach*,
+    2nd ed., Springer, New York.  doi:10.1007/b97636.
+    —— ΔAICc < 2 视为"统计不可区分"的经验阈值来源（§5.5 决策 D6.2）。
+
+12. **Hansen, P. C. (1992).** "Analysis of discrete ill-posed problems by
+    means of the L-curve." *SIAM Review*, 34(4), 561–580.
+    doi:10.1137/1034115.
+    —— 差异度原则（discrepancy principle）的系统阐述；本文 D10 与
+    选择器噪声一致简约的理论依据。
+
+### A.4 数值微分与优化
+
+13. **Squire, W., & Trapp, G. (1998).** "Using complex variables to estimate
+    derivatives of real functions." *SIAM Review*, 40(1), 110–112.
+    doi:10.1137/S003614459631241X.
+    —— 复步长法原文。**注意**：本文 §5.2 记录了为何它对本问题失效
+    （要求实值基函数，而 $Z(j\omega)$ 为复值），以及改用前向 AD 的修正。
+
+14. **Nocedal, J., & Wright, S. J. (2006).** *Numerical Optimization*,
+    2nd ed., Springer, New York.  doi:10.1007/978-0-387-40065-5.
+    —— TRF（信赖域反射）算法与 box 约束最小二乘的参考；
+    `scipy.optimize.least_squares(method='trf')` 的理论背景。
+
+15. **McKay, M. D., Beckman, R. J., & Conover, W. J. (1979).** "A comparison
+    of three methods for selecting values of input variables in the analysis
+    of output from a computer code." *Technometrics*, 21(2), 239–245.
+    doi:10.1080/00401706.1979.10489755.
+    —— 拉丁超立方采样（LHS）原文，引擎 A 多起点策略的采样方法。
+
 
 ---
 

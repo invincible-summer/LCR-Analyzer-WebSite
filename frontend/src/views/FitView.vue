@@ -12,6 +12,7 @@ import Schematic from '../components/Schematic.vue'
 import { Network, Download } from '@lucide/vue'
 import { getPalette } from '../lib/palette'
 import { bodeOpt, nyquistOpt, poleZeroOpt, residualsOpt } from '../lib/charts'
+import { topologyToNetlist } from '../lib/modelTopologies'
 import * as fmt from '../lib/format'
 
 const store = useScanStore()
@@ -108,6 +109,14 @@ const residOpt = computed(() => {
 
 const rankingRows = computed(() => fit.value?.ranking ?? [])
 const bestRow = computed(() => rankingRows.value.find((r) => r.selected) ?? rankingRows.value[0])
+
+// Schematic tree: VF fits carry a synthesised Foster netlist; fixed-topology
+// fits are mapped from their model name + fitted params.
+const schematicTree = computed(() => {
+  if (!fit.value) return null
+  if (fit.value.netlist) return fit.value.netlist
+  return topologyToNetlist(fit.value.model, fit.value.params)
+})
 </script>
 
 <template>
@@ -172,18 +181,18 @@ const bestRow = computed(() => rankingRows.value.find((r) => r.selected) ?? rank
               <div v-for="w in fit.warnings" :key="w" class="hint" style="color: var(--warning)">⚠ {{ w }}</div>
             </div>
 
-            <!-- VF: synthesised circuit -->
-            <template v-if="fit.kind === 'vf' && fit.netlist">
+            <!-- equivalent circuit schematic (VF netlist or fixed topology) -->
+            <template v-if="schematicTree">
               <div style="margin-top: 16px" class="row tight">
-                <h4 style="margin: 0">综合等效电路（Foster 形式）</h4>
+                <h4 style="margin: 0">{{ fit.kind === 'vf' ? '综合等效电路（Foster 形式）' : '等效电路拓扑' }}</h4>
                 <div class="spacer" style="flex:1"></div>
-                <button class="btn sm" @click="downloadSpice">
+                <button v-if="fit.kind === 'vf' && fit.netlist" class="btn sm" @click="downloadSpice">
                   <Download /> 下载 SPICE .subckt
                 </button>
               </div>
               <div class="panel" style="margin-top: 8px; background: var(--panel-2)">
                 <div class="panel-body schematic-wrap">
-                  <Schematic :netlist="fit.netlist" />
+                  <Schematic :netlist="schematicTree" />
                 </div>
               </div>
             </template>

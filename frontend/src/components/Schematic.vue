@@ -1,152 +1,186 @@
 <script setup lang="ts">
-// Renders the Foster netlist tree as an SVG schematic (IEC-style symbols:
-// resistor = rectangle, inductor = arcs, capacitor = plates). The layout is
-// a deterministic recursive packing: series chains go left-to-right,
-// parallel children stack vertically between two rails.
+// Renders a true SVG circuit schematic from a recursive SP-tree netlist.
+// Layout is handled by the pure engine in `lib/schematic.ts`; this component
+// only maps the layout primitives to Vue SVG elements, ensuring perfect
+// connectivity, polished styling, and automatic light/dark theme support.
 import { computed } from 'vue'
 import type { Netlist } from '../api'
-import { eng } from '../lib/format'
+import { layoutSchematic, type SchematicPrimitive } from '../lib/schematic'
 
-const props = defineProps<{ netlist: Netlist }>()
+const props = defineProps<{ netlist: Netlist | null }>()
 
-const CELL_W = 92
-const CELL_H = 30
-const GAP = 14
-const PGAP = 10
+const layout = computed(() => layoutSchematic(props.netlist))
 
-interface Size { w: number; h: number }
+const wires = computed(() => layout.value.primitives.filter((p) => p.kind === 'wire') as Extract<SchematicPrimitive, { kind: 'wire' }>[])
+const dots = computed(() => layout.value.primitives.filter((p) => p.kind === 'dot') as Extract<SchematicPrimitive, { kind: 'dot' }>[])
+const symbols = computed(() => layout.value.primitives.filter((p) => p.kind === 'symbol') as Extract<SchematicPrimitive, { kind: 'symbol' }>[])
+const labels = computed(() => layout.value.primitives.filter((p) => p.kind === 'label') as Extract<SchematicPrimitive, { kind: 'label' }>[])
+const terminals = computed(() => layout.value.primitives.filter((p) => p.kind === 'terminal') as Extract<SchematicPrimitive, { kind: 'terminal' }>[])
 
-function isSeries(n: Netlist): n is Extract<Netlist, { type: 'series' }> {
-  return n.type === 'series'
-}
-function isParallel(n: Netlist): n is Extract<Netlist, { type: 'parallel' }> {
-  return n.type === 'parallel'
-}
-
-function measure(n: Netlist): Size {
-  if (isSeries(n)) {
-    if (!n.children.length) return { w: CELL_W, h: CELL_H }
-    const sizes = n.children.map(measure)
-    return {
-      w: sizes.reduce((a, s) => a + s.w, 0) + GAP * (sizes.length - 1),
-      h: Math.max(...sizes.map((s) => s.h), CELL_H),
-    }
+// Generate smooth IEC symbol SVG path data (4 semicircular humps for inductor)
+function getInductorPath(x: number, y: number, width: number): string {
+  const humps = 4
+  const step = width / humps
+  const radius = step / 2
+  let d = `M ${x} ${y}`
+  for (let i = 0; i < humps; i++) {
+    d += ` a ${radius} ${radius} 0 0 1 ${step} 0`
   }
-  if (isParallel(n)) {
-    if (!n.children.length) return { w: CELL_W, h: CELL_H }
-    const sizes = n.children.map(measure)
-    return {
-      w: Math.max(...sizes.map((s) => s.w)),
-      h: sizes.reduce((a, s) => a + s.h, 0) + PGAP * (sizes.length - 1),
-    }
-  }
-  return { w: CELL_W, h: CELL_H }
+  return d
 }
-
-function esc(s: string): string {
-  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-}
-
-function countElements(n: Netlist): number {
-  if (n.type === 'series' || n.type === 'parallel') {
-    return n.children.reduce((a, c) => a + countElements(c), 0)
-  }
-  return 1
-}
-
-function draw(n: Netlist, x: number, y: number, out: string[]): Size {
-  const sz = measure(n)
-  const cy = y + sz.h / 2
-
-  if (isSeries(n)) {
-    let cx = x
-    n.children.forEach((child, i) => {
-      const csz = draw(child, cx, y + (sz.h - measure(child).h) / 2, out)
-      if (i < n.children.length - 1) {
-        // connecting wire handled by leaf stubs; add explicit wire
-        out.push(`<line class="wire" x1="${cx + csz.w}" y1="${cy}" x2="${cx + csz.w + GAP}" y2="${cy}"/>`)
-      }
-      cx += csz.w + GAP
-    })
-    return sz
-  }
-
-  if (isParallel(n)) {
-    const mids: number[] = []
-    let cyy = y
-    for (const child of n.children) {
-      const cysz = measure(child)
-      const childCy = cyy + cysz.h / 2
-      mids.push(childCy)
-      draw(child, x, cyy, out)
-      cyy += cysz.h + PGAP
-    }
-    const mid = (Math.min(...mids) + Math.max(...mids)) / 2
-    // left rail connects entry (x, mid) to every child entry; children are
-    // drawn with their own entry stubs at (x, childCy), so the rail is a
-    // vertical line spanning them
-    out.push(`<line class="wire" x1="${x}" y1="${Math.min(...mids, mid)}" x2="${x}" y2="${Math.max(...mids, mid)}"/>`)
-    out.push(`<line class="wire" x1="${x + sz.w}" y1="${Math.min(...mids, mid)}" x2="${x + sz.w}" y2="${Math.max(...mids, mid)}"/>`)
-    out.push(`<circle class="node-dot" cx="${x}" cy="${mid}" r="2.3"/>`)
-    out.push(`<circle class="node-dot" cx="${x + sz.w}" cy="${mid}" r="2.3"/>`)
-    return sz
-  }
-
-  // leaf: stub wire + symbol + stub wire, labels above
-  const symW = 40
-  const stub = (sz.w - symW) / 2
-  const sx = x + stub
-  out.push(`<line class="wire" x1="${x}" y1="${cy}" x2="${sx}" y2="${cy}"/>`)
-  out.push(`<line class="wire" x1="${sx + symW}" y1="${cy}" x2="${x + sz.w}" y2="${cy}"/>`)
-
-  const key = n.type as 'R' | 'L' | 'C'
-  const val = (n as any)[key] as number
-  const valStr = eng(val, key === 'R' ? 'Ω' : key === 'L' ? 'H' : 'F', 3)
-  const label = `${key}<tspan class="comp-value" x="${sx + symW / 2}" dy="11">${esc(valStr)}</tspan>`
-
-  if (key === 'R') {
-    out.push(`<rect class="wire" x="${sx}" y="${cy - 8}" width="${symW}" height="16" rx="1"/>`)
-  } else if (key === 'L') {
-    const r = 6.7
-    const step = symW / 3
-    for (let i = 0; i < 3; i++) {
-      const ax = sx + step * i + step / 2
-      out.push(`<path class="wire" d="M ${ax - step / 2} ${cy} a ${r} ${r} 0 0 1 ${step} 0"/>`)
-    }
-    out.push(`<line class="wire" x1="${sx}" y1="${cy}" x2="${sx}" y2="${cy}" stroke-width="0"/>`)
-  } else {
-    const gap = 4
-    out.push(`<line class="wire" x1="${sx + symW / 2 - gap}" y1="${cy - 10}" x2="${sx + symW / 2 - gap}" y2="${cy + 10}"/>`)
-    out.push(`<line class="wire" x1="${sx + symW / 2 + gap}" y1="${cy - 10}" x2="${sx + symW / 2 + gap}" y2="${cy + 10}"/>`)
-  }
-  out.push(
-    `<text class="comp-label" x="${sx + symW / 2}" y="${cy - 14}" text-anchor="middle">${label}</text>`,
-  )
-  return sz
-}
-
-const svg = computed(() => {
-  const root = props.netlist
-  if (!root) return ''
-  const m = measure(root)
-  const padX = 26
-  const padY = 26
-  const out: string[] = []
-  // terminals
-  out.push(`<line class="wire" x1="${padX - 14}" y1="${padY + m.h / 2}" x2="${padX}" y2="${padY + m.h / 2}"/>`)
-  out.push(`<line class="wire" x1="${padX + m.w}" y1="${padY + m.h / 2}" x2="${padX + m.w + 14}" y2="${padY + m.h / 2}"/>`)
-  draw(root, padX, padY, out)
-  return (
-    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${m.w + padX * 2 + 14} ${m.h + padY * 2}" ` +
-    `width="${m.w + padX * 2 + 14}" height="${m.h + padY * 2}">${out.join('')}</svg>`
-  )
-})
-
-const nElements = computed(() => (props.netlist ? countElements(props.netlist) : 0))
 </script>
 
 <template>
   <div class="schematic">
-    <div v-html="svg"></div>
+    <svg
+      :viewBox="layout.viewBox"
+      :width="layout.width"
+      :height="layout.height"
+      class="schematic-svg"
+      role="img"
+      aria-label="Equivalent circuit schematic"
+    >
+      <!-- Connecting wires -->
+      <line
+        v-for="(w, i) in wires"
+        :key="`w-${i}`"
+        class="sch-wire"
+        :x1="w.x1"
+        :y1="w.y1"
+        :x2="w.x2"
+        :y2="w.y2"
+      />
+
+      <!-- Solder dots at junctions -->
+      <circle
+        v-for="(d, i) in dots"
+        :key="`d-${i}`"
+        class="sch-dot"
+        :cx="d.cx"
+        :cy="d.cy"
+        :r="d.r"
+      />
+
+      <!-- Component symbols -->
+      <g v-for="(s, i) in symbols" :key="`s-${i}`">
+        <!-- IEC Resistor: Rectangle -->
+        <rect
+          v-if="s.compKind === 'R'"
+          class="sch-symbol sch-symbol-body"
+          :x="s.x"
+          :y="s.y - 10"
+          :width="s.width"
+          :height="20"
+          rx="2"
+        />
+        <!-- IEC Inductor: Smooth semicircular arcs -->
+        <path
+          v-else-if="s.compKind === 'L'"
+          class="sch-symbol"
+          :d="getInductorPath(s.x, s.y, s.width)"
+        />
+        <!-- IEC Capacitor: Two parallel plates -->
+        <g v-else-if="s.compKind === 'C'">
+          <line
+            class="sch-symbol sch-plate"
+            :x1="s.x + s.width / 2 - 4"
+            :y1="s.y - 12"
+            :x2="s.x + s.width / 2 - 4"
+            :y2="s.y + 12"
+          />
+          <line
+            class="sch-symbol sch-plate"
+            :x1="s.x + s.width / 2 + 4"
+            :y1="s.y - 12"
+            :x2="s.x + s.width / 2 + 4"
+            :y2="s.y + 12"
+          />
+        </g>
+      </g>
+
+      <!-- Component labels -->
+      <g v-for="(l, i) in labels" :key="`l-${i}`" class="sch-label-group">
+        <text class="sch-label-des" :x="l.x" :y="l.y" text-anchor="middle">{{ l.designator }}</text>
+        <text class="sch-label-val" :x="l.x" :y="l.y + 13" text-anchor="middle">{{ l.value }}</text>
+      </g>
+
+      <!-- Port Terminals -->
+      <g v-for="(t, i) in terminals" :key="`t-${i}`" class="sch-terminal">
+        <circle class="sch-term-circle" :cx="t.x" :cy="t.y" r="5.5" />
+        <text
+          class="sch-term-label"
+          :x="t.x + (t.align === 'left' ? -14 : 14)"
+          :y="t.y + 4"
+          :text-anchor="t.align === 'left' ? 'end' : 'start'"
+        >{{ t.name }}</text>
+      </g>
+    </svg>
   </div>
 </template>
+
+<style scoped>
+.schematic {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  min-height: 80px;
+}
+
+.schematic-svg {
+  max-width: 100%;
+  height: auto;
+  font-family: 'IBM Plex Mono', monospace;
+  user-select: none;
+}
+
+.sch-wire {
+  stroke: var(--text-2);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  fill: none;
+}
+
+.sch-dot {
+  fill: var(--text-2);
+}
+
+.sch-symbol {
+  stroke: var(--text);
+  stroke-width: 1.5;
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.sch-symbol-body {
+  fill: var(--panel);
+}
+
+.sch-plate {
+  stroke-width: 2;
+}
+
+.sch-label-des {
+  font-size: 11px;
+  font-weight: 600;
+  fill: var(--text);
+}
+
+.sch-label-val {
+  font-size: 10.5px;
+  fill: var(--text-3);
+}
+
+.sch-term-circle {
+  fill: var(--panel);
+  stroke: var(--text-2);
+  stroke-width: 1.5;
+}
+
+.sch-term-label {
+  font-size: 10px;
+  font-weight: 600;
+  fill: var(--text-3);
+}
+</style>
