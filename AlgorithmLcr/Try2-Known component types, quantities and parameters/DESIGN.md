@@ -400,8 +400,14 @@ Try2-Known component types, quantities and parameters/
 │   ├── filters.py             # 探针频率漏斗（F4）
 │   ├── selector.py            # 候选评估、等价类聚类、二级排序
 │   ├── synthetic.py           # 命名 DUT、Prüfer 随机网络、噪声测量
-│   └── report.py              # ASCII 排序表（V/SP/wRMSE/maxRel/RSS/类大小）
-└── tests/                     # §8.1 的 5 个测试文件
+│   ├── report.py              # ASCII 排序表（V/SP/wRMSE/maxRel/RSS/类大小）
+│   ├── adjacency.py           # 统一输出：Network → 上三角邻接矩阵 + vector<Edge>
+│   │                         # （规范见 ../../OUTPUT_FORMAT.md §5.2，独立实现）
+│   └── iofmt.py              # 统一输入：测量数据 + 元件队列（Edge 平铺，无拓扑）
+│                             # （规范见 ../../INPUT_FORMAT.md §1/§2.2，独立实现）
+└── tests/                     # §8.1 的 5 个测试文件 + test_adjacency.py
+                                # （形状/守恒/network_str 一致性 + 独立 MNA Z 交叉验证）
+                                # + test_iofmt.py（round-trip/校验/文本输入→identify 冒烟）
 ```
 
 主流程（`identify`）：`enumerate_structures(E)`（缓存）→ 流式指派 → 探针漏斗

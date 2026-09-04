@@ -104,3 +104,15 @@ def test_escalation_helps_hard_case():
     f, z = measure(dut, sigma_rel=0.005, seed=5)
     r = identify(f, z, dut.edges, FitConfig(seed=3))
     assert r.wrmse < 0.012
+
+
+def test_stage_e_last_resort_rescues_stuck_basin():
+    """Regression (2026-09-03): a multi-tank weakly-determined random case
+    that stages A-D leave stuck at 7x the floor must be pulled to the floor
+    by stage E's mixed multi-scale restarts (basin hopping)."""
+    from topofit_id.synthetic import measure, random_case
+    rng = np.random.default_rng(7007)
+    dut = random_case(rng)
+    f, z = measure(dut, sigma_rel=0.005, seed=7007 * 2 + 1)
+    r = identify(f, z, dut.edges, FitConfig(seed=7007))
+    assert r.wrmse <= 3.0 * np.sqrt(2.0) * 0.005

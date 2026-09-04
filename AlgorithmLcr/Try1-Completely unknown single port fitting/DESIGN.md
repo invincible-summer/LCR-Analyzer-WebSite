@@ -500,13 +500,19 @@ AlgorithmLcr/
 │   ├── pruning.py            # 渐近斜率估计、端接预判、极点结构与储能元件数剪枝
 │   ├── selector.py           # 等价类判定、AICc 主排序、二级判据、Top-K 包装
 │   ├── synthetic.py          # 合成 DUT 阻抗与波形生成器（带可控噪声）
-│   └── report.py             # 拟合报告生成（ASCII 表格、Markdown、LaTeX 等效电路公式）
+│   ├── report.py             # 拟合报告生成（ASCII 排序候选表）
+│   ├── adjacency.py          # 统一输出：候选电路 → 上三角邻接矩阵 + vector<Edge>
+│   │                         # （规范见 ../../OUTPUT_FORMAT.md §5.1，独立实现）
+│   └── iofmt.py              # 统一输入：测量数据 n / f Rz Iz 文本加载
+│                             # （规范见 ../../INPUT_FORMAT.md §1/§2.1，独立实现）
 ├── tests/
 │   ├── test_circuits.py      # 规范化唯一性、Z(s) 向量化正确性
 │   ├── test_library.py       # 拓扑枚举计数断言 (n=1..4 逐项锁定)
 │   ├── test_engine_a.py      # 单拓扑参数拟合精度 (无噪/有噪)
 │   ├── test_engine_b.py      # SK 迭代有理拟合 + Foster 综合闭式恢复
 │   ├── test_pruning.py       # 渐近斜率与极点剪枝不漏解
+│   ├── test_adjacency.py     # 邻接矩阵形状/确定性/连通性 + 节点分析 Z 交叉验证
+│   ├── test_iofmt.py         # 测量文本 round-trip 逐位一致 + 校验错误用例
 │   └── test_end_to_end.py    # 8 类典型 DUT 的端到端识别（§8.2）
 └── demo.py                   # 命令行可执行示例：从合成测量到拓扑+参数输出
 ```

@@ -30,4 +30,8 @@ cd "Try2-Known component types, quantities and parameters" && conda run -n lcr p
 ```
 
 各子目录的 `DESIGN.md` 是算法的唯一权威文档（推导、决策记录、复杂度论证、
-参考文献）；`explain.md`（Try1）为面向使用者的算法讲解。
+参考文献）；`explain.md`（Try1）为面向使用者的算法讲解。三个课题的搜索/拟合
+结果统一以「上三角邻接矩阵 + `vector<Edge>`」形式输出，约束见
+[OUTPUT_FORMAT.md](OUTPUT_FORMAT.md)；输入侧（统一测量数据 `n / f Rz Iz`，
+Try2 元件队列、Try3 拓扑矩阵+边类型队列）约束见
+[INPUT_FORMAT.md](INPUT_FORMAT.md)。

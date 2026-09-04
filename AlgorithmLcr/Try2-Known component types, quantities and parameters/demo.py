@@ -14,6 +14,7 @@ import time
 import numpy as np
 
 import netgraph_id as ng
+from netgraph_id.adjacency import candidate_to_adjacency
 from netgraph_id.synthetic import make_duts, network_str, random_network
 
 
@@ -58,6 +59,9 @@ def run_duts(noiseless: bool) -> None:
         print(ng.report.format_report(
             f"{dut.name} (E={dut.compset.n}, {'noiseless' if noiseless else '0.5% noise'})",
             res.classes, dut.compset, truth_str=dut.describe()))
+        for rank, cl in enumerate(res.classes[:ng.Config().top_k], start=1):
+            print(candidate_to_adjacency(cl.representative,
+                                         dut.compset).format_block(label=rank))
         print(f"[{'HIT ' if hit else 'MISS'}] candidates={res.n_candidates} "
               f"kept={res.n_funnel_kept} structures={res.n_structures} "
               f"elapsed={res.elapsed:.2f}s "
@@ -85,6 +89,8 @@ def run_duts(noiseless: bool) -> None:
         print(f"[{'HIT ' if hit else 'MISS'}] best="
               f"{network_str(res.best.representative.network, cs)} "
               f"wRMSE={res.best.wrmse:.2e} elapsed={res.elapsed:.2f}s")
+        print(candidate_to_adjacency(res.best.representative,
+                                     cs).format_block(label=1))
     print(f"== random E=4 DUTs: {n_hit}/3 recovered ==")
 
 

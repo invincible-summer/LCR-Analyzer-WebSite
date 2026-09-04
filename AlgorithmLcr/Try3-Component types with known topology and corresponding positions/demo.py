@@ -17,6 +17,7 @@ import numpy as np
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from topofit_id import FitConfig, identify, identify_many, reduce_graph
+from topofit_id.adjacency import adjacency_notes, fitresult_to_adjacency
 from topofit_id.graph import eval_group
 from topofit_id.metric import matched_group_errors
 from topofit_id.synthetic import make_duts, measure
@@ -49,6 +50,8 @@ def main():
                                                FitConfig(seed=4))):
             print("\n#{} AICc={:.1f} wRMSE={:.4g}".format(rank + 1, r.aicc_val, r.wrmse))
             print(r.describe())
+            print(fitresult_to_adjacency(r).format_block(
+                label=rank + 1, extra_lines=adjacency_notes(r)))
         return
 
     n_ok = 0
@@ -89,6 +92,8 @@ def main():
                 float(np.median(kept)), float(np.max(kept)), r.wrmse))
         for i, why in sorted(r.reduction.dropped.items()):
             print("  edge {} ({}) dropped: {}".format(i, dut.edges[i][2], why))
+        print(fitresult_to_adjacency(r).format_block(
+            extra_lines=adjacency_notes(r)))
     print("=" * 72)
     print("{}/{} DUTs fitted at {} level".format(
         n_ok, len(duts), "noise floor" if sigma > 0 else "machine precision"))

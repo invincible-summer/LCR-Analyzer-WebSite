@@ -165,7 +165,9 @@ def _drop_dangling(wedges: list, dropped: dict, nodes: set):
         n, edge = victim
         wedges = [e for e in wedges if e is not edge]
         nodes = {m for m in nodes if m != n}
-        dropped[edge.members[0]] = "dangling"
+        # the victim may be a merged group: every original member is dropped
+        for m in edge.members:
+            dropped[m] = "dangling"
         changed_any = True
 
 
@@ -190,7 +192,8 @@ def reduce_graph(edges: list) -> ReductionResult:
         keep = []
         for e in work:
             if e.u == e.v:
-                dropped[e.members[0]] = "self-loop"
+                for m in e.members:
+                    dropped[m] = "self-loop"
                 changed = True
             else:
                 keep.append(e)
@@ -207,7 +210,8 @@ def reduce_graph(edges: list) -> ReductionResult:
             if comp[e.u] == root0:
                 keep.append(e)
             else:
-                dropped[e.members[0]] = "disconnected"
+                for m in e.members:
+                    dropped[m] = "disconnected"
                 changed = True
         work = keep
 

@@ -15,6 +15,7 @@ import time
 import numpy as np
 
 from rlc_id import Config, identify, synthetic, to_string
+from rlc_id.adjacency import candidate_to_adjacency
 from rlc_id.circuits import canonical, n_leaves
 from rlc_id.fit_engine_a import Candidate
 from rlc_id.report import format_report
@@ -81,9 +82,15 @@ def main() -> int:
         if rep is not None:
             print(f"        top-1: {to_string(rep.tree, rep.theta)}"
                   f"   wRMSE={rep.wrmse:.2e}  [{detail}]")
+            for line in candidate_to_adjacency(rep).format_block(label=1).splitlines():
+                print(f"        {line}")
         if args.verbose or status == "MISS":
             print(format_report(dut.name, res.classes,
                                 truth=dut.describe(), top_k=5))
+            for rank, eq in enumerate(res.classes[:5], start=1):
+                for line in candidate_to_adjacency(eq.representative) \
+                        .format_block(label=rank).splitlines():
+                    print(line)
         print()
 
     dt_all = time.time() - t_all

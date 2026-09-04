@@ -50,6 +50,8 @@ class FitConfig:
     seed: int = 0
     escalation_rounds: int = 3    # extra LHS batches while wrmse > threshold
     escalation_wrmse: float = 0.03
+    last_resort_rounds: int = 3   # stage E rounds (mixed restarts) when stuck
+    last_resort_batch: int = 24   # per-kind batch size in each stage E round
     vis_threshold: float = 0.1    # max|dlnZ/dlnv| below this = weak param
 
 
@@ -554,6 +556,29 @@ def fit_graph(f, z, edges: list, config: FitConfig | None = None) -> FitResult:
             n_used += 1
             if wrmse_of(results[0][0]) <= cfg.escalation_wrmse:
                 break
+
+    # stage E: last-resort mixed restarts (campaign hard cases).  The A-D
+    # stages escape most wrong basins; the rare remainder (multi-tank +
+    # weakly determined, ~0.3%) need a larger MIXED budget -- global LHS
+    # redraws AND multi-scale perturbation around the incumbent (basin
+    # hopping; sigma 2/1/0.5 decades covers basins separated by different
+    # barrier widths) AND product-aligned restarts -- to move at all.
+    # Fires only when still stuck, so the median case pays nothing.
+    for _round in range(max(0, cfg.last_resort_rounds)):
+        if wrmse_of(results[0][0]) <= cfg.escalation_wrmse:
+            break
+        extra = _lhs(model, lb, ub, cfg.last_resort_batch, rng)
+        extra += _lhs_center(model, lb, ub, cfg.last_resort_batch, rng)
+        for sig in (2.0, 1.0, 0.5):
+            extra += _perturb_starts(results[0][1], lb, ub,
+                                     cfg.last_resort_batch // 2, rng,
+                                     sigma=sig)
+        extra += _pair_resonance_restarts(model, units, lb, ub, s_t, z_t,
+                                          results[0][1])
+        results = _run_starts(obj, extra, lb, ub, cfg) + results
+        results.sort(key=lambda t: t[0])
+        n_used += len(extra)
+
     rss_n, best_x = _polish(obj, [x for _r, x in results[:cfg.n_polish]],
                             lb, ub, cfg)
     if best_x is None or not np.isfinite(rss_n) or rss_n > results[0][0]:

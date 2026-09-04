@@ -1,0 +1,817 @@
+[
+ {
+  "id": "C1",
+  "name": "exact/no-noise: ser_rc",
+  "ok": true,
+  "seconds": 0.039687581000180217,
+  "detail": "wrmse=8.9e-15 curve=4.4e-13 rank=2/2 starts=29"
+ },
+ {
+  "id": "C1",
+  "name": "exact/no-noise: par_rlc",
+  "ok": true,
+  "seconds": 0.12946183200074302,
+  "detail": "wrmse=2.3e-16 curve=9.5e-16 rank=4/4 starts=33"
+ },
+ {
+  "id": "C1",
+  "name": "exact/no-noise: ind_parasitic",
+  "ok": true,
+  "seconds": 0.19553428600011102,
+  "detail": "wrmse=3.1e-16 curve=1.6e-15 rank=3/3 starts=33"
+ },
+ {
+  "id": "C1",
+  "name": "exact/no-noise: ladder",
+  "ok": true,
+  "seconds": 0.11348570799964364,
+  "detail": "wrmse=4.3e-12 curve=6.3e-11 rank=4/4 starts=32"
+ },
+ {
+  "id": "C1",
+  "name": "exact/no-noise: bridge",
+  "ok": true,
+  "seconds": 0.147202598000149,
+  "detail": "wrmse=3.3e-15 curve=1.8e-14 rank=3/5 starts=29"
+ },
+ {
+  "id": "C1",
+  "name": "exact/no-noise: reducible",
+  "ok": true,
+  "seconds": 0.023177129000032437,
+  "detail": "wrmse=1.3e-16 curve=2.6e-16 rank=1/1 starts=29"
+ },
+ {
+  "id": "C1",
+  "name": "exact/no-noise: par_rc",
+  "ok": true,
+  "seconds": 0.03200222799932817,
+  "detail": "wrmse=1.8e-16 curve=4.9e-16 rank=2/2 starts=29"
+ },
+ {
+  "id": "C1",
+  "name": "exact/no-noise: par_ll",
+  "ok": true,
+  "seconds": 0.0664078249992599,
+  "detail": "wrmse=2.2e-16 curve=5.5e-16 rank=4/4 starts=29"
+ },
+ {
+  "id": "C1",
+  "name": "exact/no-noise: ser_rl_absorb",
+  "ok": true,
+  "seconds": 0.03435095200075011,
+  "detail": "wrmse=8.2e-16 curve=8.1e-15 rank=2/2 starts=29"
+ },
+ {
+  "id": "C1",
+  "name": "exact/no-noise: cap_parasitic",
+  "ok": true,
+  "seconds": 0.06446880099974805,
+  "detail": "wrmse=1.0e-15 curve=4.6e-15 rank=3/3 starts=33"
+ },
+ {
+  "id": "C1",
+  "name": "exact/no-noise: double_tank",
+  "ok": true,
+  "seconds": 0.957010412001182,
+  "detail": "wrmse=4.1e-15 curve=2.9e-14 rank=6/6 starts=47"
+ },
+ {
+  "id": "C1",
+  "name": "exact/no-noise: nested_red",
+  "ok": true,
+  "seconds": 0.03686630300035176,
+  "detail": "wrmse=8.5e-17 curve=9.7e-16 rank=1/1 starts=29"
+ },
+ {
+  "id": "C2",
+  "name": "noisy/0.5%: ser_rc",
+  "ok": true,
+  "seconds": 0.08114473699970404,
+  "detail": "wrmse=0.0077 curve=0.000 p50=0.02% pmax=0.03% starts=29"
+ },
+ {
+  "id": "C2",
+  "name": "noisy/0.5%: par_rlc",
+  "ok": true,
+  "seconds": 0.26782308499969076,
+  "detail": "wrmse=0.0076 curve=0.006 p50=0.06% pmax=0.55% starts=37"
+ },
+ {
+  "id": "C2",
+  "name": "noisy/0.5%: ind_parasitic",
+  "ok": true,
+  "seconds": 0.19886465599847725,
+  "detail": "wrmse=0.0076 curve=0.001 p50=0.12% pmax=0.12% starts=33"
+ },
+ {
+  "id": "C2",
+  "name": "noisy/0.5%: ladder",
+  "ok": true,
+  "seconds": 0.07251515200005088,
+  "detail": "wrmse=0.0075 curve=0.002 p50=0.13% pmax=0.20% starts=32"
+ },
+ {
+  "id": "C2",
+  "name": "noisy/0.5%: bridge",
+  "ok": true,
+  "seconds": 0.16795485699913115,
+  "detail": "wrmse=0.0077 curve=0.001 starts=29"
+ },
+ {
+  "id": "C2",
+  "name": "noisy/0.5%: reducible",
+  "ok": true,
+  "seconds": 0.025333061999845086,
+  "detail": "wrmse=0.0077 curve=0.000 p50=0.04% pmax=0.04% starts=29"
+ },
+ {
+  "id": "C2",
+  "name": "noisy/0.5%: par_rc",
+  "ok": true,
+  "seconds": 0.03247380500033614,
+  "detail": "wrmse=0.0076 curve=0.001 p50=0.09% pmax=0.15% starts=29"
+ },
+ {
+  "id": "C2",
+  "name": "noisy/0.5%: par_ll",
+  "ok": true,
+  "seconds": 0.050447534000340966,
+  "detail": "wrmse=0.0076 curve=0.001 starts=29"
+ },
+ {
+  "id": "C2",
+  "name": "noisy/0.5%: ser_rl_absorb",
+  "ok": true,
+  "seconds": 0.03258298600121634,
+  "detail": "wrmse=0.0077 curve=0.001 p50=0.03% pmax=0.06% starts=29"
+ },
+ {
+  "id": "C2",
+  "name": "noisy/0.5%: cap_parasitic",
+  "ok": true,
+  "seconds": 0.06162039199989522,
+  "detail": "wrmse=0.0076 curve=0.001 p50=0.08% pmax=0.16% starts=33"
+ },
+ {
+  "id": "C2",
+  "name": "noisy/0.5%: double_tank",
+  "ok": true,
+  "seconds": 0.37991434400100843,
+  "detail": "wrmse=0.0073 curve=0.008 p50=0.08% pmax=0.20% starts=47"
+ },
+ {
+  "id": "C2",
+  "name": "noisy/0.5%: nested_red",
+  "ok": true,
+  "seconds": 0.021316753000064637,
+  "detail": "wrmse=0.0077 curve=0.000 p50=0.04% pmax=0.04% starts=29"
+ },
+ {
+  "id": "C3",
+  "name": "scale 0.01x: ser_rc",
+  "ok": true,
+  "seconds": 0.04269307899994601,
+  "detail": "wrmse=6.4e-13 n_visible=2/2"
+ },
+ {
+  "id": "C3",
+  "name": "scale  0.1x: ser_rc",
+  "ok": true,
+  "seconds": 0.039511606000814936,
+  "detail": "wrmse=6.5e-13 n_visible=2/2"
+ },
+ {
+  "id": "C3",
+  "name": "scale   10x: ser_rc",
+  "ok": true,
+  "seconds": 0.040415956998913316,
+  "detail": "wrmse=1.0e-14 n_visible=2/2"
+ },
+ {
+  "id": "C3",
+  "name": "scale  100x: ser_rc",
+  "ok": true,
+  "seconds": 0.040847829999620444,
+  "detail": "wrmse=1.3e-15 n_visible=2/2"
+ },
+ {
+  "id": "C3",
+  "name": "scale 0.01x: par_rlc",
+  "ok": true,
+  "seconds": 0.10485632100062503,
+  "detail": "wrmse=2.0e-16 n_visible=3/3"
+ },
+ {
+  "id": "C3",
+  "name": "scale  0.1x: par_rlc",
+  "ok": true,
+  "seconds": 0.0974384099990857,
+  "detail": "wrmse=2.5e-16 n_visible=4/3"
+ },
+ {
+  "id": "C3",
+  "name": "scale   10x: par_rlc",
+  "ok": true,
+  "seconds": 0.06529545400007919,
+  "detail": "wrmse=1.9e-16 n_visible=4/3"
+ },
+ {
+  "id": "C3",
+  "name": "scale  100x: par_rlc",
+  "ok": true,
+  "seconds": 0.06792390699956741,
+  "detail": "wrmse=2.6e-16 n_visible=4/3"
+ },
+ {
+  "id": "C3",
+  "name": "scale 0.01x: ladder",
+  "ok": true,
+  "seconds": 0.09126037799978803,
+  "detail": "wrmse=5.3e-12 n_visible=4/3"
+ },
+ {
+  "id": "C3",
+  "name": "scale  0.1x: ladder",
+  "ok": true,
+  "seconds": 0.07220707700071216,
+  "detail": "wrmse=2.6e-12 n_visible=4/3"
+ },
+ {
+  "id": "C3",
+  "name": "scale   10x: ladder",
+  "ok": true,
+  "seconds": 0.13525526899866236,
+  "detail": "wrmse=3.4e-12 n_visible=3/3"
+ },
+ {
+  "id": "C3",
+  "name": "scale  100x: ladder",
+  "ok": true,
+  "seconds": 0.2074476939997112,
+  "detail": "wrmse=5.4e-12 n_visible=3/3"
+ },
+ {
+  "id": "C3",
+  "name": "scale 0.01x: double_tank",
+  "ok": true,
+  "seconds": 0.38041760899977817,
+  "detail": "wrmse=3.8e-15 n_visible=6/4"
+ },
+ {
+  "id": "C3",
+  "name": "scale  0.1x: double_tank",
+  "ok": true,
+  "seconds": 0.8123009160008223,
+  "detail": "wrmse=3.4e-15 n_visible=6/4"
+ },
+ {
+  "id": "C3",
+  "name": "scale   10x: double_tank",
+  "ok": true,
+  "seconds": 0.799513838999701,
+  "detail": "wrmse=3.4e-15 n_visible=4/4"
+ },
+ {
+  "id": "C3",
+  "name": "scale  100x: double_tank",
+  "ok": true,
+  "seconds": 0.7668721390000428,
+  "detail": "wrmse=6.4e-15 n_visible=4/4"
+ },
+ {
+  "id": "C4",
+  "name": "par tank f0=1000 Q=100",
+  "ok": true,
+  "seconds": 0.23905745499905606,
+  "detail": "wrmse=0.0077 L*C err +0.1% R weak=True R=568"
+ },
+ {
+  "id": "C4",
+  "name": "par tank f0=1000 Q=1000",
+  "ok": true,
+  "seconds": 0.2610741839998809,
+  "detail": "wrmse=0.0078 L*C err +0.1% R weak=True R=3.1e+03"
+ },
+ {
+  "id": "C4",
+  "name": "par tank f0=1000 Q=10000",
+  "ok": true,
+  "seconds": 0.19776481699955184,
+  "detail": "wrmse=0.0078 L*C err +0.1% R weak=True R=5.61e+03"
+ },
+ {
+  "id": "C4",
+  "name": "par tank f0=1000 Q=100000",
+  "ok": true,
+  "seconds": 0.13534368900036498,
+  "detail": "wrmse=0.0078 L*C err +0.1% R weak=True R=6.1e+03"
+ },
+ {
+  "id": "C4",
+  "name": "par tank f0=100000 Q=100",
+  "ok": true,
+  "seconds": 0.1517096629995649,
+  "detail": "wrmse=0.0078 L*C err -0.0% R weak=True R=6.8e+04"
+ },
+ {
+  "id": "C4",
+  "name": "par tank f0=100000 Q=1000",
+  "ok": true,
+  "seconds": 0.173138084999664,
+  "detail": "wrmse=0.0078 L*C err -0.0% R weak=True R=3.02e+06"
+ },
+ {
+  "id": "C4",
+  "name": "par tank f0=100000 Q=10000",
+  "ok": true,
+  "seconds": 0.25288358599937055,
+  "detail": "wrmse=0.0078 L*C err -0.0% R weak=True R=1e+07"
+ },
+ {
+  "id": "C4",
+  "name": "par tank f0=100000 Q=100000",
+  "ok": true,
+  "seconds": 0.25847630700081936,
+  "detail": "wrmse=0.0078 L*C err -0.0% R weak=True R=1e+07"
+ },
+ {
+  "id": "C5",
+  "name": "ser notch f0=10000 Q=100",
+  "ok": true,
+  "seconds": 0.10185144999923068,
+  "detail": "wrmse=0.0071 starts=33"
+ },
+ {
+  "id": "C5",
+  "name": "ser notch f0=10000 Q=10000",
+  "ok": true,
+  "seconds": 0.11102884899992205,
+  "detail": "wrmse=0.0071 starts=33"
+ },
+ {
+  "id": "C5",
+  "name": "ser notch f0=10000 Q=1e+06",
+  "ok": true,
+  "seconds": 0.11956961299983959,
+  "detail": "wrmse=0.0071 starts=33"
+ },
+ {
+  "id": "C5",
+  "name": "ser notch f0=1e+06 Q=100",
+  "ok": true,
+  "seconds": 0.10748259300089558,
+  "detail": "wrmse=0.0071 starts=33"
+ },
+ {
+  "id": "C5",
+  "name": "ser notch f0=1e+06 Q=10000",
+  "ok": true,
+  "seconds": 0.11352476000138267,
+  "detail": "wrmse=0.0071 starts=33"
+ },
+ {
+  "id": "C5",
+  "name": "ser notch f0=1e+06 Q=1e+06",
+  "ok": true,
+  "seconds": 0.1182160139996995,
+  "detail": "wrmse=0.0071 starts=33"
+ },
+ {
+  "id": "C6",
+  "name": "twin_tank seed=401",
+  "ok": true,
+  "boundary": true,
+  "seconds": 1.6022467450002296,
+  "detail": "curve 0.118 with weak=True rank-def=True: peak damping undersampled (information boundary)"
+ },
+ {
+  "id": "C6",
+  "name": "twin_tank seed=402",
+  "ok": true,
+  "seconds": 3.8406584069998644,
+  "detail": "wrmse=0.0076 curve=0.038 starts=217"
+ },
+ {
+  "id": "C6",
+  "name": "double_tank_sharp seed=401",
+  "ok": true,
+  "seconds": 0.47354534700025397,
+  "detail": "wrmse=0.0057 curve=0.008 starts=47"
+ },
+ {
+  "id": "C6",
+  "name": "double_tank_sharp seed=402",
+  "ok": true,
+  "seconds": 0.38765336200049205,
+  "detail": "wrmse=0.0077 curve=0.010 starts=47"
+ },
+ {
+  "id": "C7",
+  "name": "detect peak f0=10000",
+  "ok": true,
+  "seconds": 0.0001146060003520688,
+  "detail": "detected rel err 26.9% (grid step ~61%)"
+ },
+ {
+  "id": "C7",
+  "name": "detect peak f0=300000",
+  "ok": true,
+  "seconds": 9.145700096269138e-05,
+  "detail": "detected rel err 18.7% (grid step ~61%)"
+ },
+ {
+  "id": "C7",
+  "name": "detect peak f0=2e+06",
+  "ok": true,
+  "seconds": 8.644000081403647e-05,
+  "detail": "detected rel err 19.8% (grid step ~61%)"
+ },
+ {
+  "id": "C7",
+  "name": "flat data -> none",
+  "ok": true,
+  "seconds": 3.537299926392734e-05,
+  "detail": "none detected OK"
+ },
+ {
+  "id": "C7",
+  "name": "detect notch f0=1e5",
+  "ok": true,
+  "seconds": 8.09619996289257e-05,
+  "detail": "notch detected, rel err 14.7%"
+ },
+ {
+  "id": "C8",
+  "name": "hidden resonance Q=100000",
+  "ok": true,
+  "seconds": 0.1359055670000089,
+  "detail": "wrmse=0.0065 starts=33"
+ },
+ {
+  "id": "C8",
+  "name": "hidden resonance Q=1e+06",
+  "ok": true,
+  "seconds": 0.18573078500048723,
+  "detail": "wrmse=0.0065 starts=33"
+ },
+ {
+  "id": "C9",
+  "name": "degenerate: hanging_cycle",
+  "ok": true,
+  "seconds": 0.1007544849999249,
+  "detail": "wrmse=0.0073 curve=0.000 rank=1/5 ng=4"
+ },
+ {
+  "id": "C9",
+  "name": "degenerate: ser_L_L",
+  "ok": true,
+  "seconds": 0.07680148200051917,
+  "detail": "wrmse=0.0072 curve=0.001 rank=2/2 ng=1"
+ },
+ {
+  "id": "C9",
+  "name": "degenerate: ser_C_C",
+  "ok": true,
+  "seconds": 0.030803796000327566,
+  "detail": "wrmse=0.0072 curve=0.001 rank=1/1 ng=1"
+ },
+ {
+  "id": "C9",
+  "name": "degenerate: par_R_L",
+  "ok": true,
+  "seconds": 0.05405611999958637,
+  "detail": "wrmse=0.0068 curve=0.003 rank=3/3 ng=2"
+ },
+ {
+  "id": "C9",
+  "name": "degenerate: all_R_series",
+  "ok": true,
+  "seconds": 0.024941568000940606,
+  "detail": "wrmse=0.0073 curve=0.000 rank=1/1 ng=1"
+ },
+ {
+  "id": "C9",
+  "name": "degenerate: par_ll_named",
+  "ok": true,
+  "seconds": 0.0636027769996872,
+  "detail": "wrmse=0.0072 curve=0.003 rank=4/4 ng=2"
+ },
+ {
+  "id": "C10",
+  "name": "dynrange: wide_ladder",
+  "ok": true,
+  "seconds": 0.1325192380008957,
+  "detail": "wrmse=0.0067 curve=0.002 at_bound=[] weak=[('v',), ('L', 'Rd')]"
+ },
+ {
+  "id": "C10",
+  "name": "dynrange: tiny_all",
+  "ok": true,
+  "seconds": 0.052705520000017714,
+  "detail": "wrmse=0.0073 curve=0.000 at_bound=[('v',)] weak=[('v',)]"
+ },
+ {
+  "id": "C10",
+  "name": "dynrange: huge_R",
+  "ok": true,
+  "seconds": 0.04362935000062862,
+  "detail": "wrmse=0.0069 curve=0.004 at_bound=[] weak=[]"
+ },
+ {
+  "id": "C11",
+  "name": "ser_rc M=20",
+  "ok": true,
+  "seconds": 0.05759630000102334,
+  "detail": "wrmse=0.0077"
+ },
+ {
+  "id": "C11",
+  "name": "ser_rc M=60",
+  "ok": true,
+  "seconds": 0.07096439299857593,
+  "detail": "wrmse=0.0077"
+ },
+ {
+  "id": "C11",
+  "name": "ser_rc band=100-1e+07",
+  "ok": true,
+  "seconds": 0.06193615200027125,
+  "detail": "wrmse=0.0076"
+ },
+ {
+  "id": "C11",
+  "name": "ser_rc band=10-1e+08",
+  "ok": true,
+  "seconds": 0.058643293001296115,
+  "detail": "wrmse=0.0075"
+ },
+ {
+  "id": "C11",
+  "name": "double_tank M=20",
+  "ok": true,
+  "seconds": 0.7449308030008979,
+  "detail": "wrmse=0.0072"
+ },
+ {
+  "id": "C11",
+  "name": "double_tank M=60",
+  "ok": true,
+  "seconds": 0.7197713440000371,
+  "detail": "wrmse=0.0076"
+ },
+ {
+  "id": "C11",
+  "name": "double_tank band=100-1e+07",
+  "ok": true,
+  "seconds": 0.664376534999974,
+  "detail": "wrmse=0.0074"
+ },
+ {
+  "id": "C11",
+  "name": "double_tank band=10-1e+08",
+  "ok": true,
+  "seconds": 0.6223814250006399,
+  "detail": "wrmse=0.0071"
+ },
+ {
+  "id": "C12",
+  "name": "invariants random #0",
+  "ok": true,
+  "seconds": 0.11151710699959949,
+  "detail": "jacFD=8.6e-10 ReZ_min=1.24e+02 wrmse=0.0076"
+ },
+ {
+  "id": "C12",
+  "name": "invariants random #1",
+  "ok": true,
+  "seconds": 0.03821781700025895,
+  "detail": "jacFD=2.7e-11 ReZ_min=0.00e+00 wrmse=0.0064"
+ },
+ {
+  "id": "C12",
+  "name": "invariants random #2",
+  "ok": true,
+  "seconds": 0.04230780199941364,
+  "detail": "jacFD=8.3e-11 ReZ_min=0.00e+00 wrmse=0.0067"
+ },
+ {
+  "id": "C12",
+  "name": "invariants random #3",
+  "ok": true,
+  "seconds": 0.03892916699987836,
+  "detail": "jacFD=9.4e-12 ReZ_min=5.04e+00 wrmse=0.0073"
+ },
+ {
+  "id": "C12",
+  "name": "invariants random #4",
+  "ok": true,
+  "seconds": 0.03180191100000229,
+  "detail": "jacFD=3.1e-11 ReZ_min=0.00e+00 wrmse=0.0069"
+ },
+ {
+  "id": "C12",
+  "name": "invariants random #5",
+  "ok": true,
+  "seconds": 0.16883799000061117,
+  "detail": "jacFD=2.4e-06 ReZ_min=6.99e+00 wrmse=0.0054"
+ },
+ {
+  "id": "C13",
+  "name": "identify_many ranking",
+  "ok": true,
+  "seconds": 1.9313691280003695,
+  "detail": "top aicc graph wrmse=0.0066"
+ },
+ {
+  "id": "C13",
+  "name": "port-open raises",
+  "ok": true,
+  "seconds": 0.0001763520012900699,
+  "detail": "raises OK"
+ },
+ {
+  "id": "C14",
+  "name": "par_L_same",
+  "ok": true,
+  "seconds": 0.10601451300135523,
+  "detail": "wrmse=0.0074 curve ok (family representative)"
+ },
+ {
+  "id": "C14",
+  "name": "par_L_diff",
+  "ok": true,
+  "seconds": 0.12483824499940965,
+  "detail": "wrmse=0.0074 pmax=0.01733981355674769"
+ },
+ {
+  "id": "C15",
+  "name": "report completeness #0",
+  "ok": true,
+  "seconds": 0.017010883000693866,
+  "detail": "dropped=[1, 2] groups=1"
+ },
+ {
+  "id": "C15",
+  "name": "report completeness #1",
+  "ok": true,
+  "seconds": 0.024544161999074277,
+  "detail": "dropped=[1, 2, 3] groups=1"
+ },
+ {
+  "id": "C15",
+  "name": "report completeness #2",
+  "ok": true,
+  "seconds": 0.02485043399974529,
+  "detail": "dropped=[1, 2] groups=1"
+ },
+ {
+  "id": "C15",
+  "name": "report completeness #3",
+  "ok": true,
+  "seconds": 0.021402013999249903,
+  "detail": "dropped=[3, 4] groups=1"
+ },
+ {
+  "id": "C16",
+  "name": "random seed=7000",
+  "ok": true,
+  "seconds": 0.04656807799983653,
+  "detail": "wrmse=0.0065 curve=0.001 E=4"
+ },
+ {
+  "id": "C16",
+  "name": "random seed=7001",
+  "ok": true,
+  "boundary": true,
+  "seconds": 0.22960198700093315,
+  "detail": "curve 0.287 while wrmse at floor, weak=True rank-def=False (sub-sampling-gap feature; information boundary)"
+ },
+ {
+  "id": "C16",
+  "name": "random seed=7002",
+  "ok": true,
+  "seconds": 0.26225306800006365,
+  "detail": "wrmse=0.0073 curve=0.007 E=3"
+ },
+ {
+  "id": "C16",
+  "name": "random seed=7003",
+  "ok": true,
+  "seconds": 0.05235491399980674,
+  "detail": "wrmse=0.0066 curve=0.001 E=2"
+ },
+ {
+  "id": "C16",
+  "name": "random seed=7004",
+  "ok": true,
+  "seconds": 0.2631801389998145,
+  "detail": "wrmse=0.0063 curve=0.005 E=3"
+ },
+ {
+  "id": "C16",
+  "name": "random seed=7005",
+  "ok": true,
+  "seconds": 0.04250194199994439,
+  "detail": "wrmse=0.0069 curve=0.001 E=1"
+ },
+ {
+  "id": "C16",
+  "name": "random seed=7006",
+  "ok": true,
+  "seconds": 0.308663499999966,
+  "detail": "wrmse=0.0063 curve=0.005 E=5"
+ },
+ {
+  "id": "C16",
+  "name": "random seed=7007",
+  "ok": true,
+  "boundary": true,
+  "seconds": 10.603104499999972,
+  "detail": "curve 1.010 while wrmse at floor, weak=True rank-def=True (sub-sampling-gap feature; information boundary)"
+ },
+ {
+  "id": "C16",
+  "name": "random seed=7008",
+  "ok": true,
+  "seconds": 0.23740680800074188,
+  "detail": "wrmse=0.0071 curve=0.003 E=6"
+ },
+ {
+  "id": "C16",
+  "name": "random seed=7009",
+  "ok": true,
+  "seconds": 0.026706210999691393,
+  "detail": "wrmse=0.0082 curve=0.000 E=2"
+ },
+ {
+  "id": "C16",
+  "name": "random seed=7010",
+  "ok": true,
+  "seconds": 0.11986143100148183,
+  "detail": "wrmse=0.0077 curve=0.001 E=7"
+ },
+ {
+  "id": "C16",
+  "name": "random seed=7011",
+  "ok": true,
+  "seconds": 0.1848240489998716,
+  "detail": "wrmse=0.0069 curve=0.002 E=6"
+ },
+ {
+  "id": "C16",
+  "name": "random seed=7012",
+  "ok": true,
+  "seconds": 0.4401847810004256,
+  "detail": "wrmse=0.0056 curve=0.005 E=7"
+ },
+ {
+  "id": "C16",
+  "name": "random seed=7013",
+  "ok": true,
+  "seconds": 0.046388798000407405,
+  "detail": "wrmse=0.0076 curve=0.000 E=2"
+ },
+ {
+  "id": "C16",
+  "name": "random seed=7014",
+  "ok": true,
+  "seconds": 0.12509770699944056,
+  "detail": "wrmse=0.0070 curve=0.000 E=2"
+ },
+ {
+  "id": "C16",
+  "name": "random seed=7015",
+  "ok": true,
+  "seconds": 0.0273027639996144,
+  "detail": "wrmse=0.0058 curve=0.000 E=4"
+ },
+ {
+  "id": "C16",
+  "name": "random seed=7016",
+  "ok": true,
+  "seconds": 0.09005625499958114,
+  "detail": "wrmse=0.0064 curve=0.003 E=4"
+ },
+ {
+  "id": "C16",
+  "name": "random seed=7017",
+  "ok": true,
+  "seconds": 0.08549475799918582,
+  "detail": "wrmse=0.0067 curve=0.000 E=4"
+ },
+ {
+  "id": "C16",
+  "name": "random seed=7018",
+  "ok": true,
+  "seconds": 0.4093970649992116,
+  "detail": "wrmse=0.0070 curve=0.001 E=4"
+ },
+ {
+  "id": "C16",
+  "name": "random seed=7019",
+  "ok": true,
+  "seconds": 0.07721242899970093,
+  "detail": "wrmse=0.0072 curve=0.003 E=4"
+ }
+]

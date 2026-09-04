@@ -70,6 +70,44 @@ def test_dangling_and_disconnected_dropped():
     assert r.dropped[3] == "disconnected"
 
 
+def test_dropped_merged_group_reports_all_members():
+    """Regression: a group formed by F2/F3 that later becomes dangling (or
+    disconnected) must report EVERY original member as dropped -- the
+    earlier code recorded only members[0], silently losing edges from
+    EdgeReport/adjacency_notes."""
+    # hanging parallel R pair: F2 merges (0,2)x2, the merged group then
+    # dangles off node 0
+    r = reduce_graph([(0, 1, "R"), (0, 2, "R"), (0, 2, "R")])
+    assert len(r.edges) == 1
+    assert r.dropped == {1: "dangling", 2: "dangling"}
+    # parallel pair + dangling C beyond it: C drops first (leaf), the merged
+    # group then dangles
+    r2 = reduce_graph([(0, 1, "R"), (0, 2, "R"), (0, 2, "R"), (2, 3, "C")])
+    assert len(r2.edges) == 1
+    assert r2.dropped == {3: "dangling", 1: "dangling", 2: "dangling"}
+    # hanging parallel C pair
+    r3 = reduce_graph([(0, 1, "R"), (0, 2, "C"), (0, 2, "C")])
+    assert r3.dropped == {1: "dangling", 2: "dangling"}
+
+
+def test_every_original_edge_reported_exactly_once():
+    """Every input edge index appears exactly once across reduced-group
+    members and the dropped dict (reporting contract, DESIGN sec.5.6)."""
+    cases = [
+        [(0, 1, "R"), (0, 2, "R"), (0, 2, "R")],
+        [(0, 1, "R"), (0, 2, "R"), (0, 2, "R"), (2, 3, "C")],
+        [(0, 1, "R"), (0, 2, "L"), (2, 3, "C"), (3, 0, "R")],
+        [(0, 2, "R"), (2, 4, "R"), (4, 1, "R"), (4, 4, "C"), (2, 2, "L")],
+        [(0, 1, "R"), (2, 2, "L"), (3, 4, "C"), (3, 4, "C")],
+    ]
+    for edges in cases:
+        r = reduce_graph(edges)
+        seen = list(r.dropped)
+        for e in r.edges:
+            seen.extend(e.members)
+        assert sorted(seen) == list(range(len(edges))), edges
+
+
 def test_self_loop_dropped():
     r = reduce_graph([(0, 1, "R"), (1, 1, "C")])
     assert len(r.edges) == 1

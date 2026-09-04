@@ -1,0 +1,807 @@
+[
+ {
+  "id": "D1",
+  "name": "structures E=1",
+  "ok": true,
+  "seconds": 2.253700040455442e-05,
+  "detail": "E=1 -> 1 structures"
+ },
+ {
+  "id": "D1",
+  "name": "structures E=2",
+  "ok": true,
+  "seconds": 5.819600119139068e-05,
+  "detail": "E=2 -> 2 structures"
+ },
+ {
+  "id": "D1",
+  "name": "structures E=3",
+  "ok": true,
+  "seconds": 0.0001947070013557095,
+  "detail": "E=3 -> 4 structures"
+ },
+ {
+  "id": "D1",
+  "name": "structures E=4",
+  "ok": true,
+  "seconds": 0.0018714119996730005,
+  "detail": "E=4 -> 11 structures"
+ },
+ {
+  "id": "D2",
+  "name": "coverage E=2 set A",
+  "ok": true,
+  "seconds": 0.0015335899988713209,
+  "detail": "2 candidates cover all 3 admissible labeled wirings"
+ },
+ {
+  "id": "D2",
+  "name": "coverage E=2 set B",
+  "ok": true,
+  "seconds": 0.0011271640014456352,
+  "detail": "2 candidates cover all 3 admissible labeled wirings"
+ },
+ {
+  "id": "D2",
+  "name": "coverage E=3 set A",
+  "ok": true,
+  "seconds": 0.007666609999432694,
+  "detail": "10 candidates cover all 25 admissible labeled wirings"
+ },
+ {
+  "id": "D2",
+  "name": "coverage E=3 set B",
+  "ok": true,
+  "seconds": 0.006930592000571778,
+  "detail": "10 candidates cover all 25 admissible labeled wirings"
+ },
+ {
+  "id": "D2",
+  "name": "coverage E=3 set C",
+  "ok": true,
+  "seconds": 0.006734837001204141,
+  "detail": "10 candidates cover all 25 admissible labeled wirings"
+ },
+ {
+  "id": "D2",
+  "name": "coverage E=3 set D",
+  "ok": true,
+  "seconds": 0.006870633000289672,
+  "detail": "10 candidates cover all 25 admissible labeled wirings"
+ },
+ {
+  "id": "D2",
+  "name": "coverage E=4 set A",
+  "ok": true,
+  "seconds": 0.15641139299987117,
+  "detail": "98 candidates cover all 435 admissible labeled wirings"
+ },
+ {
+  "id": "D2",
+  "name": "coverage E=4 set B",
+  "ok": true,
+  "seconds": 0.15070285899855662,
+  "detail": "98 candidates cover all 435 admissible labeled wirings"
+ },
+ {
+  "id": "D2",
+  "name": "coverage E=4 set C",
+  "ok": true,
+  "seconds": 0.15044242600015423,
+  "detail": "98 candidates cover all 435 admissible labeled wirings"
+ },
+ {
+  "id": "D2",
+  "name": "coverage E=4 set D",
+  "ok": true,
+  "seconds": 0.16188532800151734,
+  "detail": "98 candidates cover all 435 admissible labeled wirings"
+ },
+ {
+  "id": "D2",
+  "name": "coverage E=3 duplicate Rs",
+  "ok": true,
+  "seconds": 0.007645711000805022,
+  "detail": "7 candidates cover all 25 admissible labeled wirings"
+ },
+ {
+  "id": "D2",
+  "name": "coverage E=4 duplicates",
+  "ok": true,
+  "seconds": 0.20123494199833658,
+  "detail": "56 candidates cover all 435 admissible labeled wirings"
+ },
+ {
+  "id": "D2",
+  "name": "coverage E=5 sampled A",
+  "ok": true,
+  "seconds": 3.598375595000107,
+  "detail": "1426 candidates cover 400 sampled admissible wirings of 5"
+ },
+ {
+  "id": "D2",
+  "name": "coverage E=5 sampled B",
+  "ok": true,
+  "seconds": 3.1463781490001566,
+  "detail": "1426 candidates cover 400 sampled admissible wirings of 5"
+ },
+ {
+  "id": "D3",
+  "name": "R0 random agreement #0",
+  "ok": true,
+  "seconds": 0.0001840230015659472,
+  "detail": "clean graph (agreement ok)"
+ },
+ {
+  "id": "D3",
+  "name": "R0 random agreement #1",
+  "ok": true,
+  "seconds": 0.0008351520009455271,
+  "detail": "detector agreement ok (V=6 E=7)"
+ },
+ {
+  "id": "D3",
+  "name": "R0 random agreement #2",
+  "ok": true,
+  "seconds": 0.00048530900130572263,
+  "detail": "detector agreement ok (V=4 E=4)"
+ },
+ {
+  "id": "D3",
+  "name": "R0 random agreement #3",
+  "ok": true,
+  "seconds": 5.199800034461077e-05,
+  "detail": "clean graph (agreement ok)"
+ },
+ {
+  "id": "D3",
+  "name": "R0 random agreement #4",
+  "ok": true,
+  "seconds": 9.267899986298289e-05,
+  "detail": "clean graph (agreement ok)"
+ },
+ {
+  "id": "D3",
+  "name": "R0 random agreement #5",
+  "ok": true,
+  "seconds": 7.275800089701079e-05,
+  "detail": "clean graph (agreement ok)"
+ },
+ {
+  "id": "D3",
+  "name": "R0 matched Z-equivalence #0",
+  "ok": true,
+  "seconds": 0.0005956060012977105,
+  "detail": "dead hanging chain invisible (rel<1e-9, closed form ok)"
+ },
+ {
+  "id": "D3",
+  "name": "R0 matched Z-equivalence #1",
+  "ok": true,
+  "seconds": 0.0005758009992860025,
+  "detail": "dead hanging chain invisible (rel<1e-9, closed form ok)"
+ },
+ {
+  "id": "D3",
+  "name": "R0 matched Z-equivalence #2",
+  "ok": true,
+  "seconds": 0.0005658789996232372,
+  "detail": "dead hanging chain invisible (rel<1e-9, closed form ok)"
+ },
+ {
+  "id": "D3",
+  "name": "R0 matched Z-equivalence #3",
+  "ok": true,
+  "seconds": 0.0006006389994581696,
+  "detail": "dead hanging chain invisible (rel<1e-9, closed form ok)"
+ },
+ {
+  "id": "D4",
+  "name": "funnel keeps truth E=2 #0",
+  "ok": true,
+  "seconds": 0.0014051350008230656,
+  "detail": "E=2 kept 1/2 truth kept"
+ },
+ {
+  "id": "D4",
+  "name": "funnel keeps truth E=3 #1",
+  "ok": true,
+  "seconds": 0.0015538999996351777,
+  "detail": "E=3 kept 10/10 truth kept"
+ },
+ {
+  "id": "D4",
+  "name": "funnel keeps truth E=4 #2",
+  "ok": true,
+  "seconds": 0.005539777001104085,
+  "detail": "E=4 kept 98/98 truth kept"
+ },
+ {
+  "id": "D4",
+  "name": "funnel keeps truth E=5 #3",
+  "ok": true,
+  "seconds": 0.08008974500080512,
+  "detail": "E=5 kept 821/1426 truth kept"
+ },
+ {
+  "id": "D4",
+  "name": "funnel keeps truth E=6 #4",
+  "ok": true,
+  "seconds": 1.4794325049988402,
+  "detail": "E=6 kept 23146/27542 truth kept"
+ },
+ {
+  "id": "D4",
+  "name": "funnel keeps truth E=2 #5",
+  "ok": true,
+  "seconds": 0.0018596569989313139,
+  "detail": "E=2 kept 2/2 truth kept"
+ },
+ {
+  "id": "D4",
+  "name": "funnel keeps truth E=3 #6",
+  "ok": true,
+  "seconds": 0.0021243459996185265,
+  "detail": "E=3 kept 10/10 truth kept"
+ },
+ {
+  "id": "D4",
+  "name": "funnel keeps truth E=4 #7",
+  "ok": true,
+  "seconds": 0.004241155000272556,
+  "detail": "E=4 kept 14/98 truth kept"
+ },
+ {
+  "id": "D4",
+  "name": "funnel keeps truth E=5 #8",
+  "ok": true,
+  "seconds": 0.02713854200010246,
+  "detail": "E=5 kept 33/1426 truth kept"
+ },
+ {
+  "id": "D4",
+  "name": "funnel keeps truth E=6 #9",
+  "ok": true,
+  "seconds": 0.6754659840007662,
+  "detail": "E=6 kept 27542/27542 truth kept"
+ },
+ {
+  "id": "D4",
+  "name": "funnel keeps truth E=2 #10",
+  "ok": true,
+  "seconds": 0.0014548689996445319,
+  "detail": "E=2 kept 1/2 truth kept"
+ },
+ {
+  "id": "D4",
+  "name": "funnel keeps truth E=3 #11",
+  "ok": true,
+  "seconds": 0.0021878530005778885,
+  "detail": "E=3 kept 10/10 truth kept"
+ },
+ {
+  "id": "D5",
+  "name": "identify E=2 #0",
+  "ok": true,
+  "seconds": 0.013011288001507637,
+  "detail": "E=2 top1 wrmse=0.0070 class#1 truth-in (listed)"
+ },
+ {
+  "id": "D5",
+  "name": "identify E=3 #1",
+  "ok": true,
+  "seconds": 0.012060806000590674,
+  "detail": "E=3 top1 wrmse=0.0074 class#1 truth-in (listed)"
+ },
+ {
+  "id": "D5",
+  "name": "identify E=4 #2",
+  "ok": true,
+  "seconds": 0.3047118409995164,
+  "detail": "E=4 top1 wrmse=0.0056 class#12 truth-in (listed)"
+ },
+ {
+  "id": "D5",
+  "name": "identify E=5 #3",
+  "ok": true,
+  "seconds": 0.18457880899950396,
+  "detail": "E=5 top1 wrmse=0.0071 class#7 truth-in (listed)"
+ },
+ {
+  "id": "D5",
+  "name": "identify E=6 #4",
+  "ok": true,
+  "seconds": 1.0935307569998258,
+  "detail": "E=6 top1 wrmse=0.0152 class#22 truth-in (listed)"
+ },
+ {
+  "id": "D5",
+  "name": "identify E=2 #5",
+  "ok": true,
+  "seconds": 0.009929024001394282,
+  "detail": "E=2 top1 wrmse=0.0069 class#1 truth-in (listed)"
+ },
+ {
+  "id": "D5",
+  "name": "identify E=3 #6",
+  "ok": true,
+  "seconds": 0.01489390899951104,
+  "detail": "E=3 top1 wrmse=0.0066 class#1 truth-in (listed)"
+ },
+ {
+  "id": "D5",
+  "name": "identify E=4 #7",
+  "ok": true,
+  "seconds": 0.16082524299963552,
+  "detail": "E=4 top1 wrmse=0.0065 class#3 truth-in (listed)"
+ },
+ {
+  "id": "D5",
+  "name": "identify E=5 #8",
+  "ok": true,
+  "seconds": 0.31190351499935787,
+  "detail": "E=5 top1 wrmse=0.0071 class#50 truth-in (z-equiv 7.7e-09)"
+ },
+ {
+  "id": "D5",
+  "name": "identify E=6 #9",
+  "ok": true,
+  "seconds": 0.7770537460000924,
+  "detail": "E=6 top1 wrmse=0.0062 class#4 truth-in (listed)"
+ },
+ {
+  "id": "D5",
+  "name": "identify E=2 #10",
+  "ok": true,
+  "seconds": 0.006598892001420609,
+  "detail": "E=2 top1 wrmse=0.0079 class#1 truth-in (listed)"
+ },
+ {
+  "id": "D5",
+  "name": "identify E=3 #11",
+  "ok": true,
+  "seconds": 0.019756081999730668,
+  "detail": "E=3 top1 wrmse=0.0065 class#1 truth-in (listed)"
+ },
+ {
+  "id": "D5",
+  "name": "identify E=4 #12",
+  "ok": true,
+  "seconds": 0.16678542099907645,
+  "detail": "E=4 top1 wrmse=0.0068 class#5 truth-in (listed)"
+ },
+ {
+  "id": "D5",
+  "name": "identify E=5 #13",
+  "ok": true,
+  "seconds": 0.197869695000918,
+  "detail": "E=5 top1 wrmse=0.0073 class#1 truth-in (listed)"
+ },
+ {
+  "id": "D5",
+  "name": "identify E=6 #14",
+  "ok": true,
+  "seconds": 0.5881664589996944,
+  "detail": "E=6 top1 wrmse=0.0071 class#2 truth-in (listed)"
+ },
+ {
+  "id": "D5",
+  "name": "identify E=2 #15",
+  "ok": true,
+  "seconds": 0.006475283000327181,
+  "detail": "E=2 top1 wrmse=0.0055 class#1 truth-in (listed)"
+ },
+ {
+  "id": "D5",
+  "name": "identify E=3 #16",
+  "ok": true,
+  "seconds": 0.02913335799894412,
+  "detail": "E=3 top1 wrmse=0.0066 class#3 truth-in (listed)"
+ },
+ {
+  "id": "D5",
+  "name": "identify E=4 #17",
+  "ok": true,
+  "seconds": 0.1039825589996326,
+  "detail": "E=4 top1 wrmse=0.0076 class#1 truth-in (listed)"
+ },
+ {
+  "id": "D5",
+  "name": "identify E=5 #18",
+  "ok": true,
+  "seconds": 0.4351324420003948,
+  "detail": "E=5 top1 wrmse=0.0077 class#50 truth-in (listed)"
+ },
+ {
+  "id": "D5",
+  "name": "identify E=6 #19",
+  "ok": true,
+  "seconds": 0.5806011629993009,
+  "detail": "E=6 top1 wrmse=0.0070 class#1 truth-in (listed)"
+ },
+ {
+  "id": "D6",
+  "name": "all-equal E=3",
+  "ok": true,
+  "seconds": 9.857900113274809e-05,
+  "detail": "E=3 all-equal: 4 candidates == 4 structures"
+ },
+ {
+  "id": "D6",
+  "name": "all-equal E=4",
+  "ok": true,
+  "seconds": 0.0006756519996997667,
+  "detail": "E=4 all-equal: 11 candidates == 11 structures"
+ },
+ {
+  "id": "D6",
+  "name": "all-equal E=5",
+  "ok": true,
+  "seconds": 0.010632248999172589,
+  "detail": "E=5 all-equal: 31 candidates == 31 structures"
+ },
+ {
+  "id": "D6",
+  "name": "one-pair E=4",
+  "ok": true,
+  "seconds": 0.0017770489994290983,
+  "detail": "E=4 pair-dup: 24 in [11,98]"
+ },
+ {
+  "id": "D6",
+  "name": "one-pair E=5",
+  "ok": true,
+  "seconds": 0.023893948000477394,
+  "detail": "E=5 pair-dup: 97 in [31,1426]"
+ },
+ {
+  "id": "D6",
+  "name": "one-pair E=6",
+  "ok": true,
+  "seconds": 1.418402433000665,
+  "detail": "E=6 pair-dup: 403 in [104,27542]"
+ },
+ {
+  "id": "D6",
+  "name": "dup identify E=4 #3",
+  "ok": true,
+  "seconds": 0.10420555400014564,
+  "detail": "E=4 dup identify ok wrmse=0.0078"
+ },
+ {
+  "id": "D6",
+  "name": "dup identify E=5 #5",
+  "ok": true,
+  "seconds": 0.3015470859991183,
+  "detail": "E=5 dup identify ok wrmse=0.0062"
+ },
+ {
+  "id": "D7",
+  "name": "SP cross-check #0",
+  "ok": true,
+  "seconds": 0.00013320499965630006,
+  "detail": "V=2 E=1 SP=True agreed"
+ },
+ {
+  "id": "D7",
+  "name": "SP cross-check #1",
+  "ok": true,
+  "seconds": 2.8407999707269482e-05,
+  "detail": "disconnected; skipped"
+ },
+ {
+  "id": "D7",
+  "name": "SP cross-check #2",
+  "ok": true,
+  "seconds": 2.733100154728163e-05,
+  "detail": "disconnected; skipped"
+ },
+ {
+  "id": "D7",
+  "name": "SP cross-check #3",
+  "ok": true,
+  "seconds": 3.8546999348909594e-05,
+  "detail": "V=2 E=2 SP=True agreed"
+ },
+ {
+  "id": "D7",
+  "name": "SP cross-check #4",
+  "ok": true,
+  "seconds": 2.7040001441491768e-05,
+  "detail": "disconnected; skipped"
+ },
+ {
+  "id": "D7",
+  "name": "SP cross-check #5",
+  "ok": true,
+  "seconds": 5.725499977415893e-05,
+  "detail": "V=4 E=5 SP=True agreed"
+ },
+ {
+  "id": "D7",
+  "name": "SP cross-check #6",
+  "ok": true,
+  "seconds": 1.9768000129261054e-05,
+  "detail": "disconnected; skipped"
+ },
+ {
+  "id": "D7",
+  "name": "SP cross-check #7",
+  "ok": true,
+  "seconds": 4.553100006887689e-05,
+  "detail": "V=4 E=4 SP=False agreed"
+ },
+ {
+  "id": "D8",
+  "name": "asymptotes #0",
+  "ok": true,
+  "seconds": 0.00024331500026164576,
+  "detail": "dc open hf ok (2.7e-09)"
+ },
+ {
+  "id": "D8",
+  "name": "asymptotes #1",
+  "ok": true,
+  "seconds": 0.00022598299983656034,
+  "detail": "dc ok (2.1e-14) hf ok (2.2e-07)"
+ },
+ {
+  "id": "D8",
+  "name": "asymptotes #2",
+  "ok": true,
+  "seconds": 0.0001995880011236295,
+  "detail": "dc ok (1.1e-11) hf ok (1.9e-06)"
+ },
+ {
+  "id": "D8",
+  "name": "asymptotes #3",
+  "ok": true,
+  "seconds": 0.0003343050011608284,
+  "detail": "dc open hf open/zero"
+ },
+ {
+  "id": "D8",
+  "name": "asymptotes #4",
+  "ok": true,
+  "seconds": 0.00013323999883141369,
+  "detail": "dc open hf open/zero"
+ },
+ {
+  "id": "D8",
+  "name": "asymptotes #5",
+  "ok": true,
+  "seconds": 0.00010387200018158183,
+  "detail": "dc ok (5.6e-09) hf open/zero"
+ },
+ {
+  "id": "D8",
+  "name": "asymptotes #6",
+  "ok": true,
+  "seconds": 9.239899918611627e-05,
+  "detail": "dc ok (1.9e-05) hf open/zero"
+ },
+ {
+  "id": "D8",
+  "name": "asymptotes #7",
+  "ok": true,
+  "seconds": 0.0002828490014508134,
+  "detail": "dc ok (1.3e-09) hf ok (1.2e-08)"
+ },
+ {
+  "id": "D9",
+  "name": "square automorphism orbits",
+  "ok": true,
+  "seconds": 0.00020394900093378965,
+  "detail": "square: 6 distinct wirings (aut orbit 4)"
+ },
+ {
+  "id": "D9",
+  "name": "parallel swap dedup",
+  "ok": true,
+  "seconds": 1.3810000382363796e-05,
+  "detail": "V=2: 1 candidate"
+ },
+ {
+  "id": "D9",
+  "name": "class separation",
+  "ok": true,
+  "seconds": 0.006423615999665344,
+  "detail": "2 classes (separated)"
+ },
+ {
+  "id": "D9",
+  "name": "secondary ordering bridge",
+  "ok": true,
+  "seconds": 0.007975575999807916,
+  "detail": "bridge top-1, SP flag false"
+ },
+ {
+  "id": "D9",
+  "name": "automorphic merge #0",
+  "ok": true,
+  "seconds": 7.039800038910471e-05,
+  "detail": "V<4 skip"
+ },
+ {
+  "id": "D9",
+  "name": "automorphic merge #1",
+  "ok": true,
+  "seconds": 0.007229490000099759,
+  "detail": "automorphic pair merged (1 members)"
+ },
+ {
+  "id": "D10",
+  "name": "AICc monotone",
+  "ok": true,
+  "seconds": 0.00011915399954887107,
+  "detail": "AICc monotone at fixed K"
+ },
+ {
+  "id": "D10",
+  "name": "residual layout",
+  "ok": true,
+  "seconds": 3.9931001083459705e-05,
+  "detail": "residual layout + rss ok"
+ },
+ {
+  "id": "D10",
+  "name": "weighted rss forms",
+  "ok": true,
+  "seconds": 0.0001161579984909622,
+  "detail": "weighted_rss scalar + batched ok"
+ },
+ {
+  "id": "D10",
+  "name": "validation grid",
+  "ok": true,
+  "seconds": 2.9873999665142037e-05,
+  "detail": "grid 1 Hz..1e8 Hz, 200 pts"
+ },
+ {
+  "id": "D10",
+  "name": "probe indices",
+  "ok": true,
+  "seconds": 1.0494999514776282e-05,
+  "detail": "probes [0, 14, 29] for M=30"
+ },
+ {
+  "id": "D10",
+  "name": "noise floor #0",
+  "ok": true,
+  "seconds": 0.01130764600020484,
+  "detail": "E=3 best wrmse=0.0065"
+ },
+ {
+  "id": "D10",
+  "name": "noise floor #1",
+  "ok": true,
+  "seconds": 0.013929786000517197,
+  "detail": "E=3 best wrmse=0.0071"
+ },
+ {
+  "id": "D10",
+  "name": "noise floor #2",
+  "ok": true,
+  "seconds": 0.003490061000775313,
+  "detail": "E=2 best wrmse=0.0071"
+ },
+ {
+  "id": "D10",
+  "name": "noise floor #3",
+  "ok": true,
+  "seconds": 0.035559021000153734,
+  "detail": "E=3 best wrmse=0.0061"
+ },
+ {
+  "id": "D10",
+  "name": "noise floor #4",
+  "ok": true,
+  "seconds": 0.006454353999288287,
+  "detail": "E=2 best wrmse=0.0070"
+ },
+ {
+  "id": "D11",
+  "name": "named: dut1_series_RL",
+  "ok": true,
+  "seconds": 0.006860167999548139,
+  "detail": "dut1_series_RL: wrmse=0.0055 class=1 truth-in (listed)"
+ },
+ {
+  "id": "D11",
+  "name": "named: dut2_parallel_RC",
+  "ok": true,
+  "seconds": 0.003636956998889218,
+  "detail": "dut2_parallel_RC: wrmse=0.0055 class=1 truth-in (listed)"
+ },
+ {
+  "id": "D11",
+  "name": "named: dut3_tank_RLC",
+  "ok": true,
+  "seconds": 0.004761426000186475,
+  "detail": "dut3_tank_RLC: wrmse=0.0055 class=1 truth-in (listed)"
+ },
+ {
+  "id": "D11",
+  "name": "named: dut4_lpar",
+  "ok": true,
+  "seconds": 0.024889403999623028,
+  "detail": "dut4_lpar: wrmse=0.0055 class=1 truth-in (listed)"
+ },
+ {
+  "id": "D11",
+  "name": "named: dut5_cpar",
+  "ok": true,
+  "seconds": 0.03388390599866398,
+  "detail": "dut5_cpar: wrmse=0.0055 class=3 truth-in (listed)"
+ },
+ {
+  "id": "D11",
+  "name": "named: dut6_bridge",
+  "ok": true,
+  "seconds": 0.31327336499998637,
+  "detail": "dut6_bridge: wrmse=0.0055 class=1 truth-in (listed)"
+ },
+ {
+  "id": "D11",
+  "name": "named: dut7_double_L",
+  "ok": true,
+  "seconds": 0.03267115800008469,
+  "detail": "dut7_double_L: wrmse=0.0055 class=1 truth-in (listed)"
+ },
+ {
+  "id": "D11",
+  "name": "named: dut8_ladder",
+  "ok": true,
+  "seconds": 0.30596355900161143,
+  "detail": "dut8_ladder: wrmse=0.0055 class=2 truth-in (listed)"
+ },
+ {
+  "id": "D11",
+  "name": "named: dut9_twin_R",
+  "ok": true,
+  "seconds": 0.01940759699937189,
+  "detail": "dut9_twin_R: wrmse=0.0055 class=1 truth-in (listed)"
+ },
+ {
+  "id": "D11",
+  "name": "named: dut10_six_mixed",
+  "ok": true,
+  "seconds": 0.9678332990006311,
+  "detail": "dut10_six_mixed: wrmse=0.0055 class=1 truth-in (listed)"
+ },
+ {
+  "id": "D12",
+  "name": "count E=5 == 1426",
+  "ok": true,
+  "seconds": 0.01730379400032689,
+  "detail": "E=5: 1426 candidates (0.0s)"
+ },
+ {
+  "id": "D12",
+  "name": "count E=6 == 27542",
+  "ok": true,
+  "seconds": 0.3467411000001448,
+  "detail": "E=6: 27542 candidates (0.3s)"
+ },
+ {
+  "id": "D12",
+  "name": "identify E=5 timing",
+  "ok": true,
+  "seconds": 0.30992201899971406,
+  "detail": "E=5 identify 0.3s, 1426 cands, truth-in"
+ },
+ {
+  "id": "D12",
+  "name": "identify E=6 timing",
+  "ok": true,
+  "seconds": 1.071516399999382,
+  "detail": "E=6 identify 1.1s, 27542 cands, truth-in"
+ },
+ {
+  "id": "D12",
+  "name": "identify E=4 timing",
+  "ok": true,
+  "seconds": 0.18976631599980465,
+  "detail": "E=4 identify 0.2s, 98 cands, truth-in"
+ }
+]
