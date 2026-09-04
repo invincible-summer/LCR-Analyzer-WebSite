@@ -1,8 +1,11 @@
 # ESP32 在线 LCR 阻抗分析平台
 
-> ESP32 采集原始 V/I 波形 → WiFi HTTP 上传 → FastAPI 数字信号处理 → 复阻抗 → 等效电路拟合 → Vue3 工业仪表风可视化
+> ESP32 采集原始 V/I 波形 → WiFi HTTP 上传 → FastAPI 数字信号处理 → 复阻抗 → **三引擎等效电路辨识（C++ → WebAssembly，浏览器本地计算）** → Vue3 期刊风可视化
 
-一个把 ESP32 变成网页版 **LCR 阻抗分析仪**（轻量化 Keysight / Agilent 风格）的全栈项目。后端用**正弦最小二乘拟合**（而非 FFT）从原始波形求阻抗，再跨频率做**等效电路拟合**；前端以科学仪表风格呈现完整数据处理链路：采集 → 去直流 → 正弦拟合 → 残差 → 频谱 → 阻抗 → 扫频 Bode / Nyquist → 电路拟合。
+一个把 ESP32 变成网页版 **LCR 阻抗分析仪**的全栈项目。两条数据流相互独立：
+
+1. **测量流（后端）**：后端用**正弦最小二乘拟合**（而非 FFT）从原始波形求阻抗；前端呈现完整处理链路：采集 → 去直流 → 正弦拟合 → 残差 → 频谱 → 阻抗 → 扫频 Bode / Nyquist。
+2. **拟合流（前端本地）**：「电路辨识拟合」页把测量数据（CSV 上传 / 示例生成 / 历史扫描导入）交给 `AlgorithmLcr/` 三个 C++17 引擎的 **WebAssembly 编译版**，在浏览器里完成 **Try1 完全未知辨识 / Try2 已知元件穷举接线 / Try3 已知拓扑参数反演**，输出 Top-K 候选电路与精美原理图——测量数据不出本机。
 
 ---
 
@@ -26,17 +29,30 @@
 ## 系统架构
 
 ```
+流 A · 测量流（后端计算）
 ESP32 (WiFi · HTTP POST 原始 v/i 波形)
         │
         ▼
 FastAPI 后端 (Python · numpy / scipy)              SQLite
-  ├─ dsp/    正弦拟合 · 阻抗 · FFT · 电路拟合 · OSL
+  ├─ dsp/    正弦拟合 · 阻抗 · FFT · OSL
   ├─ api/    upload · results · fit · export · ws
   └─ services/  scan_service · simulator(假 ESP32) · hub(WS)
         │   JSON / WebSocket
         ▼
-Vue3 + ECharts 前端（工业暗色 · KaTeX 方程 · Markdown）
-  时域分析 · 扫频 Bode/Nyquist · 等效电路拟合 · 实时监测 · 历史 · OSL 校准
+Vue3 + ECharts 前端（期刊风 · KaTeX 方程 · Markdown）
+  时域分析 · 扫频 Bode/Nyquist · 实时监测 · 历史 · OSL 校准
+
+流 B · 拟合流（前端本地，WASM，零后端依赖）
+CSV 上传 / 示例生成 / 历史扫描导入      [ESP32 蓝牙导入：规划中]
+        │
+        ▼
+Web Worker → lcr_wasm（AlgorithmLcr 三个 C++17 引擎的 WebAssembly 版）
+  Try1 未知辨识 · Try2 已知元件 · Try3 已知拓扑
+        │
+        ▼
+电路辨识拟合页：Top-K 候选表 + 原理图（SP）/ 图论视图（桥式）+ Bode/Nyquist 叠加
+        +
+使用文档（/docs）：数据格式 · 三引擎说明 · 约束总表 · 算法背景
 ```
 
 两类拟合分层、不可混淆：
@@ -143,34 +159,19 @@ $$
 
 $\sigma_{|Z|}$ 与 $\sigma_{\angle Z}$ 随测量点入库（`z_sigma` / `z_phase_sigma_deg`），是 Bode 误差棒与频域加权拟合 $\sigma_m$ 的来源。
 
-### 3. 频域等效电路拟合：矢量拟合 + 网络综合 + 拓扑库
+### 3. 频域等效电路辨识：三引擎（C++ → WASM，前端本地）
 
-频域拟合有两条互补的引擎，全部推导与实现细节见 **[docs/algorithms.md](docs/algorithms.md)**（与代码逐项同步）：
+「电路辨识拟合」页（`/fit`）内置三个引擎，源码在 `AlgorithmLcr/`（C++17、零第三方依赖、各 2000 组随机案例双端对拍），经 Emscripten 编译为单一 WASM 模块在 Web Worker 中运行（改算法源码后重跑 `frontend/wasm/build.sh` 并提交产物）：
 
-**(a) 矢量拟合（自动模式，`app/dsp/rational_fit.py`）** —— 不预设任何拓扑公式。
-对 $Z(f)$ 拟合有理函数的极点-留数形式
+| 引擎 | 已知先验 | 方法 | 输出 |
+|---|---|---|---|
+| **Try 1 · 未知辨识** | 无（可选器件总数 exact-N） | 串并联规范树库枚举（R1–R4 规则）+ 复数域加权最小二乘（前向 AD 精确 Jacobian、多起点箱约束 LM）+ SK 有理拟合/Foster 综合回传，AICc 排序等价类 | Top-K 候选电路 |
+| **Try 2 · 已知元件** | 元件多重集（类型/数值/数量，电感带 DCR） | 多重图穷举所有接线（含桥式/重边，自同构去重）+ 探针漏斗筛选（元件参数已知 → 免拟合，Z 精确可求） | Top-K 接线 + SP 标注 |
+| **Try 3 · 已知拓扑** | 拓扑 + 每边元件类型（图编辑器输入，节点 0/1 为端口） | 精确减支（F1–F4）+ 双重归一化 + 多起点漏斗 + 伴随法解析 Jacobian 箱约束 LM | 唯一拟合 + 弱参数/触边界/Jacobi 秩诊断 |
 
-$$
-Z(s)\;\approx\;\sum_{k=1}^{N}\frac{c_k}{s-a_k}\;+\;\frac{c_0}{s}\;+\;d\;+\;s\,e,
-\qquad s=j2\pi f
-$$
+统一约定：**一个电感 = L 与串联 DCR 绑定的 1 个器件（2 参数）**；结果为上三角邻接矩阵（`AlgorithmLcr/OUTPUT_FORMAT.md`），前端规约为串并联树渲染精美原理图，桥式等非 SP 结构自动切换图论视图。完整输入输出格式与约束见网站内「使用文档」与 `AlgorithmLcr/INPUT_FORMAT.md`。
 
-- 极点位置由 **Sanathanan–Koerner 迭代**（矢量拟合）自动重定位，阶数 $N$ 从 1 逐级升至 $N_{\max}$，以「最小可接受阶」（$\chi^2_{\text{red}}\le4$）选择，回退 AICc；
-- 不可无源实现的极点（负留数实极点、$\gamma$ 越界的极点对，含元件级噪声容差）被**剪枝**后联合重解；
-- **Foster 综合**（`app/dsp/synthesis.py`）把每个极点项翻译成具体 RLC 支路：实极点 → 并联 RC，原点极点 → 串联电容，共轭对 → $\parallel\{C,\ R,\ 串RL\}$，输出**网表树**（前端 SVG 原理图）与 **SPICE `.subckt`**；
-- 电路的**结构与阶数由数据决定**——双谐振网络、带外谐振节等没有任何固定拓扑能表达的电路都能恢复。
-
-**(b) 固定拓扑库（`app/dsp/topology_fit.py`）** —— 可解释对照组，8 种模型
-（串联/并联 RLC·RC·RL、`R+L∥C` 电感 SRF、`Rs+Rp∥C` 电解电容），
-log10 空间 + **Latin 超立方多起点**（每拓扑 24 起点）+ σ 加权残差 + soft_l1 鲁棒损失，
-并从 Jacobian 报告每个参数的 **95% 置信区间**。
-
-**(c) 自动排名（`app/dsp/fit_auto.py`）** —— `POST /api/fit` 的 `model="auto"`：
-VF 候选与全部拓扑候选用同一 σ 加权残差计算 **AICc** 排名；
-$\Delta\text{AICc}\le2$ 或 $\chi^2_{\text{red}}\le4$ 视为统计不可区分，此时优先选用可解释的命名拓扑。
-
-加权与噪声地板约定：残差按每点测量噪声 $\sigma_m$ 加权（来自时域拟合的误差传播，见 §2），
-$\sigma_m$ 下限为 $|Z_m|\times10^{-5}$（~100 ppm 相对噪声地板，低于它的"噪声"是数值残差而非物理）。
+> 后端另有一套旧拟合引擎（矢量拟合 + Foster 综合 + 8 种固定拓扑，`app/dsp/fit_auto.py`，推导见 [docs/algorithms.md](docs/algorithms.md)）——代码与 API 保留，前端已无入口。
 
 ### 4. FFT 频谱诊断
 
@@ -251,16 +252,25 @@ $Z_L^{\text{true}}$ 为**复数**（可含相位），校正逐频点进行（�
 ## 目录结构
 
 ```
-backend/   FastAPI + numpy/scipy + SQLAlchemy/SQLite
-  app/dsp/         sine_fit, impedance, spectrum, rational_fit(矢量拟合),
-                   synthesis(Foster 综合), topology_fit(拓扑库), fit_auto(排名), calibration
+AlgorithmLcr/          三个拟合引擎的算法源（C++17 零依赖 cppversion + Python 参考 + DESIGN.md）
+                       Try1 完全未知辨识 · Try2 已知元件 · Try3 已知拓扑
+                       INPUT_FORMAT.md / OUTPUT_FORMAT.md = 输入输出唯一权威规范
+backend/   FastAPI + numpy/scipy + SQLAlchemy/SQLite（测量流）
+  app/dsp/         sine_fit, impedance, spectrum, rational_fit(旧VF), synthesis, topology_fit, fit_auto, calibration
   app/api/         upload, results, fit, experiments, ws
   app/services/    scan_service, simulator, hub
   tests/           pytest（正弦拟合 / 阻抗 / 电路拟合）
 frontend/  Vue3 + Vite + TS + ECharts + Pinia + KaTeX + markdown-it
-  src/lib/         palette, format, charts(ECharts 选项库), generate(合成数据)
-  src/components/  EChart, Latex, Markdown, FigBlock, Schematic(SVG原理图), StatTile, PanelStage, ScanBar
-  src/views/       AnalysisView, SweepView, FitView, LiveView, CalibrateView, HistoryView
+  wasm/            WASM 构建层：glue(C ABI→JSON) + CMakeLists + build.sh + 原生/Node 测试
+  src/wasm/        编译产物 lcr_wasm.{js,wasm}（提交入 git，克隆即可运行）
+  src/lib/         palette, format, charts, csv, adjacency(SP规约), fitTypes(WASM契约),
+                   lcrWasm(worker客户端), synthData(示例), schematic, graphLayout, docToc
+  src/workers/     fitWorker（module worker，加载 WASM）
+  src/components/  EChart, Latex, Markdown, FigBlock, Schematic(原理图), GraphEditor(拓扑编辑器),
+                   GraphSchematic(图论视图), HelpBubble, Tabs, StatTile, PanelStage, ScanBar
+  src/views/       AnalysisView, SweepView, FitView(三引擎拟合), DocsView(使用文档), LiveView, CalibrateView, HistoryView
+  src/docs/        使用文档源（markdown，?raw 导入）
+DESIGN.md              ← 项目架构与数据契约权威规范
 docs/api_contract.md   ← ESP32 固件按此实现上传
 start.sh               ← 一键启动
 ```
@@ -332,7 +342,12 @@ api_contract 转发到本后端，前端零改动。详见 **[`ino/README.md`](i
 
 ## 验证结果
 
-- **pytest**（23 项）：正弦拟合 / 阻抗（含 σ 传播的统计一致性）/ 矢量拟合与 Foster 综合
+- **拟合流（三引擎）**：
+  - WASM glue 原生测试 21 项（三引擎已知电路回收至机器精度 + 全错误路径），Node 烟测同 ABI；
+  - 前端 vitest 25 项（CSV 解析容错 / 邻接矩阵 SP 规约含桥式判否 / 文档 TOC / 示例合成数值）；
+  - Playwright 端到端 20 项（示例生成 → 三引擎全跑通 → 电路图与叠加图 → CSV 上传 → 文档页）；
+  - 引擎本体：各 2000 组随机案例 py↔cpp 对拍（详见各 DESIGN.md）。
+- **测量流 pytest**（23 项）：正弦拟合 / 阻抗（含 σ 传播的统计一致性）/ 矢量拟合与 Foster 综合
   （干净数据精确恢复、含噪数据、带外谐振信息极限）/ 拓扑库全部模型自恢复 / 置信区间覆盖真值 /
   σ 加权抑制坏点 / 自动排名选对模型。
 - **端到端**（模拟器，无硬件）：
@@ -340,4 +355,4 @@ api_contract 转发到本后端，前端零改动。详见 **[`ino/README.md`](i
   - **双谐振网络**（两节并联 RLC 串联，任何固定拓扑都无法表达）：`model="auto"` 选中矢量拟合，
     $\chi^2_{\text{red}}\approx10^{-13}$，综合网表恢复真实元件值，全部固定拓扑 $\chi^2\sim10^9$——排名表一目了然；
   - SPICE `.subckt` 导出可直接仿真。
-- **前端**：`vue-tsc` 零错误、`vite build` 通过；期刊风格浅色 UI + 编号图卡 + SVG 原理图 + 极零图。
+- **前端**：`vue-tsc` 零错误、`vite build` 通过；期刊风格浅色 UI + 编号图卡 + SVG 原理图。

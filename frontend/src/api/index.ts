@@ -76,9 +76,12 @@ export interface RankingRow {
   selected: boolean
 }
 
+// Recursive series-parallel RLC netlist tree (rendered by lib/schematic.ts).
+// `dcr` on an L leaf is the inductor's series DC resistance — ONE device with
+// TWO parameters (the Try engines' real-inductor model).
 export type Netlist =
   | { type: 'R'; R: number }
-  | { type: 'L'; L: number }
+  | { type: 'L'; L: number; dcr?: number }
   | { type: 'C'; C: number }
   | { type: 'series'; children: Netlist[] }
   | { type: 'parallel'; children: Netlist[] }

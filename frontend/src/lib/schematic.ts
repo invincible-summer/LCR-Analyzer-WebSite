@@ -187,7 +187,13 @@ function layoutNode(
     counters[kind] += 1
     const designator = `${kind}${counters[kind]}`
     const rawVal = (n as any)[kind] as number
-    const valStr = eng(rawVal, getUnit(kind), 3)
+    // A real inductor (L + series DCR) stays ONE device: the DCR rides along
+    // in the value line instead of becoming a separate R symbol.
+    const dcr = kind === 'L' ? (n as { dcr?: number }).dcr : undefined
+    const valStr =
+      kind === 'L' && dcr && dcr > 0
+        ? `${eng(rawVal, 'H', 3)} · DCR ${eng(dcr, 'Ω', 2)}`
+        : eng(rawVal, getUnit(kind), 3)
 
     const stub = (LEAF_W - SYM_W) / 2
     const sx = x + stub

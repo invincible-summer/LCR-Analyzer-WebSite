@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
+import { BookOpen } from '@lucide/vue'
 import { useAppStore } from '../store/app'
 
 const route = useRoute()
+const router = useRouter()
 const app = useAppStore()
 const title = computed(() => (route.meta.title as string) || '')
 const sub = computed(() => (route.meta.sub as string) || '')
@@ -17,6 +19,14 @@ const sub = computed(() => (route.meta.sub as string) || '')
     </div>
     <div class="spacer" />
     <div class="row tight">
+      <button
+        class="btn sm docs-btn"
+        :class="{ active: route.name === 'docs' }"
+        type="button"
+        @click="router.push('/docs')"
+      >
+        <BookOpen />使用文档
+      </button>
       <span class="badge" :class="app.deviceOnline ? 'good' : ''">
         <span class="dot" :class="app.deviceOnline ? 'good' : 'idle'"></span>
         {{ app.device }} · {{ app.deviceOnline ? 'ONLINE' : 'OFFLINE' }}
@@ -24,3 +34,8 @@ const sub = computed(() => (route.meta.sub as string) || '')
     </div>
   </header>
 </template>
+
+<style scoped>
+.docs-btn { white-space: nowrap; }
+.docs-btn.active { border-color: var(--accent); color: var(--accent); }
+</style>
