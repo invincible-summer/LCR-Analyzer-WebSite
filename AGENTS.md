@@ -62,6 +62,11 @@ pnpm build                                      # vue-tsc typecheck + vite build
 cd frontend/wasm && ./build.sh                  # → frontend/src/wasm/lcr_wasm.{js,wasm}
 cmake -S . -B build-native && cmake --build build-native --target glue_test && ./build-native/glue_test   # 原生 glue 测试
 node tests/smoke.mjs                            # 同一 C ABI 的 Node 烟测
+
+# 算法基准与优化（改引擎前必读 AlgorithmLcr/OPTIMIZATION_LOG.md）
+cd frontend/wasm && python3 bench/real4.py      # 四组实测数据验收门（try1 rank1/try2/try3 达标）
+python3 bench/suite.py run --n 400 --seed 1     # 随机合成套件（pass@1/pass@8/耗时）
+./build-native/probe_try1 ../../examples/data4.csv --exact 4    # Try1 分阶段探针
 ```
 
 Environment gotchas:
@@ -131,6 +136,15 @@ deferred — `CalibrateView` is an intentional placeholder.
 
 - **改 `AlgorithmLcr` 引擎** → 重跑 `frontend/wasm/build.sh`、过原生 glue 测试 + Node
   烟测、提交新 WASM 产物；`DESIGN.md` §2 契约若变则同步 `fitTypes.ts` 与 glue。
+- **算法改动的验收门**（`AlgorithmLcr/OPTIMIZATION_LOG.md` 记录了每轮论证与结果）：
+  ① `frontend/wasm/bench/real4.py`（四组实测数据，try1 真结构必须 rank1）；
+  ② `bench/suite.py`（合成套件，try1≥80 / try2≥83 / try3≥94 的 pass 率不得回退）；
+  ③ 三个引擎各自的 build-test 自测套件 + `glue_test`。三者全过才算改动成立。
+- **Try2 精调语义**（R4-R5）：用户输入数值是 ±20% 可信的标称值；头部结构做有界精调
+  （±0.3 十进位），精调候选以 `refined:true` 克隆追加，显著性不足不输出；
+  平局时名义值候选排前。`n_refined` 在 stats 里。
+- **离群点稳健化**（R7）：三引擎均有 IRLS 单遍（逐轴 1.4826×median|x| 尺度，5σ 降权，
+  内点过半才触发）；采纳以降权目标判断，报告指标用原始权重。
 - **glue JSON ↔ `fitTypes.ts` 镜像**：任一侧字段变化必须两侧同步（注意 Try3 诊断在
   `try3` 子对象，不在 `stats`——踩过的坑）。
 - ESP32 HTTP contract changes start in `docs/api_contract.md` and `app/schemas/upload.py`;

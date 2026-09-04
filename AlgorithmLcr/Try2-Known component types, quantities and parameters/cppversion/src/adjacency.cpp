@@ -78,10 +78,13 @@ std::string Adjacency::formatBlock(const std::string& label,
 }
 
 Adjacency networkToAdjacency(const Network& network, const ComponentSet& compset) {
+    return networkToAdjacency(network, compset.components());
+}
+
+Adjacency networkToAdjacency(const Network& network, const std::vector<Component>& comps) {
     const int V = network.structure.V;
     const auto& slots = slotList(V);
     const auto soi = network.structure.slotOfInstances();
-    const auto& comps = compset.components();
     Adjacency adj(V);
     for (size_t t = 0; t < network.assign.size(); ++t) {
         auto [i, j] = slots[soi[t]];
@@ -93,6 +96,10 @@ Adjacency networkToAdjacency(const Network& network, const ComponentSet& compset
 
 Adjacency candidateToAdjacency(const Candidate& cand, const ComponentSet& compset) {
     return networkToAdjacency(cand.network, compset);
+}
+
+Adjacency candidateToAdjacency(const Candidate& cand, const std::vector<Component>& comps) {
+    return networkToAdjacency(cand.network, comps);
 }
 
 }  // namespace ng

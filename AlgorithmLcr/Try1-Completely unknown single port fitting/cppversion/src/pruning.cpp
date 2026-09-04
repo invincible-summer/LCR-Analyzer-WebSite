@@ -156,16 +156,29 @@ bool pruneF3(const TreePtr& tree, int minEnergy) {
     return nEnergy >= minEnergy;
 }
 
+int energyCount(const TreePtr& tree) {
+    int n = 0;
+    for (char k : leafKinds(tree))
+        if (k == 'L' || k == 'C') ++n;
+    return n;
+}
+
 std::vector<TreePtr> pruneTrees(const std::vector<TreePtr>& trees,
                                 const AsymptoticFeatures& feat, int minEnergy,
                                 bool enableF2, bool enableF3) {
+    (void)minEnergy;
+    (void)enableF3;  // R1: F3 is a scheduling key now, never destructive
     std::vector<TreePtr> out;
     for (const auto& t : trees) {
         if (enableF2 && !pruneF2(t, feat)) continue;
-        if (enableF3 && !pruneF3(t, minEnergy)) continue;
         out.push_back(t);
     }
     if (out.empty()) return trees;  // fallback: never return an empty library
+    std::stable_sort(out.begin(), out.end(), [](const TreePtr& a, const TreePtr& b) {
+        int ea = energyCount(a), eb = energyCount(b);
+        if (ea != eb) return ea < eb;
+        return canonical(a) < canonical(b);
+    });
     return out;
 }
 

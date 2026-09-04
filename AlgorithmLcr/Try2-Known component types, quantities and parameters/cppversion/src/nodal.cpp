@@ -53,9 +53,14 @@ bool luSolveComplex(std::vector<Complex>& A, int n, std::vector<Complex>& b) {
 
 StructureStamps StructureStamps::build(const Structure& structure,
                                        const ComponentSet& compset) {
+    return build(structure, compset.components());
+}
+
+StructureStamps StructureStamps::build(const Structure& structure,
+                                       const std::vector<Component>& comps) {
     StructureStamps st;
     st.structure = structure;
-    for (const auto& c : compset.components()) {
+    for (const auto& c : comps) {
         st.kinds.push_back(c.kind);
         st.vals.push_back(c.value);
         st.dcrs.push_back(c.dcr);
@@ -139,7 +144,13 @@ std::vector<std::vector<Complex>> StructureStamps::zFull(
 
 std::vector<Complex> networkZ(const Network& network, const ComponentSet& compset,
                               const std::vector<double>& f) {
-    StructureStamps stamps = StructureStamps::build(network.structure, compset);
+    return networkZValues(network, compset.components(), f);
+}
+
+std::vector<Complex> networkZValues(const Network& network,
+                                    const std::vector<Component>& comps,
+                                    const std::vector<double>& f) {
+    StructureStamps stamps = StructureStamps::build(network.structure, comps);
     std::vector<Complex> s(f.size());
     for (size_t k = 0; k < f.size(); ++k)
         s[k] = Complex(0.0, 1.0) * (2.0 * kPi * f[k]);

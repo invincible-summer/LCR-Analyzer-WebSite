@@ -100,4 +100,33 @@ else()
     target_link_libraries(glue_test PRIVATE rlc_id ng_id tf_id)
     find_package(Threads REQUIRED)
     target_link_libraries(glue_test PRIVATE Threads::Threads)
+
+    # native benchmark driver (CSV in -> raw JSON out), same C ABI
+    add_executable(fitbench
+        tests/fitbench.cpp
+        $<TARGET_OBJECTS:glue_version>
+        $<TARGET_OBJECTS:glue1>
+        $<TARGET_OBJECTS:glue2>
+        $<TARGET_OBJECTS:glue3>)
+    target_link_libraries(fitbench PRIVATE rlc_id ng_id tf_id)
+    find_package(Threads REQUIRED)
+    target_link_libraries(fitbench PRIVATE Threads::Threads)
+
+    # Try1 pipeline stage probe (diagnostics)
+    add_executable(probe_try1 tests/probe_try1.cpp)
+    target_include_directories(probe_try1 PRIVATE "${RLC_DIR}/src")
+    target_link_libraries(probe_try1 PRIVATE rlc_id)
+    target_link_libraries(probe_try1 PRIVATE Threads::Threads)
+
+    # Try3 fitGraph config probe (diagnostics)
+    add_executable(probe_try3 tests/probe_try3.cpp)
+    target_include_directories(probe_try3 PRIVATE "${TF_DIR}/src")
+    target_link_libraries(probe_try3 PRIVATE tf_id)
+    target_link_libraries(probe_try3 PRIVATE Threads::Threads)
+
+    # Try2 structure evaluation probe (diagnostics)
+    add_executable(probe_try2 tests/probe_try2.cpp)
+    target_include_directories(probe_try2 PRIVATE "${NG_DIR}/src")
+    target_link_libraries(probe_try2 PRIVATE ng_id)
+    target_link_libraries(probe_try2 PRIVATE Threads::Threads)
 endif()

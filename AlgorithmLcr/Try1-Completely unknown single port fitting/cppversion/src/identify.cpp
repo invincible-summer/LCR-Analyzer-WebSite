@@ -1,5 +1,6 @@
 #include "identify.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <map>
 
@@ -25,8 +26,10 @@ IdentifyResult identify(const std::vector<double>& f, const std::vector<Complex>
     FosterResult foster =
         fosterCandidates(w, z, wts, cfg.maxOrder, cfg.skIters);
 
-    // 2. prune library (F2 asymptotics + F3 conservative energy bound);
-    //    with the exactN prior the library is the single N-device layer
+    // 2. prune library (F2 asymptotics — destructive) and order it by
+    //    ascending energy storage (F3 demoted to a scheduling key in R1 — see
+    //    OPTIMIZATION_LOG.md; with the exactN prior the library is the single
+    //    N-device layer)
     std::vector<TreePtr> libStore;
     const std::vector<TreePtr>* lib;
     if (cfg.exactN.has_value()) {
@@ -47,6 +50,22 @@ IdentifyResult identify(const std::vector<double>& f, const std::vector<Complex>
     std::vector<Candidate> fitsA = fitLibrary(kept, s, z, wts, cfg.engineAConfig(),
                                               &hints, &extraStarts);
 
+    // R7: outlier-robust refit of the leading engine-A candidates.  Real
+    // sweeps contain a few wild points; a plain least-squares fit bends
+    // towards them, which both inflates the wRMSE of the true structure and
+    // biases its parameters.  The robust pass re-fits from the candidate's
+    // own solution with outlier points downweighted (see fit_engine_a.cpp).
+    {
+        const size_t kRobustTop = 12;
+        for (size_t i = 0; i < fitsA.size() && i < kRobustTop; ++i)
+            robustRefitCandidate(fitsA[i], s, z, wts);
+        // the funnel ordered by aicc — re-sort after metric updates
+        std::stable_sort(fitsA.begin(), fitsA.end(),
+                         [](const Candidate& a, const Candidate& b) {
+                             return a.aiccVal < b.aiccVal;
+                         });
+    }
+
     // 4. selector: merge engines, cluster equivalents, noise-consistent
     //    parsimony ranking (D6 + discrepancy principle); the exactN prior
     //    drops engine-B candidates whose device count differs
@@ -56,8 +75,9 @@ IdentifyResult identify(const std::vector<double>& f, const std::vector<Complex>
         if (cfg.exactN.has_value() && nLeaves(c.tree) != *cfg.exactN) continue;
         pool.push_back(c);
     }
-    std::vector<EquivalenceClass> classes =
-        rankAndClusterEquivalent(std::move(pool), f, kEquivMaxRelTol, (int)(2 * m));
+    std::vector<EquivalenceClass> classes = rankAndClusterEquivalent(
+        std::move(pool), f, kEquivMaxRelTol, (int)(2 * m),
+        estimateRelativeNoise(w, z));
 
     IdentifyResult out;
     out.classes = std::move(classes);

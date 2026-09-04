@@ -12,6 +12,18 @@
 
 using namespace ng;
 
+// R4 contract: candidates may carry refined values (rep.comps); behavioral
+// equivalence must evaluate each side with its own values.
+static bool repMatchesTruth(const Candidate& rep, const Network& truth,
+                            const ComponentSet& compset,
+                            const std::vector<double>& grid, double tol) {
+    const std::vector<Component>& rc =
+        rep.comps.empty() ? compset.components() : rep.comps;
+    std::vector<Complex> za = networkZValues(rep.network, rc, grid);
+    std::vector<Complex> zb = networkZ(truth, compset, grid);
+    return relDiffBelow(za, zb, tol);
+}
+
 TEST(e2e_noiseless_exact_recovery) {
     auto duts = makeDuts();
     int hits = 0;
@@ -26,7 +38,7 @@ TEST(e2e_noiseless_exact_recovery) {
             // noiseless: the truth must be recovered with machine precision
             CHECK(rep.wrmse < 1e-10);
             std::vector<double> grid = makeValidationGrid(f);
-            CHECK(areEquivalent(rep.network, dut.network, dut.compset, grid, 1e-9));
+            CHECK(repMatchesTruth(rep, dut.network, dut.compset, grid, 1e-9));
             ++hits;
         }
     }
@@ -46,8 +58,8 @@ TEST(e2e_noisy_top1_contains_truth) {
             const Candidate& rep = res.classes[0].representative;
             CHECK(rep.wrmse < 0.02);  // near the 0.5% noise floor
             std::vector<double> grid = makeValidationGrid(f);
-            bool hit = areEquivalent(rep.network, dut.network, dut.compset, grid,
-                                     std::max(1e-3, 3.0 * rep.wrmse));
+            bool hit = repMatchesTruth(rep, dut.network, dut.compset, grid,
+                                       std::max(1e-3, 3.0 * rep.wrmse));
             CHECK(hit);
             hits += hit;
         }

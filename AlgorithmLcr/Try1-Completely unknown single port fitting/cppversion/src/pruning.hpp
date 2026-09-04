@@ -35,6 +35,17 @@ std::pair<int, int> highFreqSlopeRange(const TreePtr& tree);
 bool pruneF2(const TreePtr& tree, const AsymptoticFeatures& feat);
 bool pruneF3(const TreePtr& tree, int minEnergy);
 
+// number of energy-storage leaves (L or C) — the F3 sort key
+int energyCount(const TreePtr& tree);
+
+// F2 filters destructively (asymptotic physics — reliable).  F3 does NOT:
+// under real-world noise the rational-fit pole count systematically
+// OVERestimates the required energy storage (OPTIMIZATION_LOG.md R1: measured
+// bound=4 on data4 whose truth has 2), so pruning by it can delete the truth.
+// Instead the F2-safe library is returned SORTED by ascending energy count so
+// the engine-A funnel spends its refine budget on the most plausible (small)
+// candidates first, without ever discarding a possible truth.
+// `minEnergy`/`enableF3` are accepted for compatibility and ignored.
 std::vector<TreePtr> pruneTrees(const std::vector<TreePtr>& trees,
                                 const AsymptoticFeatures& feat, int minEnergy = 0,
                                 bool enableF2 = true, bool enableF3 = true);

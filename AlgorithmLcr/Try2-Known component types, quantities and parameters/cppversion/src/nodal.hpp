@@ -33,6 +33,10 @@ struct StructureStamps {
     std::vector<std::tuple<int, int, int>> offdiag;  // (pair, ri, rj)
 
     static StructureStamps build(const Structure& structure, const ComponentSet& compset);
+    // same, from an arbitrary ordered component vector (R4 value refinement:
+    // refined candidates carry per-candidate values in compset order)
+    static StructureStamps build(const Structure& structure,
+                                 const std::vector<Component>& comps);
 
     // Z at one frequency for a batch of assignments (each E component indices).
     std::vector<Complex> zBatch(const std::vector<std::vector<int>>& assigns, Complex s) const;
@@ -44,6 +48,11 @@ struct StructureStamps {
 // Exact Z(f) of a single network (reports, synthetic data).
 std::vector<Complex> networkZ(const Network& network, const ComponentSet& compset,
                               const std::vector<double>& f);
+// Z(f) with an explicit component vector (R4: refined values; order must match
+// the assignment indices, i.e. the canonical compset order).
+std::vector<Complex> networkZValues(const Network& network,
+                                    const std::vector<Component>& comps,
+                                    const std::vector<double>& f);
 
 // Z(0) ("dc") or Z(inf) ("hf") asymptotic invariants (DESIGN.md 5.3).
 // dc: ideal inductors are shorts, capacitors open; hf: capacitors short,

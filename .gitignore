@@ -32,3 +32,5 @@ frontend/wasm/build-native/
 
 # ---- agent session internals ----
 .zcode/
+frontend/wasm/bench/work/
+AlgorithmLcr/*/cppversion/build-test/

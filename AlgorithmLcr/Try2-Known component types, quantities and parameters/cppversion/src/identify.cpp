@@ -28,6 +28,18 @@ IdentifyResult identify(const ComponentSet& compset, const std::vector<double>& 
     std::vector<Network> survivors = state.finalKeep();
     std::vector<Candidate> candidates =
         evaluateCandidates(survivors, compset, s, z, w, cfg.batchSize);
+    if (cfg.refineValues) {
+        // two passes (R5): the first pass re-ranks structures by refined RSS,
+        // so the second pass polishes the promoted candidates from their
+        // first-pass values
+        candidates = refineTopCandidates(std::move(candidates), compset, s, z, w,
+                                         cfg.refineTopStructures);
+        candidates = refineTopCandidates(std::move(candidates), compset, s, z, w,
+                                         cfg.refineTopStructures);
+    }
+    int nRefined = 0;
+    for (const auto& c : candidates)
+        if (c.refined) ++nRefined;
     auto t2 = std::chrono::steady_clock::now();
 
     std::vector<EquivalenceClass> classes =
@@ -45,6 +57,7 @@ IdentifyResult identify(const ComponentSet& compset, const std::vector<double>& 
         state.nTotal,
         (int)survivors.size(),
         (int)enumerateStructures(compset.n(), cfg.allowDead).size(),
+        nRefined,
         secs(t0, t3),
         secs(t0, t1),
         secs(t1, t2),

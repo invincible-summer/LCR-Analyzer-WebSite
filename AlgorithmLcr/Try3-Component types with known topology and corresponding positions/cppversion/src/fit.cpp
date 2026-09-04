@@ -747,7 +747,9 @@ std::pair<double, std::vector<double>> polish(Objective& obj,
         LMOut res = lmFit([&](const std::vector<double>& th, std::vector<double>& o) { obj.fun(th, o); },
                           [&](const std::vector<double>& th, std::vector<double>& o) { obj.jacM(th, o); },
                           s, lb, ub, maxNfev, cfg.tolPolish, cfg.tolPolish, cfg.tolPolish);
-        if (std::isfinite(res.rss) && res.rss < bestRss) {
+        bool xFinite = std::isfinite(res.rss);
+        for (double v : res.x) xFinite = xFinite && std::isfinite(v);
+        if (xFinite && res.rss < bestRss) {
             bestRss = res.rss;
             bestX = res.x;
         }
@@ -887,6 +889,20 @@ FitResult fitGraph(const std::vector<double>& f, const std::vector<Complex>& z,
     Rng rng(cfg.seed);
     auto wrmseOf = [&](double rssN) { return std::sqrt(rssN / (2.0 * (double)z.size())); };
 
+    // R6: data-driven escalation threshold.  The configured escalationWrmse
+    // (3%) sits far above the achievable floor for low-noise data (truth
+    // wRMSE ~ 0.4% at 0.3% noise), so stages C/D stopped while the fit was
+    // still 2-7x above the noise-level optimum.  When the noise floor can be
+    // estimated from the data, tighten the stop threshold to 3x that floor
+    // (never below 1e-4, never above the configured ceiling so very noisy
+    // data does not escalate forever).
+    double escWrmse = cfg.escalationWrmse;
+    {
+        double sHat = estimateRelativeNoise(omega, zT);
+        if (sHat > 0.0)
+            escWrmse = std::min(escWrmse, std::max(3.0 * sHat, 1e-4));
+    }
+
     // stage A: unit + full-box LHS + center-focused LHS + resonance seeds
     std::vector<std::vector<double>> starts{unitStart(model, units)};
     {
@@ -936,7 +952,7 @@ FitResult fitGraph(const std::vector<double>& f, const std::vector<Complex>& z,
     {
         bool centerNext = false;
         for (int round = 0; round < std::max(0, cfg.escalationRounds); ++round) {
-            if (!results.empty() && wrmseOf(results[0].rss) <= cfg.escalationWrmse) break;
+            if (!results.empty() && wrmseOf(results[0].rss) <= escWrmse) break;
             std::vector<std::vector<double>> extra;
             {
                 auto e2 = centerNext ? lhsCenter(model, lb, ub, cfg.nStarts + cfg.nCenter, rng)
@@ -955,22 +971,27 @@ FitResult fitGraph(const std::vector<double>& f, const std::vector<Complex>& z,
     }
 
     // stage D: damped continuation rescue when still far above the floor
-    if (wrmseOf(results[0].rss) > cfg.escalationWrmse) {
+    if (wrmseOf(results[0].rss) > escWrmse) {
         const std::vector<double>* x0p[2] = {&results[0].x, nullptr};
         for (int qI = 0; qI < 2; ++qI) {
             std::vector<double> x0 = x0p[qI] ? *x0p[qI] : unitStart(model, units);
             auto [rssH, xH] = homotopyRescue(obj, model, lb, ub, x0);
-            results.push_back({rssH, xH});
+            // R6 note: escWrmse can now be small enough that stage D runs on
+            // data where homotopy overflows; never admit non-finite results
+            // (a NaN rss would break the strict-weak-order of the sort)
+            if (std::isfinite(rssH)) {
+                results.push_back({rssH, xH});
+                nUsed += 1;
+            }
             std::stable_sort(results.begin(), results.end(),
                              [](const RssPoint& a, const RssPoint& b) { return a.rss < b.rss; });
-            nUsed += 1;
-            if (wrmseOf(results[0].rss) <= cfg.escalationWrmse) break;
+            if (results.empty() || wrmseOf(results[0].rss) <= escWrmse) break;
         }
     }
 
     // stage E: last-resort mixed restarts (campaign hard cases)
     for (int round = 0; round < std::max(0, cfg.lastResortRounds); ++round) {
-        if (wrmseOf(results[0].rss) <= cfg.escalationWrmse) break;
+        if (wrmseOf(results[0].rss) <= escWrmse) break;
         std::vector<std::vector<double>> extra;
         {
             auto e2 = lhsStarts(cfg.lastResortBatch, lb, ub, rng);
@@ -995,6 +1016,16 @@ FitResult fitGraph(const std::vector<double>& f, const std::vector<Complex>& z,
                          [](const RssPoint& a, const RssPoint& b) { return a.rss < b.rss; });
     }
 
+    // R6 note: drop any candidate whose parameters went non-finite (a finite
+    // rss with a non-finite x would poison the final metrics)
+    results.erase(std::remove_if(results.begin(), results.end(),
+                                 [](const RssPoint& r) {
+                                     for (double v : r.x)
+                                         if (!std::isfinite(v)) return true;
+                                     return !std::isfinite(r.rss);
+                                 }),
+                  results.end());
+
     // polish the best starts
     std::vector<std::vector<double>> topX;
     for (int i = 0; i < cfg.nPolish && i < (int)results.size(); ++i)
@@ -1015,6 +1046,76 @@ FitResult fitGraph(const std::vector<double>& f, const std::vector<Complex>& z,
             bestX = xD;
         } else {
             break;  // no further progress
+        }
+    }
+
+    // R7: outlier-robust refit (single-pass IRLS).  A few wild measurement
+    // points (probe glitches, EMI) bend a plain least-squares fit away from
+    // the inlier core; e.g. one 30-sigma point on a 16-point sweep costs
+    // ~7% wRMSE.  The robust scale is estimated per axis of the COMPLEX
+    // relative residual (1.4826 x median|x| = sigma for a Gaussian axis), and
+    // points whose residual magnitude exceeds kCut sigma (Rayleigh tail) are
+    // quadratically downweighted before a re-polish.  Adopted only when the
+    // downweighted objective improves, so outlier-free data is a no-op.
+    {
+        std::vector<double> wSave = obj.w;
+        std::vector<Complex> zc, Jtmp2;
+        model.zAndJac(bestX, sT, zc, Jtmp2);
+        const size_t Mz = zT.size();
+        if (Mz >= 8) {
+            std::vector<double> magRe(Mz), magIm(Mz), mag(Mz);
+            for (size_t k = 0; k < Mz; ++k) {
+                Complex rr = (zT[k] - zc[k]) / zT[k];
+                magRe[k] = std::fabs(rr.real());
+                magIm[k] = std::fabs(rr.imag());
+                mag[k] = std::abs(rr);
+            }
+            auto medOf = [](std::vector<double> v) {
+                std::sort(v.begin(), v.end());
+                return v[v.size() / 2];
+            };
+            // 1.4826 x median|x| = sigma for a zero-mean Gaussian axis
+            double sigRe = 1.4826 * medOf(magRe);
+            double sigIm = 1.4826 * medOf(magIm);
+            double sigAxis = std::max(std::max(sigRe, sigIm), 1e-9);
+            const double kCut = 5.0;   // Rayleigh-magnitude tail cut
+            const double kIn = 2.5;    // core-member threshold
+            bool anyOut = false;
+            int nInlier = 0;
+            int nOut = 0;
+            for (size_t k = 0; k < Mz; ++k) {
+                double m = mag[k] / sigAxis;
+                if (m > kCut) {
+                    double f = kCut / m;
+                    obj.w[k] *= f * f;
+                    anyOut = true;
+                    ++nOut;
+                } else if (m < kIn) {
+                    ++nInlier;
+                }
+            }
+            // engage only for a genuine "few outliers on an inlier core" shape
+            if (anyOut && nOut <= (int)Mz / 3 && nInlier * 2 >= (int)Mz) {
+                std::vector<double> rInc;
+                obj.fun(bestX, rInc);
+                double rssInc = rssOf(rInc);
+                auto [rssR, xR] = polish(obj, {bestX}, lb, ub, cfg, 8000);
+                bool finite = std::isfinite(rssR);
+                for (double v : xR) finite = finite && std::isfinite(v);
+                if (!xR.empty() && finite && rssR < rssInc * 0.999) {
+                    bestX = xR;
+                }
+            }
+        }
+        obj.w = wSave;
+    }
+
+    {
+        bool finite = !bestX.empty();
+        for (double v : bestX) finite = finite && std::isfinite(v);
+        if (!finite) {
+            bestX = results[0].x;
+            rssN = results[0].rss;
         }
     }
 

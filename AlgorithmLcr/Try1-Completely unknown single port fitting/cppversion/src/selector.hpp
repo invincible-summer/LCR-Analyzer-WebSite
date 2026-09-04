@@ -35,9 +35,26 @@ bool areEquivalent(const Candidate& c1, const Candidate& c2,
 // secondary criterion: fewer elements first, then parameter plausibility
 std::pair<int, double> secondarySortKey(const Candidate& cand);
 
+// R2: robust data-driven relative noise floor from point-to-point roughness
+// (von Neumann second differences of ln|Z| and arg Z, MAD-scaled).  Returns
+// <= 0 when the estimate is unavailable (fewer than 6 points) — callers then
+// fall back to RSS-based logic.
+double estimateRelativeNoise(const std::vector<double>& w,
+                             const std::vector<Complex>& z);
+
+// Ranking (R2 revision, OPTIMIZATION_LOG.md):
+//   adequate set  A = {c : wrmse_c <= max(kNoiseMult*sigmaRelData,
+//                                       kRelMult * min wrmse)}
+//   champion      = lexicographic min (nParams, aicc) within A; if the noise
+//                   estimate is unavailable the pre-R2 discrepancy-principle
+//                   champion rule is used as the fallback.
+// A members are emitted first — ordered by (nParams, aicc) — then the rest by
+// AICc.  Equivalence clustering is unchanged; the cluster tolerance floor now
+// also uses sigmaRelData when available.
 std::vector<EquivalenceClass> rankAndClusterEquivalent(std::vector<Candidate> candidates,
                                                        const std::vector<double>& f,
                                                        double equivTol = kEquivMaxRelTol,
-                                                       int nObs = -1);
+                                                       int nObs = -1,
+                                                       double sigmaRelData = -1.0);
 
 }  // namespace rlc

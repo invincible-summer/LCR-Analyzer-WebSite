@@ -15,7 +15,13 @@
 namespace rlc {
 
 struct Config {
-    int maxN = 4;                       // engine-A library size limit (A1)
+    int maxN = 4;                       // engine-A library size limit (A1).
+                                        // R3 trial: raising this to 5 measured
+                                        // WORSE overall (pass@1 81.0% -> 78.5%,
+                                        // med_t 0.15 -> 0.44 s): the larger
+                                        // library adds high-device mimics that
+                                        // out-compete truths before the funnel
+                                        // is robust.  Revisit after R8.
     std::optional<int> exactN;          // v2 prior: exactly N devices (an L
                                         // with its series DCR is ONE device);
                                         // when set, the search uses the

@@ -114,6 +114,12 @@ struct EngineAConfig {
     uint64_t seed = 0;
 };
 
+// R7: outlier-robust refit of one candidate (IRLS pass); see the .cpp.
+// Mutates the candidate in place when the robust fit improves it.
+bool robustRefitCandidate(Candidate& c, const std::vector<Complex>& s,
+                          const std::vector<Complex>& z,
+                          const std::vector<double>& w);
+
 // two-stage funnel (F4); extraStarts maps canonical strings to additional
 // start vectors (engine-B Foster solutions)
 std::vector<Candidate> fitLibrary(const std::vector<TreePtr>& trees,

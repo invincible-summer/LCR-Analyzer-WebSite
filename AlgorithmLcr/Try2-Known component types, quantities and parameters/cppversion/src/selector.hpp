@@ -27,6 +27,11 @@ struct Candidate {
     double wrmse = 0.0;
     double maxRelErr = 0.0;
     bool sp = true;              // series-parallel wiring?
+    // R4 value refinement: when non-empty, components with the FITTED values
+    // in canonical compset order (assignment indices refer to this order).
+    // Empty = the nominal compset values.
+    std::vector<Component> comps;
+    bool refined = false;
     int nInternal() const { return network.structure.nInternal(); }
 };
 
@@ -47,6 +52,26 @@ std::vector<Candidate> evaluateCandidates(const std::vector<Network>& nets,
                                           const std::vector<Complex>& z,
                                           const std::vector<double>& w,
                                           int batchSize = 4096);
+
+// R4 value refinement (OPTIMIZATION_LOG.md): real components carry tolerance
+// and user-typed values are nominal, so exhaustive search on FIXED values
+// plateaus at the tolerance error floor.  This stage takes the best
+// (up to two assignments per) candidate of the top `topStructures` distinct
+// structures and refines the p component parameters in log10 space around the
+// nominal values (bounds +-`boundsDec` decades; DCR floors at kDcrRefineMin),
+// then re-sorts everything by the refined RSS.  Selected candidates carry
+// their refined `comps` vector; all others keep nominal values.
+// R5b: bounds default +-0.3 decades (x[0.5, 2]) — wide enough for component
+// tolerance and hand-typed values, tight enough that a wrong wiring cannot
+// contort the values to out-fit the truth (the R4-trial +-0.9 let a mimic
+// beat the truth on noisy synthetic data; see OPTIMIZATION_LOG.md R5).
+std::vector<Candidate> refineTopCandidates(std::vector<Candidate> candidates,
+                                           const ComponentSet& compset,
+                                           const std::vector<Complex>& s,
+                                           const std::vector<Complex>& z,
+                                           const std::vector<double>& w,
+                                           int topStructures = 8,
+                                           double boundsDec = 0.9);
 
 // Band expanded `expand`x at each end, n log-spaced points.
 std::vector<double> makeValidationGrid(const std::vector<double>& f, int n = 200,

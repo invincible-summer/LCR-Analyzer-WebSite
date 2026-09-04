@@ -42,6 +42,10 @@ private:
 };
 
 Adjacency networkToAdjacency(const Network& network, const ComponentSet& compset);
+Adjacency networkToAdjacency(const Network& network, const std::vector<Component>& comps);
 Adjacency candidateToAdjacency(const Candidate& cand, const ComponentSet& compset);
+// R4 overload: refined candidates carry their own component values (in
+// canonical compset order).
+Adjacency candidateToAdjacency(const Candidate& cand, const std::vector<Component>& comps);
 
 }  // namespace ng

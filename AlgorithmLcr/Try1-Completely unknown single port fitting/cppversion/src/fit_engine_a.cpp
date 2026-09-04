@@ -78,6 +78,96 @@ std::vector<double> Candidate::values() const {
     return v;
 }
 
+// R7: outlier-robust refit of one candidate (single IRLS pass).  A few wild
+// measurement points bend a plain least-squares fit away from the inlier
+// core; the robust scale is estimated per axis of the COMPLEX relative
+// residual (1.4826 x median|x| = sigma for a Gaussian axis), points whose
+// residual magnitude exceeds 5 sigma are quadratically downweighted, and the
+// candidate is re-fit under the downweighted weights from its own solution.
+// Returns true when the parameters changed; metrics (rss/wrmse/aicc) are
+// recomputed with the ORIGINAL weights so candidates stay comparable.
+bool robustRefitCandidate(Candidate& c, const std::vector<Complex>& s,
+                          const std::vector<Complex>& z,
+                          const std::vector<double>& w) {
+    const size_t m = z.size();
+    if (m < 8) return false;
+    // model at the current parameters
+    std::vector<Complex> zfit(m);
+    evalTheta(c.tree, c.theta, s.data(), m, zfit.data());
+    std::vector<double> magRe(m), magIm(m), mag(m);
+    for (size_t k = 0; k < m; ++k) {
+        Complex rr = (z[k] - zfit[k]) / z[k];
+        magRe[k] = std::fabs(rr.real());
+        magIm[k] = std::fabs(rr.imag());
+        mag[k] = std::abs(rr);
+    }
+    auto medOf = [](std::vector<double> v) {
+        std::sort(v.begin(), v.end());
+        return v[v.size() / 2];
+    };
+    double sigAxis = std::max(1.4826 * std::max(medOf(magRe), medOf(magIm)), 1e-9);
+    const double kCut = 5.0, kIn = 2.5;
+    std::vector<double> wR = w;
+    bool anyOut = false;
+    int nInlier = 0, nOut = 0;
+    for (size_t k = 0; k < m; ++k) {
+        double r = mag[k] / sigAxis;
+        if (r > kCut) {
+            double f = kCut / r;
+            wR[k] *= f * f;
+            anyOut = true;
+            ++nOut;
+        } else if (r < kIn) {
+            ++nInlier;
+        }
+    }
+    if (!anyOut || nOut > (int)m / 3 || nInlier * 2 < (int)m) return false;
+
+    // acceptance is judged on the ROBUST objective: the honest (inlier)
+    // parameters necessarily have a HIGHER plain-weighted rss than the bent
+    // least-squares solution, because the plain optimum minimises exactly
+    // that.  Comparing plain rss would always reject the rescue.
+    auto robustRss = [&](const std::vector<double>& theta) {
+        std::vector<Complex> zf(m);
+        evalTheta(c.tree, theta, s.data(), m, zf.data());
+        double r = 0.0;
+        for (size_t k = 0; k < m; ++k) {
+            Complex e = wR[k] * (z[k] - zf[k]);
+            r += e.real() * e.real() + e.imag() * e.imag();
+        }
+        return r;
+    };
+    double rssInc = robustRss(c.theta);
+
+    std::vector<double> lb, ub;
+    thetaBounds(c.tree, lb, ub);
+    LMOpts opts;
+    opts.maxNfev = 3000;
+    opts.ftol = opts.xtol = opts.gtol = 1e-12;
+    auto residual = [&](const std::vector<double>& th, std::vector<double>& out) {
+        out = residualVector(c.tree, th, s, z, wR);
+    };
+    auto jac = [&](const std::vector<double>& th, std::vector<double>& out) {
+        out = jacobianCs(c.tree, th, s, wR);
+    };
+    LMOut res = lmFit(residual, jac, c.theta, lb, ub, opts);
+    double rssR = rssOf(res.residual);
+    if (!std::isfinite(rssR) || rssR >= rssInc) return false;
+
+    // metrics with the original weights at the robust parameters
+    std::vector<double> resPlain = residualVector(c.tree, res.x, s, z, w);
+    double rss = rssOf(resPlain);
+    std::vector<Complex> zfit2(m);
+    evalTheta(c.tree, res.x, s.data(), m, zfit2.data());
+    auto [wrmse, mre] = fitMetrics(z, zfit2);
+    c.theta = std::move(res.x);
+    c.rss = rss;
+    c.aiccVal = aicc(rss, (int)(2 * m), (int)c.theta.size());
+    c.wrmse = wrmse;
+    c.maxRelErr = mre;
+    return true;
+}
+
 std::vector<std::vector<double>> heuristicStarts(const TreePtr& tree,
                                                  const StartHints* hints) {
     std::vector<char> kinds = paramKinds(tree);  // 'D' = Rd parameter of L

@@ -23,6 +23,10 @@ struct Config {
     double equivTol = 1e-3;      // equivalence tolerance floor
     bool allowDead = false;      // include electrically dead structures
     int topK = 8;                // reported classes
+    bool refineValues = true;    // R4: refine the p component values around
+                                 // the nominal ones (bounded, log space) on
+                                 // the top structures before ranking
+    int refineTopStructures = 8; // how many distinct structures to refine
 };
 
 struct IdentifyResult {
@@ -31,6 +35,7 @@ struct IdentifyResult {
     long nCandidates = 0;
     int nFunnelKept = 0;
     int nStructures = 0;
+    int nRefined = 0;            // R4: candidates carrying refined values
     double elapsed = 0.0;
     double tFunnel = 0.0, tEval = 0.0, tCluster = 0.0;
     const EquivalenceClass* best() const {

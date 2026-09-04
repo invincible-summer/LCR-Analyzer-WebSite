@@ -244,3 +244,10 @@ R+L∥C、Rs+Rp∥C），改进点：
 | 无不确定度 | 参数 95% CI + 前端置信带 |
 | accuracy = 1−rmse/mean\|Z\| | χ²_red + AICc（可跨模型比较） |
 | 只出 R/L/C 数值 | 网表树 + SPICE 导出 + 原理图渲染 |
+
+## 附注：AlgorithmLcr 三引擎（网页拟合页的实际实现）
+
+`/fit` 页的 Try1/2/3 由 `AlgorithmLcr/` 三个 C++17 引擎的 WASM 编译版完成（与本文件的
+Python 旧引擎相互独立）。2026-09 针对实测含噪数据做了一轮 10 步优化（F3 剪枝降级、
+选择子体系制门控、Try2 有界数值精调、三引擎 IRLS 离群点稳健化等），每步的论证、
+实现与基准回归记录见 [`AlgorithmLcr/OPTIMIZATION_LOG.md`](../AlgorithmLcr/OPTIMIZATION_LOG.md)。

@@ -143,6 +143,8 @@ extern "C" char* lcr_try2(const double* f, const double* zre, const double* zim,
         j.num(res.nFunnelKept);
         j.raw(",\"n_components\":");
         j.num(compset.n());
+        j.raw(",\"n_refined\":");
+        j.num(res.nRefined);
         j.raw(",\"elapsed_engine\":");
         j.num(res.elapsed);
         j.raw("},\"candidates\":[");
@@ -151,6 +153,9 @@ extern "C" char* lcr_try2(const double* f, const double* zre, const double* zim,
         for (int i = 0; i < nOut; ++i) {
             const EquivalenceClass& ec = res.classes[i];
             const Candidate& c = ec.representative;
+            const std::vector<Component>& comps = c.comps.empty()
+                                                       ? compset.components()
+                                                       : c.comps;
             if (i) j.raw(",");
             j.raw("{");
             j.key("rank");
@@ -177,16 +182,19 @@ extern "C" char* lcr_try2(const double* f, const double* zre, const double* zim,
             j.key("sp");
             j.boolean(c.sp);
             j.raw(",");
+            j.key("refined");
+            j.boolean(c.refined);
+            j.raw(",");
             j.key("structure");
             j.str(c.network.structure.serialize());
             j.raw(",");
             j.key("n_members");
             j.num(ec.nMembers());
             j.raw(",");
-            const ng::Adjacency adj = candidateToAdjacency(c, compset);
+            const ng::Adjacency adj = candidateToAdjacency(c, comps);
             emitAdjacencyTry2(j, adj);
             j.raw(",");
-            const std::vector<Complex> zt = networkZ(c.network, compset, grid);
+            const std::vector<Complex> zt = networkZValues(c.network, comps, grid);
             lcr_glue::emitComplexArrays(j, grid, zt);
             j.raw("}");
         }

@@ -18,6 +18,13 @@ std::vector<double> residualVector(const std::vector<Complex>& z,
 
 double rssOf(const std::vector<double>& residual);
 
+// R6: robust data-driven relative noise floor from point-to-point roughness
+// (min of a 3-point second-difference MAD estimate and a 5-point quadratic
+// detrending estimate, applied to ln|Z| and arg Z).  Same estimator as the
+// Try1 selector (OPTIMIZATION_LOG.md R2).  Returns <= 0 when unavailable.
+double estimateRelativeNoise(const std::vector<double>& w,
+                             const std::vector<Complex>& z);
+
 double aicc(double rss, int nObs, int p);
 
 std::pair<double, double> fitMetrics(const std::vector<Complex>& z,

@@ -47,6 +47,8 @@ export interface FitCandidate {
   rss: number
   engine?: string // try1: 'A' | 'B'
   sp?: boolean // try2: series-parallel wiring?
+  /** try2: candidate carries refined component values (R4 value refinement) */
+  refined?: boolean
   n_members?: number
   topology?: string // try1 canonical string / try2 structure key
   structure?: string
@@ -107,6 +109,7 @@ export interface Try2Stats {
   n_structures: number
   n_funnel_kept: number
   n_components: number
+  n_refined: number
   elapsed_engine: number
 }
 

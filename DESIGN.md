@@ -65,10 +65,17 @@ const char* lcr_version();
 失败: { ok:false, code:'bad_input'|'port_open'|'internal', error }
 
 candidate = { rank, devices, n_params, wrmse, max_rel, aicc, rss,
-              engine?(try1), sp?(try2), n_members?, topology?/structure?,
+              engine?(try1), sp?(try2), refined?(try2), n_members?, topology?/structure?,
               adjacency:{ v, slots:[{u, j, edges:[{t:'R'|'L'|'C', p, d}]}] },   ← OUTPUT_FORMAT.md §2
               theory:{f[], re[], im[]} }
 ```
+
+**精调语义（2026-09 R4-R5，`AlgorithmLcr/OPTIMIZATION_LOG.md`）**：Try2 的用户输入
+数值按"±20% 可信的标称值"处理：搜索仍穷举全部拓扑，但头部结构会做有界数值精调
+（log10 空间 ±0.3 十进位，DCR 下限 1e-5Ω），精调后的候选以 `refined:true` 克隆追加，
+邻接矩阵携带精调后数值。显著性守则保证：无噪精确输入时返回精确名义值；
+精调改善不足 χ² 波动带（1/√(2m)）的克隆不输出；统计平局时名义值候选排在前面。
+Try1/Try3 另含离群点稳健重拟合（IRLS 单遍，5σ 降权），含野点的实测数据不再被拉偏。
 
 关键语义：**`stats` 是引擎计数（库大小/候选数等）；Try3 的诊断（群/秩/merged/dropped）在 `try3` 子对象**。器件计数：R/C=1 器件，**L+DCR 绑定 = 1 器件 2 参数**。
 
