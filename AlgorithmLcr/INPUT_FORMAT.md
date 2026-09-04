@@ -195,3 +195,21 @@ L
   `vector<vector<int>> mult`（上三角边数）+ `vector<EdgeType> queue` +
   `vector<tuple<double, double, double>> points`（f, Rz, Iz）+
   `optional<int> exactN`（Try1 count.txt）。
+
+## 5. 三个课题的 cppversion 实现（2026-09-04 起）
+
+三个课题的 C++ 移植均以本文件为契约（零第三方依赖、C++17）：
+
+| Try | C++ 模块（`cppversion/src/`） | 输入实现 | 文件模式入口 |
+|---|---|---|---|
+| Try1 | `rlc` 命名空间（既有） | `iofmt.{hpp,cpp}`（measurements + count） | `demo --measurements F [--count F]` |
+| Try2 | `ng` 命名空间 | `iofmt.{hpp,cpp}`（measurements + components） | `demo --measurements F --components F` |
+| Try3 | `tf` 命名空间 | `iofmt.{hpp,cpp}`（measurements + topology） | `demo --measurements F --topology F` |
+
+- 三者共享 §0 通用规则与 §1 测量格式（`%.17g` 逐位回写，`#` 注释、
+  空行忽略、加载器校验与报错行号语义一致）；
+- Try2 的 `ComponentSet` 规范序 = 按 `('C'<'L'<'R', value, dcr)` 排序
+  （与 Python 元组字符串序逐位一致）；Try3 的 `topology.txt` 重建规则
+  按槽位行主序逐边消费类型队列，与 §2.3 相同；
+- 一致性对拍工具位于各 `cppversion/tools/`（gen_cases / run_py /
+  compare），2000 组随机案例双端加载同一批文本文件复算。

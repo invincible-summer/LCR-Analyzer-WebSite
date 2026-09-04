@@ -1,0 +1,2 @@
+/usr/bin/ar qc libtf_id.a CMakeFiles/tf_id.dir/src/adjacency.cpp.o CMakeFiles/tf_id.dir/src/fit.cpp.o CMakeFiles/tf_id.dir/src/graph.cpp.o CMakeFiles/tf_id.dir/src/iofmt.cpp.o CMakeFiles/tf_id.dir/src/linalg.cpp.o CMakeFiles/tf_id.dir/src/metric.cpp.o CMakeFiles/tf_id.dir/src/nodal.cpp.o CMakeFiles/tf_id.dir/src/synthetic.cpp.o
+/usr/bin/ranlib libtf_id.a

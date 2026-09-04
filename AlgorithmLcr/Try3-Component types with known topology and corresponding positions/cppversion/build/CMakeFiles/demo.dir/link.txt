@@ -1,0 +1,1 @@
+/usr/bin/c++ -O2 -Wl,--dependency-file=CMakeFiles/demo.dir/link.d CMakeFiles/demo.dir/apps/demo.cpp.o -o demo  libtf_id.a

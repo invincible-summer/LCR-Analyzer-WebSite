@@ -1,64 +1,143 @@
-SUITE               CASES   FAILED       CHECKS   CHK-FAIL
---------------------------------------------------------------
-circuits              664        0           30          0
-library                 7        0           98          0
-engine_a                7        0           23          0
-engine_b              211        0          100          0
-pruning                 5        0           35          0
-selector                6        0           11          0
-end_to_end             28        0           52          0
-sweep_n1_5           1304       64            0          0
-  categories: [EQUIV]=409 [EXACT]=560 [FAIL]=64 [FITOK]=101 [FITWEAK]=149 [INBAND]=5 [WEAKFIT]=16
-sweep_n6              648       55            0          0
-  categories: [EQUIV]=223 [EXACT]=100 [FAIL]=55 [FITOK]=91 [FITWEAK]=114 [INBAND]=58 [WEAKFIT]=7
-noisy_sweep            60       23            0          0
-  categories: [EQUIV]=15 [EXACT]=31 [FAIL]=9 [SKIP]=5
-extremes_bands         40        0           20          0
-  categories: [EQUIV]=7 [EXACT]=13
-adjacency               7        0           79          0
-iofmt                   4        0           25          0
-exact_n                 3        0           21          0
---------------------------------------------------------------
-TOTAL: 2994 cases (142 failed), 494 checks (0 failed)
-
-142 failing case(s) (first 40 shown):
-  [sweep_n1_5] P(C,L,S(C,R))#3 : [FAIL] wrmse 3.29e-02 top1=S(C,P(C,L,L)) (truth reachable, start coverage) sens=0.162
-  [sweep_n1_5] P(L,L,L,L)#3 : [FAIL] wrmse 1.95e-02 top1=P(L,L,L) (truth reachable, start coverage) sens=0.0131
-  [sweep_n1_5] P(L,L,S(C,R))#6 : [FAIL] wrmse 1.65e-02 top1=S(L,P(C,L,L)) (truth reachable, start coverage) sens=0.909
-  [sweep_n1_5] P(L,R,S(C,L))#2 : [FAIL] canonical match but wrmse 0.000004 sens=0.0773
-  [sweep_n1_5] P(S(C,L),S(C,L))#7 : [FAIL] wrmse 6.09e-02 top1=S(C,L,P(C,R)) (truth reachable, start coverage) sens=0.0649
-  [sweep_n1_5] S(C,P(C,L,L))#0 : [FAIL] wrmse 2.86e-01 top1=S(C,P(L,L,R)) (truth reachable, start coverage) sens=0.885
-  [sweep_n1_5] S(C,P(C,L,R))#1 : [FAIL] wrmse 1.70e-01 top1=S(C,P(L,R)) (truth reachable, start coverage) sens=0.0823
-  [sweep_n1_5] S(C,P(C,L,R))#4 : [FAIL] wrmse 2.75e-02 top1=S(C,P(L,R)) (truth reachable, start coverage) sens=0.0578
-  [sweep_n1_5] S(L,P(C,L,L))#7 : [FAIL] wrmse 1.28e-02 top1=S(L,P(C,R)) (truth reachable, start coverage) sens=0.0125
-  [sweep_n1_5] S(L,P(C,L,R))#5 : [FAIL] wrmse 1.76e-02 top1=P(L,S(C,L)) (truth reachable, start coverage) sens=0.012
-  [sweep_n1_5] S(P(C,L),P(L,L))#2 : [FAIL] wrmse 4.57e-02 top1=S(L,P(C,L,R)) (truth reachable, start coverage) sens=0.478
-  [sweep_n1_5] S(P(C,L),P(L,L))#4 : [FAIL] wrmse 9.88e-02 top1=P(L,S(C,L)) (truth reachable, start coverage) sens=0.201
-  [sweep_n1_5] S(P(C,L),P(L,L))#5 : [FAIL] wrmse 8.99e-02 top1=S(P(C,L),P(L,R)) (truth reachable, start coverage) sens=0.537
-  [sweep_n1_5] S(P(C,L),P(L,L))#7 : [FAIL] wrmse 1.34e-01 top1=S(L,P(C,L)) (truth reachable, start coverage) sens=0.29
-  [sweep_n1_5] S(P(C,L),P(L,R))#2 : [FAIL] wrmse 9.03e-02 top1=P(L,L,S(C,L)) (truth reachable, start coverage) sens=0.465
-  [sweep_n1_5] S(P(C,L),P(L,R))#3 : [FAIL] wrmse 2.10e-01 top1=P(L,S(C,L)) (truth reachable, start coverage) sens=0.071
-  [sweep_n1_5] S(P(C,L,R),R)#6 : [FAIL] wrmse 9.70e-02 top1=P(L,S(C,R)) (truth reachable, start coverage) sens=0.028
-  [sweep_n1_5] S(P(C,R),P(L,L))#7 : [FAIL] canonical match but wrmse 0.000001 sens=0.0566
-  [sweep_n1_5] P(C,L,L,S(C,R))#7 : [FAIL] wrmse 1.17e-01 top1=P(C,L,R,S(C,L)) (truth reachable, start coverage) sens=0.574
-  [sweep_n1_5] P(C,L,R,S(C,L))#4 : [FAIL] wrmse 1.46e-02 top1=P(C,L,L,S(C,R)) (truth reachable, start coverage) sens=0.0967
-  [sweep_n1_5] P(C,S(C,L),S(C,L))#6 : [FAIL] wrmse 3.64e-02 top1=P(S(C,L),S(C,R)) (truth reachable, start coverage) sens=0.124
-  [sweep_n1_5] P(L,L,L,L,L)#7 : [FAIL] canonical match but wrmse 0.000025 sens=0.0108
-  [sweep_n1_5] P(L,L,L,S(C,L))#3 : [FAIL] canonical match but wrmse 0.000002 sens=0.0244
-  [sweep_n1_5] P(L,L,L,S(C,R))#0 : [FAIL] canonical match but wrmse 0.000003 sens=0.0183
-  [sweep_n1_5] P(L,S(C,L),S(C,L))#3 : [FAIL] wrmse 2.62e-01 top1=P(R,S(C,L),S(C,L)) (truth reachable, start coverage) sens=0.0164
-  [sweep_n1_5] P(L,S(C,L),S(C,L))#5 : [FAIL] wrmse 4.79e-02 top1=S(P(C,L),P(C,L,R)) (truth reachable, start coverage) sens=0.0578
-  [sweep_n1_5] P(L,S(C,L),S(C,L))#7 : [FAIL] wrmse 9.64e-02 top1=S(L,P(C,L,L)) (truth reachable, start coverage) sens=0.221
-  [sweep_n1_5] P(L,S(C,L),S(C,R))#0 : [FAIL] canonical match but wrmse 0.003840 sens=0.0183
-  [sweep_n1_5] P(L,S(C,L),S(C,R))#4 : [FAIL] wrmse 2.35e-02 top1=S(L,P(C,L),P(C,R)) (truth reachable, start coverage) sens=0.0642
-  [sweep_n1_5] P(R,S(C,L),S(C,R))#2 : [FAIL] wrmse 1.25e-02 top1=S(P(C,L),P(C,L),R) (truth reachable, start coverage) sens=0.299
-  [sweep_n1_5] P(R,S(C,L),S(C,R))#7 : [FAIL] wrmse 1.19e-02 top1=P(C,L,S(C,L)) (truth reachable, start coverage) sens=0.021
-  [sweep_n1_5] S(C,L,P(L,L,R))#6 : [FAIL] canonical match but wrmse 0.000003 sens=0.00315
-  [sweep_n1_5] S(C,P(C,L),P(C,L))#1 : [FAIL] wrmse 7.00e-02 top1=S(C,P(C,L)) (truth reachable, start coverage) sens=0.796
-  [sweep_n1_5] S(C,P(C,L),P(C,L))#3 : [FAIL] truth topology not fittable (pipeline defect) sens=0.0511
-  [sweep_n1_5] S(C,P(C,L),P(C,L))#7 : [FAIL] wrmse 1.60e-02 top1=S(C,P(C,L),P(L,L)) (truth reachable, start coverage) sens=0.0278
-  [sweep_n1_5] S(C,P(C,L),P(L,L))#0 : [FAIL] wrmse 1.40e-02 top1=S(C,L,P(C,L,R)) (truth reachable, start coverage) sens=0.0287
-  [sweep_n1_5] S(C,P(C,L),P(L,L))#3 : [FAIL] wrmse 7.11e-02 top1=S(P(C,L),P(L,L)) (truth reachable, start coverage) sens=0.051
-  [sweep_n1_5] S(C,P(C,L),P(L,R))#1 : [FAIL] canonical match but wrmse 0.000336 sens=0.0581
-  [sweep_n1_5] S(C,P(C,L),P(L,R))#2 : [FAIL] canonical match but wrmse 0.000008 sens=0.0571
-  [sweep_n1_5] S(C,P(C,L),P(L,R))#7 : [FAIL] canonical match but wrmse 0.000096 sens=0.014
+TOTAL: 2994 cases (142 failed), checks: 494 (0 failed)
+[sweep_n1_5] P(C,L,S(C,R))#3 : [FAIL] wrmse 3.29e-02 top1=S(C,P(C,L,L)) (truth reachable, start coverage) sens=0.162
+[sweep_n1_5] P(L,L,L,L)#3 : [FAIL] wrmse 1.95e-02 top1=P(L,L,L) (truth reachable, start coverage) sens=0.0131
+[sweep_n1_5] P(L,L,S(C,R))#6 : [FAIL] wrmse 1.65e-02 top1=S(L,P(C,L,L)) (truth reachable, start coverage) sens=0.909
+[sweep_n1_5] P(L,R,S(C,L))#2 : [FAIL] canonical match but wrmse 0.000004 sens=0.0773
+[sweep_n1_5] P(S(C,L),S(C,L))#7 : [FAIL] wrmse 6.09e-02 top1=S(C,L,P(C,R)) (truth reachable, start coverage) sens=0.0649
+[sweep_n1_5] S(C,P(C,L,L))#0 : [FAIL] wrmse 2.86e-01 top1=S(C,P(L,L,R)) (truth reachable, start coverage) sens=0.885
+[sweep_n1_5] S(C,P(C,L,R))#1 : [FAIL] wrmse 1.70e-01 top1=S(C,P(L,R)) (truth reachable, start coverage) sens=0.0823
+[sweep_n1_5] S(C,P(C,L,R))#4 : [FAIL] wrmse 2.75e-02 top1=S(C,P(L,R)) (truth reachable, start coverage) sens=0.0578
+[sweep_n1_5] S(L,P(C,L,L))#7 : [FAIL] wrmse 1.28e-02 top1=S(L,P(C,R)) (truth reachable, start coverage) sens=0.0125
+[sweep_n1_5] S(L,P(C,L,R))#5 : [FAIL] wrmse 1.76e-02 top1=P(L,S(C,L)) (truth reachable, start coverage) sens=0.012
+[sweep_n1_5] S(P(C,L),P(L,L))#2 : [FAIL] wrmse 4.57e-02 top1=S(L,P(C,L,R)) (truth reachable, start coverage) sens=0.478
+[sweep_n1_5] S(P(C,L),P(L,L))#4 : [FAIL] wrmse 9.88e-02 top1=P(L,S(C,L)) (truth reachable, start coverage) sens=0.201
+[sweep_n1_5] S(P(C,L),P(L,L))#5 : [FAIL] wrmse 8.99e-02 top1=S(P(C,L),P(L,R)) (truth reachable, start coverage) sens=0.537
+[sweep_n1_5] S(P(C,L),P(L,L))#7 : [FAIL] wrmse 1.34e-01 top1=S(L,P(C,L)) (truth reachable, start coverage) sens=0.29
+[sweep_n1_5] S(P(C,L),P(L,R))#2 : [FAIL] wrmse 9.03e-02 top1=P(L,L,S(C,L)) (truth reachable, start coverage) sens=0.465
+[sweep_n1_5] S(P(C,L),P(L,R))#3 : [FAIL] wrmse 2.10e-01 top1=P(L,S(C,L)) (truth reachable, start coverage) sens=0.071
+[sweep_n1_5] S(P(C,L,R),R)#6 : [FAIL] wrmse 9.70e-02 top1=P(L,S(C,R)) (truth reachable, start coverage) sens=0.028
+[sweep_n1_5] S(P(C,R),P(L,L))#7 : [FAIL] canonical match but wrmse 0.000001 sens=0.0566
+[sweep_n1_5] P(C,L,L,S(C,R))#7 : [FAIL] wrmse 1.17e-01 top1=P(C,L,R,S(C,L)) (truth reachable, start coverage) sens=0.574
+[sweep_n1_5] P(C,L,R,S(C,L))#4 : [FAIL] wrmse 1.46e-02 top1=P(C,L,L,S(C,R)) (truth reachable, start coverage) sens=0.0967
+[sweep_n1_5] P(C,S(C,L),S(C,L))#6 : [FAIL] wrmse 3.64e-02 top1=P(S(C,L),S(C,R)) (truth reachable, start coverage) sens=0.124
+[sweep_n1_5] P(L,L,L,L,L)#7 : [FAIL] canonical match but wrmse 0.000025 sens=0.0108
+[sweep_n1_5] P(L,L,L,S(C,L))#3 : [FAIL] canonical match but wrmse 0.000002 sens=0.0244
+[sweep_n1_5] P(L,L,L,S(C,R))#0 : [FAIL] canonical match but wrmse 0.000003 sens=0.0183
+[sweep_n1_5] P(L,S(C,L),S(C,L))#3 : [FAIL] wrmse 2.62e-01 top1=P(R,S(C,L),S(C,L)) (truth reachable, start coverage) sens=0.0164
+[sweep_n1_5] P(L,S(C,L),S(C,L))#5 : [FAIL] wrmse 4.79e-02 top1=S(P(C,L),P(C,L,R)) (truth reachable, start coverage) sens=0.0578
+[sweep_n1_5] P(L,S(C,L),S(C,L))#7 : [FAIL] wrmse 9.64e-02 top1=S(L,P(C,L,L)) (truth reachable, start coverage) sens=0.221
+[sweep_n1_5] P(L,S(C,L),S(C,R))#0 : [FAIL] canonical match but wrmse 0.003840 sens=0.0183
+[sweep_n1_5] P(L,S(C,L),S(C,R))#4 : [FAIL] wrmse 2.35e-02 top1=S(L,P(C,L),P(C,R)) (truth reachable, start coverage) sens=0.0642
+[sweep_n1_5] P(R,S(C,L),S(C,R))#2 : [FAIL] wrmse 1.25e-02 top1=S(P(C,L),P(C,L),R) (truth reachable, start coverage) sens=0.299
+[sweep_n1_5] P(R,S(C,L),S(C,R))#7 : [FAIL] wrmse 1.19e-02 top1=P(C,L,S(C,L)) (truth reachable, start coverage) sens=0.021
+[sweep_n1_5] S(C,L,P(L,L,R))#6 : [FAIL] canonical match but wrmse 0.000003 sens=0.00315
+[sweep_n1_5] S(C,P(C,L),P(C,L))#1 : [FAIL] wrmse 7.00e-02 top1=S(C,P(C,L)) (truth reachable, start coverage) sens=0.796
+[sweep_n1_5] S(C,P(C,L),P(C,L))#3 : [FAIL] truth topology not fittable (pipeline defect) sens=0.0511
+[sweep_n1_5] S(C,P(C,L),P(C,L))#7 : [FAIL] wrmse 1.60e-02 top1=S(C,P(C,L),P(L,L)) (truth reachable, start coverage) sens=0.0278
+[sweep_n1_5] S(C,P(C,L),P(L,L))#0 : [FAIL] wrmse 1.40e-02 top1=S(C,L,P(C,L,R)) (truth reachable, start coverage) sens=0.0287
+[sweep_n1_5] S(C,P(C,L),P(L,L))#3 : [FAIL] wrmse 7.11e-02 top1=S(P(C,L),P(L,L)) (truth reachable, start coverage) sens=0.051
+[sweep_n1_5] S(C,P(C,L),P(L,R))#1 : [FAIL] canonical match but wrmse 0.000336 sens=0.0581
+[sweep_n1_5] S(C,P(C,L),P(L,R))#2 : [FAIL] canonical match but wrmse 0.000008 sens=0.0571
+[sweep_n1_5] S(C,P(C,L),P(L,R))#7 : [FAIL] canonical match but wrmse 0.000096 sens=0.014
+[sweep_n1_5] S(C,P(C,L,L,L))#0 : [FAIL] wrmse 2.31e-02 top1=S(C,P(L,L,R)) (truth reachable, start coverage) sens=0.0141
+[sweep_n1_5] S(C,P(C,L,L,L))#4 : [FAIL] wrmse 3.07e-02 top1=S(C,P(L,L,L,R)) (truth reachable, start coverage) sens=0.0261
+[sweep_n1_5] S(C,P(C,L,L,L))#6 : [FAIL] wrmse 8.82e-02 top1=S(C,L,P(C,L,R)) (truth reachable, start coverage) sens=0.15
+[sweep_n1_5] S(C,P(L,L,L,R))#4 : [FAIL] canonical match but wrmse 0.000001 sens=0.00866
+[sweep_n1_5] S(L,P(C,L),P(L,L))#1 : [FAIL] wrmse 6.54e-02 top1=P(L,S(C,L),S(C,L)) (truth reachable, start coverage) sens=0.0123
+[sweep_n1_5] S(L,P(C,L,L,L))#3 : [FAIL] wrmse 3.91e-01 top1=P(C,L,L) (truth reachable, start coverage) sens=0.0387
+[sweep_n1_5] S(L,P(C,L,L,L))#5 : [FAIL] wrmse 1.24e-02 top1=P(L,L,L,S(C,R)) (truth reachable, start coverage) sens=0.0216
+[sweep_n1_5] S(P(C,L),P(C,L),R)#5 : [FAIL] wrmse 1.02e-02 top1=S(P(C,L),P(C,R),R) (truth reachable, start coverage) sens=0.0515
+[sweep_n1_5] S(P(C,L),P(C,L,L))#0 : [FAIL] wrmse 1.94e-01 top1=S(P(C,L),P(L,L,L)) (truth reachable, start coverage) sens=0.0147
+[sweep_n1_5] S(P(C,L),P(C,L,L))#5 : [FAIL] wrmse 3.26e-01 top1=P(C,L) (truth reachable, start coverage) sens=0.0642
+[sweep_n1_5] S(P(C,L),P(C,L,L))#6 : [FAIL] wrmse 2.49e-02 top1=S(P(C,L),P(L,R)) (truth reachable, start coverage) sens=0.1
+[sweep_n1_5] S(P(C,L),P(C,L,L))#7 : [FAIL] wrmse 2.12e-01 top1=P(C,L,L,R) (truth reachable, start coverage) sens=0.0191
+[sweep_n1_5] S(P(C,L),P(C,L,R))#1 : [FAIL] wrmse 1.65e-02 top1=S(P(C,L,R),P(L,L)) (truth reachable, start coverage) sens=0.0634
+[sweep_n1_5] S(P(C,L),P(C,L,R))#7 : [FAIL] wrmse 1.45e-01 top1=P(L,S(C,L),S(C,R)) (truth reachable, start coverage) sens=0.11
+[sweep_n1_5] S(P(C,L),P(L,L,L))#3 : [FAIL] wrmse 6.86e-02 top1=S(P(C,L),P(L,L)) (truth reachable, start coverage) sens=0.36
+[sweep_n1_5] S(P(C,L),P(L,L,L))#6 : [FAIL] wrmse 1.31e-02 top1=S(P(C,L,R),P(L,L)) (truth reachable, start coverage) sens=0.0267
+[sweep_n1_5] S(P(C,L),P(L,L,R))#4 : [FAIL] wrmse 7.71e-02 top1=S(P(C,L,R),P(L,L)) (truth reachable, start coverage) sens=0.384
+[sweep_n1_5] S(P(C,L),P(L,L,R))#7 : [FAIL] canonical match but wrmse 0.000015 sens=0.0112
+[sweep_n1_5] S(P(C,L,L),P(C,R))#5 : [FAIL] wrmse 2.88e-02 top1=P(C,L,L,R) (truth reachable, start coverage) sens=0.0755
+[sweep_n1_5] S(P(C,L,L),P(C,R))#7 : [FAIL] wrmse 2.09e-02 top1=S(P(C,L),P(C,R)) (truth reachable, start coverage) sens=0.108
+[sweep_n1_5] S(P(C,L,L),P(L,L))#0 : [FAIL] wrmse 1.27e-02 top1=S(P(C,L),P(L,L,R)) (truth reachable, start coverage) sens=0.0214
+[sweep_n1_5] S(P(C,L,L),P(L,L))#2 : [FAIL] canonical match but wrmse 0.000065 sens=0.0106
+[sweep_n1_5] S(P(C,L,L),P(L,L))#4 : [FAIL] wrmse 1.20e-02 top1=S(P(C,L,R),P(L,L)) (truth reachable, start coverage) sens=0.119
+[sweep_n1_5] S(P(C,L,L),P(L,R))#0 : [FAIL] wrmse 2.03e-02 top1=S(P(C,L),P(L,L,R)) (truth reachable, start coverage) sens=0.0202
+[sweep_n6] P(C,L,L,L,S(C,R))#2 : [FAIL] canonical match but wrmse 0.002239 sens=0.0441
+[sweep_n6] P(C,L,S(C,L),S(C,L))#3 : [FAIL] wrmse 3.57e-01 top1=P(C,L,R,S(C,L)) (truth reachable, start coverage) sens=0.342
+[sweep_n6] P(C,L,S(C,L),S(C,R))#0 : [FAIL] wrmse 5.53e-02 top1=S(L,P(C,L),P(C,R)) (truth reachable, start coverage) sens=0.0429
+[sweep_n6] P(C,L,S(C,L),S(C,R))#2 : [FAIL] wrmse 1.80e-02 top1=P(L,S(C,L),S(C,R)) (truth reachable, start coverage) sens=0.0277
+[sweep_n6] P(C,L,S(C,L),S(C,R))#3 : [FAIL] wrmse 2.74e-02 top1=P(C,L,S(C,R)) (truth reachable, start coverage) sens=0.14
+[sweep_n6] P(L,L,L,L,S(C,L))#3 : [FAIL] wrmse 3.71e-02 top1=P(L,L,R,S(C,L)) (truth reachable, start coverage) sens=0.0281
+[sweep_n6] P(L,L,L,L,S(C,R))#0 : [FAIL] canonical match but wrmse 0.000008 sens=0.015
+[sweep_n6] P(L,L,L,L,S(C,R))#2 : [FAIL] canonical match but wrmse 0.000049 sens=0.0359
+[sweep_n6] P(L,L,S(C,L),S(C,L))#1 : [FAIL] wrmse 3.26e-02 top1=P(S(C,L),S(C,L),S(C,R)) (truth reachable, start coverage) sens=0.0969
+[sweep_n6] P(L,L,S(C,L),S(C,L))#2 : [FAIL] wrmse 1.89e-01 top1=S(P(C,L,L),P(C,L,R)) (truth reachable, start coverage) sens=0.38
+[sweep_n6] P(L,R,S(C,L),S(C,L))#3 : [FAIL] wrmse 1.32e-02 top1=P(C,R,S(C,L)) (truth reachable, start coverage) sens=0.0185
+[sweep_n6] P(L,R,S(C,L),S(C,R))#3 : [FAIL] wrmse 2.94e-01 top1=P(C,L,L,S(C,R)) (truth reachable, start coverage) sens=0.0638
+[sweep_n6] P(S(C,L),S(C,L),S(C,L))#1 : [FAIL] wrmse 1.68e-02 top1=P(R,S(C,L),S(C,L)) (truth reachable, start coverage) sens=0.0114
+[sweep_n6] P(S(C,L),S(C,L),S(C,L))#2 : [FAIL] wrmse 1.17e-01 top1=S(P(C,L),P(C,L),P(L,L)) (truth reachable, start coverage) sens=0.0971
+[sweep_n6] P(S(C,L),S(C,L),S(C,R))#0 : [FAIL] wrmse 1.33e-02 top1=P(C,S(C,L),S(C,L)) (truth reachable, start coverage) sens=0.0104
+[sweep_n6] P(S(C,L),S(C,L),S(C,R))#1 : [FAIL] wrmse 7.40e-02 top1=S(C,L,P(C,L)) (truth reachable, start coverage) sens=0.0926
+[sweep_n6] P(S(C,L),S(C,L),S(C,R))#2 : [FAIL] wrmse 2.38e-02 top1=P(S(C,L),S(C,R)) (truth reachable, start coverage) sens=0.0105
+[sweep_n6] S(C,L,P(C,L),P(C,L))#3 : [FAIL] wrmse 1.30e-02 top1=S(C,P(C,L,R),R) (truth reachable, start coverage) sens=0.0163
+[sweep_n6] S(C,L,P(C,L,L,L))#3 : [FAIL] canonical match but wrmse 0.000002 sens=0.00883
+[sweep_n6] S(C,P(C,L),P(C,L),R)#0 : [FAIL] wrmse 3.46e-02 top1=S(C,P(C,L),R) (truth reachable, start coverage) sens=0.371
+[sweep_n6] S(C,P(C,L),P(C,L,L))#1 : [FAIL] wrmse 7.55e-02 top1=S(C,P(C,L),P(L,L)) (truth reachable, start coverage) sens=0.0207
+[sweep_n6] S(C,P(C,L),P(C,L,R))#2 : [FAIL] wrmse 1.17e-02 top1=S(C,P(C,L),P(L,R)) (truth reachable, start coverage) sens=0.25
+[sweep_n6] S(C,P(C,L),P(L,L,L))#3 : [FAIL] wrmse 2.41e-02 top1=S(C,L,P(C,L),P(L,R)) (truth reachable, start coverage) sens=0.0314
+[sweep_n6] S(C,P(C,L),P(L,L,R))#2 : [FAIL] wrmse 2.27e-02 top1=S(C,P(C,L,L),P(L,R)) (truth reachable, start coverage) sens=0.0227
+[sweep_n6] S(C,P(C,L,L,L,L))#1 : [FAIL] canonical match but wrmse 0.000047 sens=0.00307
+[sweep_n6] S(C,P(C,R),P(L,L,R))#1 : [FAIL] canonical match but wrmse 0.000001 sens=0.0451
+[sweep_n6] S(C,P(L,L,L,L,R))#2 : [FAIL] canonical match but wrmse 0.000013 sens=0.00693
+[sweep_n6] S(L,P(C,L),P(C,L,L))#2 : [FAIL] wrmse 1.60e-01 top1=P(L,L,S(C,L)) (truth reachable, start coverage) sens=0.0413
+[sweep_n6] S(L,P(C,L),P(C,L,L))#3 : [FAIL] wrmse 1.26e-01 top1=P(C,L,S(C,L)) (truth reachable, start coverage) sens=0.11
+[sweep_n6] S(L,P(C,L),P(C,L,R))#1 : [FAIL] wrmse 5.57e-02 top1=S(P(C,L),P(C,L),R) (truth reachable, start coverage) sens=0.0945
+[sweep_n6] S(L,P(C,L),P(C,L,R))#2 : [FAIL] wrmse 1.47e-02 top1=S(P(C,L,R),P(C,L,R)) (truth reachable, start coverage) sens=0.0508
+[sweep_n6] S(L,P(C,L),P(L,L,R))#3 : [FAIL] wrmse 3.01e-02 top1=S(P(C,L,R),P(L,L)) (truth reachable, start coverage) sens=0.11
+[sweep_n6] S(L,P(C,L,L,L,L))#0 : [FAIL] wrmse 3.08e-02 top1=S(P(C,L,L),P(L,R)) (truth reachable, start coverage) sens=0.0173
+[sweep_n6] S(L,P(C,L,R),P(C,R))#0 : [FAIL] wrmse 3.98e-02 top1=S(C,P(C,L,R),P(L,L)) (truth reachable, start coverage) sens=0.0217
+[sweep_n6] S(P(C,L),P(C,L),P(C,L))#2 : [FAIL] wrmse 2.38e-01 top1=S(P(C,L),P(L,L)) (truth reachable, start coverage) sens=0.258
+[sweep_n6] S(P(C,L),P(C,L),P(C,L))#3 : [FAIL] wrmse 1.34e-01 top1=S(P(C,L),P(C,L,R)) (truth reachable, start coverage) sens=0.0217
+[sweep_n6] S(P(C,L),P(C,L),P(L,L))#0 : [FAIL] wrmse 2.81e-02 top1=S(L,P(C,L),P(L,L,R)) (truth reachable, start coverage) sens=0.0764
+[sweep_n6] S(P(C,L),P(C,L),P(L,R))#0 : [FAIL] wrmse 4.63e-02 top1=S(P(C,L),P(L,L)) (truth reachable, start coverage) sens=0.0983
+[sweep_n6] S(P(C,L),P(C,L),P(L,R))#2 : [FAIL] wrmse 8.11e-02 top1=S(P(C,L),P(C,L),R) (truth reachable, start coverage) sens=0.0233
+[sweep_n6] S(P(C,L),P(C,L),P(L,R))#3 : [FAIL] wrmse 5.75e-02 top1=S(P(C,L,L),P(L,R)) (truth reachable, start coverage) sens=0.0396
+[sweep_n6] S(P(C,L),P(C,L,L,L))#0 : [FAIL] truth topology not fittable (pipeline defect) sens=0.0539
+[sweep_n6] S(P(C,L),P(C,L,L,R))#1 : [FAIL] wrmse 1.51e-02 top1=S(P(C,L,L),P(C,L,L)) (truth reachable, start coverage) sens=0.0482
+[sweep_n6] S(P(C,L),P(C,L,L,R))#3 : [FAIL] canonical match but wrmse 0.000359 sens=0.0191
+[sweep_n6] S(P(C,L),P(C,L,R),R)#1 : [FAIL] wrmse 8.28e-02 top1=P(L,R,S(C,L),S(C,R)) (truth reachable, start coverage) sens=0.133
+[sweep_n6] S(P(C,L),P(C,L,R),R)#3 : [FAIL] wrmse 1.08e-02 top1=S(P(C,L),P(C,L,R)) (truth reachable, start coverage) sens=0.0676
+[sweep_n6] S(P(C,L),P(L,L,L,L))#0 : [FAIL] wrmse 1.23e-02 top1=P(L,L,L,S(C,L)) (truth reachable, start coverage) sens=0.0326
+[sweep_n6] S(P(C,L),P(L,L,L,R))#1 : [FAIL] wrmse 1.37e-02 top1=P(L,L,L,S(C,L)) (truth reachable, start coverage) sens=0.0115
+[sweep_n6] S(P(C,L,L),P(C,L,L))#1 : [FAIL] wrmse 8.28e-02 top1=S(P(C,L,L),P(L,L)) (truth reachable, start coverage) sens=0.0118
+[sweep_n6] S(P(C,L,L),P(C,L,L))#3 : [FAIL] wrmse 1.95e-02 top1=P(C,L,L,R,S(C,L)) (truth reachable, start coverage) sens=0.0896
+[sweep_n6] S(P(C,L,L),P(C,L,R))#1 : [FAIL] wrmse 2.53e-02 top1=S(P(C,L,R),P(C,L,R)) (truth reachable, start coverage) sens=0.0221
+[sweep_n6] S(P(C,L,L),P(L,L,L))#0 : [FAIL] wrmse 1.08e-02 top1=S(P(C,L,R),P(L,L)) (truth reachable, start coverage) sens=0.0315
+[sweep_n6] S(P(C,L,L),P(L,L,L))#1 : [FAIL] canonical match but wrmse 0.000089 sens=0.0169
+[sweep_n6] S(P(C,L,L,L),P(L,L))#2 : [FAIL] wrmse 4.87e-02 top1=P(L,L,L,S(C,L)) (truth reachable, start coverage) sens=0.0815
+[sweep_n6] S(P(C,R),P(C,R),P(L,L))#1 : [FAIL] wrmse 1.52e-02 top1=S(L,P(C,R),P(L,R)) (truth reachable, start coverage) sens=0.0386
+[sweep_n6] S(P(C,R),P(L,L,L,L))#2 : [FAIL] canonical match but wrmse 0.000016 sens=0.00388
+[noisy_sweep] S(C,L)@0.5%#0 : [EXACT] param 1.17e-01
+[noisy_sweep] S(C,L)@0.5%#3 : [EXACT] param 8.06e-02
+[noisy_sweep] S(C,L)@0.5%#4 : [EXACT] param 8.74e-02
+[noisy_sweep] P(C,L,L)@0.5%#1 : [EXACT] param 9.64e+00
+[noisy_sweep] P(C,L,L)@0.5%#3 : [EXACT] param 9.68e+00
+[noisy_sweep] P(C,L,L)@0.5%#4 : [EXACT] param 9.81e+00
+[noisy_sweep] S(C,P(C,L))@0.5%#0 : [FAIL] top1=P(C,S(C,L))
+[noisy_sweep] S(C,P(C,L))@0.5%#1 : [FAIL] top1=P(C,S(C,L))
+[noisy_sweep] S(C,P(C,L))@0.5%#2 : [FAIL] top1=P(C,S(C,L))
+[noisy_sweep] S(C,P(C,L))@0.5%#3 : [EXACT] param 8.19e-01
+[noisy_sweep] P(C,L,R)@0.5%#1 : [EXACT] param 2.37e-01
+[noisy_sweep] P(C,L,R)@0.5%#2 : [EXACT] param 1.16e-01
+[noisy_sweep] P(C,L,R)@0.5%#3 : [EXACT] param 9.59e-02
+[noisy_sweep] S(P(C,L),P(C,L))@0.5%#0 : [FAIL] top1=S(P(C,L),P(L,R))
+[noisy_sweep] S(P(C,L),P(C,L))@0.5%#1 : [FAIL] top1=S(P(C,L),P(L,R))
+[noisy_sweep] S(P(C,L),P(C,L))@0.5%#2 : [FAIL] top1=S(P(C,L),P(L,R))
+[noisy_sweep] S(P(C,L),P(C,L))@0.5%#3 : [FAIL] top1=S(P(C,L),P(L,R))
+[noisy_sweep] S(P(C,L),P(C,L))@0.5%#4 : [FAIL] top1=S(L,P(C,L))
+[noisy_sweep] P(L,L,S(C,R))@0.5%#0 : [EXACT] param 2.65e+05
+[noisy_sweep] P(L,L,S(C,R))@0.5%#1 : [EXACT] param 2.68e+05
+[noisy_sweep] P(L,L,S(C,R))@0.5%#2 : [FAIL] top1=P(L,L,S(C,L))
+[noisy_sweep] P(L,L,S(C,R))@0.5%#3 : [EXACT] param 2.66e+05
+[noisy_sweep] P(L,L,S(C,R))@0.5%#4 : [EXACT] param 2.67e+05

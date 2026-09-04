@@ -1,0 +1,2 @@
+/usr/bin/ar qc libng_id.a CMakeFiles/ng_id.dir/src/adjacency.cpp.o CMakeFiles/ng_id.dir/src/components.cpp.o CMakeFiles/ng_id.dir/src/enumerate.cpp.o CMakeFiles/ng_id.dir/src/filters.cpp.o CMakeFiles/ng_id.dir/src/graph.cpp.o CMakeFiles/ng_id.dir/src/identify.cpp.o CMakeFiles/ng_id.dir/src/iofmt.cpp.o CMakeFiles/ng_id.dir/src/metric.cpp.o CMakeFiles/ng_id.dir/src/nodal.cpp.o CMakeFiles/ng_id.dir/src/report.cpp.o CMakeFiles/ng_id.dir/src/selector.cpp.o CMakeFiles/ng_id.dir/src/synthetic.cpp.o
+/usr/bin/ranlib libng_id.a

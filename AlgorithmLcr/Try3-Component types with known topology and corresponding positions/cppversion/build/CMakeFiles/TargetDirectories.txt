@@ -1,0 +1,6 @@
+/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try3-Component types with known topology and corresponding positions/cppversion/build/CMakeFiles/tf_id.dir
+/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try3-Component types with known topology and corresponding positions/cppversion/build/CMakeFiles/demo.dir
+/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try3-Component types with known topology and corresponding positions/cppversion/build/CMakeFiles/case_run.dir
+/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try3-Component types with known topology and corresponding positions/cppversion/build/CMakeFiles/tf_tests.dir
+/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try3-Component types with known topology and corresponding positions/cppversion/build/CMakeFiles/edit_cache.dir
+/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try3-Component types with known topology and corresponding positions/cppversion/build/CMakeFiles/rebuild_cache.dir

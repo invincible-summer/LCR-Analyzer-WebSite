@@ -1,0 +1,1 @@
+/usr/bin/c++ -O2 -Wl,--dependency-file=CMakeFiles/case_run.dir/link.d CMakeFiles/case_run.dir/apps/case_run.cpp.o -o case_run  libtf_id.a

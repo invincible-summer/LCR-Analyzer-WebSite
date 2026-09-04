@@ -1,0 +1,6 @@
+/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try2-Known component types, quantities and parameters/cppversion/build/CMakeFiles/ng_id.dir
+/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try2-Known component types, quantities and parameters/cppversion/build/CMakeFiles/demo.dir
+/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try2-Known component types, quantities and parameters/cppversion/build/CMakeFiles/case_run.dir
+/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try2-Known component types, quantities and parameters/cppversion/build/CMakeFiles/ng_tests.dir
+/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try2-Known component types, quantities and parameters/cppversion/build/CMakeFiles/edit_cache.dir
+/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try2-Known component types, quantities and parameters/cppversion/build/CMakeFiles/rebuild_cache.dir

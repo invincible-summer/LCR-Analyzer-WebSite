@@ -4,8 +4,12 @@
 各 Try 的实现模块（`rlc_id/adjacency.py`、`netgraph_id/adjacency.py`、`topofit_id/adjacency.py`）
 实现本规范并各配测试对齐；各 DESIGN.md 只引用本文件、不重复定义。输入侧的统一
 格式（测量数据、Try2 元件队列、Try3 拓扑矩阵+边类型队列）见
-[INPUT_FORMAT.md](INPUT_FORMAT.md)。未来 C++ 移植（ESP32 固件 / `cppversion`）
-以本文件为契约。
+[INPUT_FORMAT.md](INPUT_FORMAT.md)。三个课题的 C++ 移植
+（`*/cppversion/`，C++17 零依赖：Try1 `rlc`、Try2 `ng`、Try3 `tf` 命名空间）
+均已以本文件为契约实现：`struct Edge{type, parameter, dcr}`、
+`vector<vector<vector<Edge>>> upper` 行主序上三角、§4 打印格式
+（`%.3e`、`dcr` 段省略规则、`adjacency[rank]` 头）逐字符一致，
+Try3 的 merged/dropped 注释行与稀疏节点保留规则同样逐项移植。
 
 ## 1. Edge 结构
 

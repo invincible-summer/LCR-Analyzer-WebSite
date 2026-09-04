@@ -1,0 +1,1 @@
+/usr/bin/c++ -O2 -Wl,--dependency-file=CMakeFiles/ng_tests.dir/link.d CMakeFiles/ng_tests.dir/tests/test_main.cpp.o CMakeFiles/ng_tests.dir/tests/suites_core.cpp.o CMakeFiles/ng_tests.dir/tests/suites_io.cpp.o CMakeFiles/ng_tests.dir/tests/suites_e2e.cpp.o -o ng_tests  libng_id.a
