@@ -1,9 +1,8 @@
 CMakeFiles/demo.dir/apps/demo.cpp.o: \
- /home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/cppversion/apps/demo.cpp \
+ /home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try1-Completely\ unknown\ single\ port\ fitting/cppversion/apps/demo.cpp \
  /usr/include/stdc-predef.h \
- /home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/cppversion/src/identify.hpp \
- /home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/cppversion/src/fit_engine_a.hpp \
- /home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/cppversion/src/circuits.hpp \
+ /home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try1-Completely\ unknown\ single\ port\ fitting/cppversion/src/adjacency.hpp \
+ /home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try1-Completely\ unknown\ single\ port\ fitting/cppversion/src/circuits.hpp \
  /usr/include/c++/15/complex \
  /usr/include/x86_64-linux-gnu/c++/15/bits/c++config.h \
  /usr/include/x86_64-linux-gnu/c++/15/bits/os_defines.h \
@@ -216,7 +215,8 @@ CMakeFiles/demo.dir/apps/demo.cpp.o: \
  /usr/include/c++/15/bits/stl_vector.h \
  /usr/include/c++/15/bits/stl_bvector.h \
  /usr/include/c++/15/bits/vector.tcc \
- /home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/cppversion/src/linalg.hpp \
+ /home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try1-Completely\ unknown\ single\ port\ fitting/cppversion/src/fit_engine_a.hpp \
+ /home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try1-Completely\ unknown\ single\ port\ fitting/cppversion/src/linalg.hpp \
  /usr/include/c++/15/cstdint \
  /usr/lib/gcc/x86_64-linux-gnu/15/include/stdint.h /usr/include/stdint.h \
  /usr/include/x86_64-linux-gnu/bits/stdint-uintn.h \
@@ -238,12 +238,14 @@ CMakeFiles/demo.dir/apps/demo.cpp.o: \
  /usr/include/c++/15/compare /usr/include/c++/15/map \
  /usr/include/c++/15/bits/stl_tree.h /usr/include/c++/15/bits/stl_map.h \
  /usr/include/c++/15/bits/stl_multimap.h /usr/include/c++/15/optional \
- /home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/cppversion/src/fit_engine_b.hpp \
- /home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/cppversion/src/library.hpp \
- /home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/cppversion/src/pruning.hpp \
- /home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/cppversion/src/selector.hpp \
- /home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/cppversion/src/synthetic.hpp \
- /home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/cppversion/src/report.hpp \
+ /home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try1-Completely\ unknown\ single\ port\ fitting/cppversion/src/identify.hpp \
+ /home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try1-Completely\ unknown\ single\ port\ fitting/cppversion/src/fit_engine_b.hpp \
+ /home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try1-Completely\ unknown\ single\ port\ fitting/cppversion/src/library.hpp \
+ /home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try1-Completely\ unknown\ single\ port\ fitting/cppversion/src/pruning.hpp \
+ /home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try1-Completely\ unknown\ single\ port\ fitting/cppversion/src/selector.hpp \
+ /home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try1-Completely\ unknown\ single\ port\ fitting/cppversion/src/synthetic.hpp \
+ /home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try1-Completely\ unknown\ single\ port\ fitting/cppversion/src/iofmt.hpp \
+ /home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try1-Completely\ unknown\ single\ port\ fitting/cppversion/src/report.hpp \
  /usr/include/c++/15/chrono /usr/include/c++/15/bits/chrono.h \
  /usr/include/c++/15/ratio /usr/include/c++/15/ctime \
  /usr/include/c++/15/bits/parse_numbers.h /usr/include/c++/15/cstring \

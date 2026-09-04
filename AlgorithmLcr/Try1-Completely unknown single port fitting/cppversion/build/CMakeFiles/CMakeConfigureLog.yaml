@@ -20,6 +20,15 @@ events:
     names:
       - "uname"
     candidate_directories:
+      - "/home/invincible/.local/bin/"
+      - "/home/invincible/bin/"
+      - "/home/invincible/.kimi-code/bin/"
+      - "/home/invincible/apps/jdk-17.0.20+8/bin/"
+      - "/home/invincible/apps/android-sdk/cmdline-tools/latest/bin/"
+      - "/home/invincible/apps/android-sdk/platform-tools/"
+      - "/home/invincible/apps/"
+      - "/home/invincible/.nvm/versions/node/v22.16.0/bin/"
+      - "/home/invincible/miniconda3/condabin/"
       - "/usr/local/sbin/"
       - "/usr/local/bin/"
       - "/usr/sbin/"
@@ -29,10 +38,6 @@ events:
       - "/usr/games/"
       - "/usr/local/games/"
       - "/usr/lib/wsl/lib/"
-      - "/mnt/c/Users/32525/bin/"
-      - "/mnt/d/Git/mingw64/bin/"
-      - "/mnt/d/Git/usr/local/bin/"
-      - "/mnt/d/Git/usr/bin/"
       - "/mnt/c/Windows/system32/"
       - "/mnt/c/Windows/"
       - "/mnt/c/Windows/System32/Wbem/"
@@ -62,15 +67,35 @@ events:
       - "/mnt/d/miniconda3/condabin/"
       - "/mnt/d/Zcode/resources/tools/ripgrep/"
       - "/mnt/d/Zcode/resources/tools/ugrep/"
-      - "/mnt/d/Git/usr/bin/vendor_perl/"
-      - "/mnt/d/Git/usr/bin/core_perl/"
+      - "/snap/bin/"
+      - "/home/invincible/.zcode/server/tools/bfs/"
+      - "/home/invincible/.zcode/server/tools/ripgrep/"
+      - "/home/invincible/.zcode/server/tools/ugrep/"
     searched_directories:
+      - "/home/invincible/.local/bin/uname"
+      - "/home/invincible/bin/uname"
+      - "/home/invincible/.kimi-code/bin/uname"
+      - "/home/invincible/apps/jdk-17.0.20+8/bin/uname"
+      - "/home/invincible/apps/android-sdk/cmdline-tools/latest/bin/uname"
+      - "/home/invincible/apps/android-sdk/platform-tools/uname"
+      - "/home/invincible/apps/uname"
+      - "/home/invincible/.nvm/versions/node/v22.16.0/bin/uname"
+      - "/home/invincible/miniconda3/condabin/uname"
       - "/usr/local/sbin/uname"
       - "/usr/local/bin/uname"
       - "/usr/sbin/uname"
     found: "/usr/bin/uname"
     search_context:
       ENV{PATH}:
+        - "/home/invincible/.local/bin"
+        - "/home/invincible/bin"
+        - "/home/invincible/.kimi-code/bin"
+        - "/home/invincible/apps/jdk-17.0.20+8/bin"
+        - "/home/invincible/apps/android-sdk/cmdline-tools/latest/bin"
+        - "/home/invincible/apps/android-sdk/platform-tools"
+        - "/home/invincible/apps"
+        - "/home/invincible/.nvm/versions/node/v22.16.0/bin"
+        - "/home/invincible/miniconda3/condabin"
         - "/usr/local/sbin"
         - "/usr/local/bin"
         - "/usr/sbin"
@@ -80,14 +105,6 @@ events:
         - "/usr/games"
         - "/usr/local/games"
         - "/usr/lib/wsl/lib"
-        - "/mnt/c/Users/32525/bin"
-        - "/mnt/d/Git/mingw64/bin"
-        - "/mnt/d/Git/usr/local/bin"
-        - "/mnt/d/Git/usr/bin"
-        - "/mnt/d/Git/usr/bin"
-        - "/mnt/d/Git/mingw64/bin"
-        - "/mnt/d/Git/usr/bin"
-        - "/mnt/c/Users/32525/bin"
         - "/mnt/c/Windows/system32"
         - "/mnt/c/Windows"
         - "/mnt/c/Windows/System32/Wbem"
@@ -117,9 +134,10 @@ events:
         - "/mnt/d/miniconda3/condabin"
         - "/mnt/d/Zcode/resources/tools/ripgrep"
         - "/mnt/d/Zcode/resources/tools/ugrep"
-        - "/mnt/c/Program Files/nodejs"
-        - "/mnt/d/Git/usr/bin/vendor_perl"
-        - "/mnt/d/Git/usr/bin/core_perl"
+        - "/snap/bin"
+        - "/home/invincible/.zcode/server/tools/bfs"
+        - "/home/invincible/.zcode/server/tools/ripgrep"
+        - "/home/invincible/.zcode/server/tools/ugrep"
   -
     kind: "message-v1"
     backtrace:
@@ -148,6 +166,15 @@ events:
       - "make"
       - "smake"
     candidate_directories:
+      - "/home/invincible/.local/bin/"
+      - "/home/invincible/bin/"
+      - "/home/invincible/.kimi-code/bin/"
+      - "/home/invincible/apps/jdk-17.0.20+8/bin/"
+      - "/home/invincible/apps/android-sdk/cmdline-tools/latest/bin/"
+      - "/home/invincible/apps/android-sdk/platform-tools/"
+      - "/home/invincible/apps/"
+      - "/home/invincible/.nvm/versions/node/v22.16.0/bin/"
+      - "/home/invincible/miniconda3/condabin/"
       - "/usr/local/sbin/"
       - "/usr/local/bin/"
       - "/usr/sbin/"
@@ -157,10 +184,6 @@ events:
       - "/usr/games/"
       - "/usr/local/games/"
       - "/usr/lib/wsl/lib/"
-      - "/mnt/c/Users/32525/bin/"
-      - "/mnt/d/Git/mingw64/bin/"
-      - "/mnt/d/Git/usr/local/bin/"
-      - "/mnt/d/Git/usr/bin/"
       - "/mnt/c/Windows/system32/"
       - "/mnt/c/Windows/"
       - "/mnt/c/Windows/System32/Wbem/"
@@ -190,15 +213,35 @@ events:
       - "/mnt/d/miniconda3/condabin/"
       - "/mnt/d/Zcode/resources/tools/ripgrep/"
       - "/mnt/d/Zcode/resources/tools/ugrep/"
-      - "/mnt/d/Git/usr/bin/vendor_perl/"
-      - "/mnt/d/Git/usr/bin/core_perl/"
+      - "/snap/bin/"
+      - "/home/invincible/.zcode/server/tools/bfs/"
+      - "/home/invincible/.zcode/server/tools/ripgrep/"
+      - "/home/invincible/.zcode/server/tools/ugrep/"
     searched_directories:
+      - "/home/invincible/.local/bin/gmake"
+      - "/home/invincible/bin/gmake"
+      - "/home/invincible/.kimi-code/bin/gmake"
+      - "/home/invincible/apps/jdk-17.0.20+8/bin/gmake"
+      - "/home/invincible/apps/android-sdk/cmdline-tools/latest/bin/gmake"
+      - "/home/invincible/apps/android-sdk/platform-tools/gmake"
+      - "/home/invincible/apps/gmake"
+      - "/home/invincible/.nvm/versions/node/v22.16.0/bin/gmake"
+      - "/home/invincible/miniconda3/condabin/gmake"
       - "/usr/local/sbin/gmake"
       - "/usr/local/bin/gmake"
       - "/usr/sbin/gmake"
     found: "/usr/bin/gmake"
     search_context:
       ENV{PATH}:
+        - "/home/invincible/.local/bin"
+        - "/home/invincible/bin"
+        - "/home/invincible/.kimi-code/bin"
+        - "/home/invincible/apps/jdk-17.0.20+8/bin"
+        - "/home/invincible/apps/android-sdk/cmdline-tools/latest/bin"
+        - "/home/invincible/apps/android-sdk/platform-tools"
+        - "/home/invincible/apps"
+        - "/home/invincible/.nvm/versions/node/v22.16.0/bin"
+        - "/home/invincible/miniconda3/condabin"
         - "/usr/local/sbin"
         - "/usr/local/bin"
         - "/usr/sbin"
@@ -208,14 +251,6 @@ events:
         - "/usr/games"
         - "/usr/local/games"
         - "/usr/lib/wsl/lib"
-        - "/mnt/c/Users/32525/bin"
-        - "/mnt/d/Git/mingw64/bin"
-        - "/mnt/d/Git/usr/local/bin"
-        - "/mnt/d/Git/usr/bin"
-        - "/mnt/d/Git/usr/bin"
-        - "/mnt/d/Git/mingw64/bin"
-        - "/mnt/d/Git/usr/bin"
-        - "/mnt/c/Users/32525/bin"
         - "/mnt/c/Windows/system32"
         - "/mnt/c/Windows"
         - "/mnt/c/Windows/System32/Wbem"
@@ -245,9 +280,10 @@ events:
         - "/mnt/d/miniconda3/condabin"
         - "/mnt/d/Zcode/resources/tools/ripgrep"
         - "/mnt/d/Zcode/resources/tools/ugrep"
-        - "/mnt/c/Program Files/nodejs"
-        - "/mnt/d/Git/usr/bin/vendor_perl"
-        - "/mnt/d/Git/usr/bin/core_perl"
+        - "/snap/bin"
+        - "/home/invincible/.zcode/server/tools/bfs"
+        - "/home/invincible/.zcode/server/tools/ripgrep"
+        - "/home/invincible/.zcode/server/tools/ugrep"
   -
     kind: "find-v1"
     backtrace:
@@ -277,6 +313,15 @@ events:
       - "icx"
       - "clang++"
     candidate_directories:
+      - "/home/invincible/.local/bin/"
+      - "/home/invincible/bin/"
+      - "/home/invincible/.kimi-code/bin/"
+      - "/home/invincible/apps/jdk-17.0.20+8/bin/"
+      - "/home/invincible/apps/android-sdk/cmdline-tools/latest/bin/"
+      - "/home/invincible/apps/android-sdk/platform-tools/"
+      - "/home/invincible/apps/"
+      - "/home/invincible/.nvm/versions/node/v22.16.0/bin/"
+      - "/home/invincible/miniconda3/condabin/"
       - "/usr/local/sbin/"
       - "/usr/local/bin/"
       - "/usr/sbin/"
@@ -286,10 +331,6 @@ events:
       - "/usr/games/"
       - "/usr/local/games/"
       - "/usr/lib/wsl/lib/"
-      - "/mnt/c/Users/32525/bin/"
-      - "/mnt/d/Git/mingw64/bin/"
-      - "/mnt/d/Git/usr/local/bin/"
-      - "/mnt/d/Git/usr/bin/"
       - "/mnt/c/Windows/system32/"
       - "/mnt/c/Windows/"
       - "/mnt/c/Windows/System32/Wbem/"
@@ -319,15 +360,35 @@ events:
       - "/mnt/d/miniconda3/condabin/"
       - "/mnt/d/Zcode/resources/tools/ripgrep/"
       - "/mnt/d/Zcode/resources/tools/ugrep/"
-      - "/mnt/d/Git/usr/bin/vendor_perl/"
-      - "/mnt/d/Git/usr/bin/core_perl/"
+      - "/snap/bin/"
+      - "/home/invincible/.zcode/server/tools/bfs/"
+      - "/home/invincible/.zcode/server/tools/ripgrep/"
+      - "/home/invincible/.zcode/server/tools/ugrep/"
     searched_directories:
+      - "/home/invincible/.local/bin/c++"
+      - "/home/invincible/bin/c++"
+      - "/home/invincible/.kimi-code/bin/c++"
+      - "/home/invincible/apps/jdk-17.0.20+8/bin/c++"
+      - "/home/invincible/apps/android-sdk/cmdline-tools/latest/bin/c++"
+      - "/home/invincible/apps/android-sdk/platform-tools/c++"
+      - "/home/invincible/apps/c++"
+      - "/home/invincible/.nvm/versions/node/v22.16.0/bin/c++"
+      - "/home/invincible/miniconda3/condabin/c++"
       - "/usr/local/sbin/c++"
       - "/usr/local/bin/c++"
       - "/usr/sbin/c++"
     found: "/usr/bin/c++"
     search_context:
       ENV{PATH}:
+        - "/home/invincible/.local/bin"
+        - "/home/invincible/bin"
+        - "/home/invincible/.kimi-code/bin"
+        - "/home/invincible/apps/jdk-17.0.20+8/bin"
+        - "/home/invincible/apps/android-sdk/cmdline-tools/latest/bin"
+        - "/home/invincible/apps/android-sdk/platform-tools"
+        - "/home/invincible/apps"
+        - "/home/invincible/.nvm/versions/node/v22.16.0/bin"
+        - "/home/invincible/miniconda3/condabin"
         - "/usr/local/sbin"
         - "/usr/local/bin"
         - "/usr/sbin"
@@ -337,14 +398,6 @@ events:
         - "/usr/games"
         - "/usr/local/games"
         - "/usr/lib/wsl/lib"
-        - "/mnt/c/Users/32525/bin"
-        - "/mnt/d/Git/mingw64/bin"
-        - "/mnt/d/Git/usr/local/bin"
-        - "/mnt/d/Git/usr/bin"
-        - "/mnt/d/Git/usr/bin"
-        - "/mnt/d/Git/mingw64/bin"
-        - "/mnt/d/Git/usr/bin"
-        - "/mnt/c/Users/32525/bin"
         - "/mnt/c/Windows/system32"
         - "/mnt/c/Windows"
         - "/mnt/c/Windows/System32/Wbem"
@@ -374,9 +427,10 @@ events:
         - "/mnt/d/miniconda3/condabin"
         - "/mnt/d/Zcode/resources/tools/ripgrep"
         - "/mnt/d/Zcode/resources/tools/ugrep"
-        - "/mnt/c/Program Files/nodejs"
-        - "/mnt/d/Git/usr/bin/vendor_perl"
-        - "/mnt/d/Git/usr/bin/core_perl"
+        - "/snap/bin"
+        - "/home/invincible/.zcode/server/tools/bfs"
+        - "/home/invincible/.zcode/server/tools/ripgrep"
+        - "/home/invincible/.zcode/server/tools/ugrep"
   -
     kind: "find-v1"
     backtrace:
@@ -404,6 +458,15 @@ events:
     found: "/usr/share/cmake-4.2/Modules/CMakeCXXCompilerId.cpp.in"
     search_context:
       ENV{PATH}:
+        - "/home/invincible/.local/bin"
+        - "/home/invincible/bin"
+        - "/home/invincible/.kimi-code/bin"
+        - "/home/invincible/apps/jdk-17.0.20+8/bin"
+        - "/home/invincible/apps/android-sdk/cmdline-tools/latest/bin"
+        - "/home/invincible/apps/android-sdk/platform-tools"
+        - "/home/invincible/apps"
+        - "/home/invincible/.nvm/versions/node/v22.16.0/bin"
+        - "/home/invincible/miniconda3/condabin"
         - "/usr/local/sbin"
         - "/usr/local/bin"
         - "/usr/sbin"
@@ -413,14 +476,6 @@ events:
         - "/usr/games"
         - "/usr/local/games"
         - "/usr/lib/wsl/lib"
-        - "/mnt/c/Users/32525/bin"
-        - "/mnt/d/Git/mingw64/bin"
-        - "/mnt/d/Git/usr/local/bin"
-        - "/mnt/d/Git/usr/bin"
-        - "/mnt/d/Git/usr/bin"
-        - "/mnt/d/Git/mingw64/bin"
-        - "/mnt/d/Git/usr/bin"
-        - "/mnt/c/Users/32525/bin"
         - "/mnt/c/Windows/system32"
         - "/mnt/c/Windows"
         - "/mnt/c/Windows/System32/Wbem"
@@ -450,9 +505,10 @@ events:
         - "/mnt/d/miniconda3/condabin"
         - "/mnt/d/Zcode/resources/tools/ripgrep"
         - "/mnt/d/Zcode/resources/tools/ugrep"
-        - "/mnt/c/Program Files/nodejs"
-        - "/mnt/d/Git/usr/bin/vendor_perl"
-        - "/mnt/d/Git/usr/bin/core_perl"
+        - "/snap/bin"
+        - "/home/invincible/.zcode/server/tools/bfs"
+        - "/home/invincible/.zcode/server/tools/ripgrep"
+        - "/home/invincible/.zcode/server/tools/ugrep"
   -
     kind: "message-v1"
     backtrace:
@@ -473,7 +529,7 @@ events:
       Compilation of the CXX compiler identification source "CMakeCXXCompilerId.cpp" produced "a.out"
       
       The CXX compiler identification is GNU, found in:
-        /home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/cppversion/build/CMakeFiles/4.2.3/CompilerIdCXX/a.out
+        /home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try1-Completely unknown single port fitting/cppversion/build/CMakeFiles/4.2.3/CompilerIdCXX/a.out
       
   -
     kind: "find-v1"
@@ -496,6 +552,15 @@ events:
       - "ar"
     candidate_directories:
       - "/usr/bin/"
+      - "/home/invincible/.local/bin/"
+      - "/home/invincible/bin/"
+      - "/home/invincible/.kimi-code/bin/"
+      - "/home/invincible/apps/jdk-17.0.20+8/bin/"
+      - "/home/invincible/apps/android-sdk/cmdline-tools/latest/bin/"
+      - "/home/invincible/apps/android-sdk/platform-tools/"
+      - "/home/invincible/apps/"
+      - "/home/invincible/.nvm/versions/node/v22.16.0/bin/"
+      - "/home/invincible/miniconda3/condabin/"
       - "/usr/local/sbin/"
       - "/usr/local/bin/"
       - "/usr/sbin/"
@@ -504,10 +569,6 @@ events:
       - "/usr/games/"
       - "/usr/local/games/"
       - "/usr/lib/wsl/lib/"
-      - "/mnt/c/Users/32525/bin/"
-      - "/mnt/d/Git/mingw64/bin/"
-      - "/mnt/d/Git/usr/local/bin/"
-      - "/mnt/d/Git/usr/bin/"
       - "/mnt/c/Windows/system32/"
       - "/mnt/c/Windows/"
       - "/mnt/c/Windows/System32/Wbem/"
@@ -537,11 +598,22 @@ events:
       - "/mnt/d/miniconda3/condabin/"
       - "/mnt/d/Zcode/resources/tools/ripgrep/"
       - "/mnt/d/Zcode/resources/tools/ugrep/"
-      - "/mnt/d/Git/usr/bin/vendor_perl/"
-      - "/mnt/d/Git/usr/bin/core_perl/"
+      - "/snap/bin/"
+      - "/home/invincible/.zcode/server/tools/bfs/"
+      - "/home/invincible/.zcode/server/tools/ripgrep/"
+      - "/home/invincible/.zcode/server/tools/ugrep/"
     found: "/usr/bin/ar"
     search_context:
       ENV{PATH}:
+        - "/home/invincible/.local/bin"
+        - "/home/invincible/bin"
+        - "/home/invincible/.kimi-code/bin"
+        - "/home/invincible/apps/jdk-17.0.20+8/bin"
+        - "/home/invincible/apps/android-sdk/cmdline-tools/latest/bin"
+        - "/home/invincible/apps/android-sdk/platform-tools"
+        - "/home/invincible/apps"
+        - "/home/invincible/.nvm/versions/node/v22.16.0/bin"
+        - "/home/invincible/miniconda3/condabin"
         - "/usr/local/sbin"
         - "/usr/local/bin"
         - "/usr/sbin"
@@ -551,14 +623,6 @@ events:
         - "/usr/games"
         - "/usr/local/games"
         - "/usr/lib/wsl/lib"
-        - "/mnt/c/Users/32525/bin"
-        - "/mnt/d/Git/mingw64/bin"
-        - "/mnt/d/Git/usr/local/bin"
-        - "/mnt/d/Git/usr/bin"
-        - "/mnt/d/Git/usr/bin"
-        - "/mnt/d/Git/mingw64/bin"
-        - "/mnt/d/Git/usr/bin"
-        - "/mnt/c/Users/32525/bin"
         - "/mnt/c/Windows/system32"
         - "/mnt/c/Windows"
         - "/mnt/c/Windows/System32/Wbem"
@@ -588,9 +652,10 @@ events:
         - "/mnt/d/miniconda3/condabin"
         - "/mnt/d/Zcode/resources/tools/ripgrep"
         - "/mnt/d/Zcode/resources/tools/ugrep"
-        - "/mnt/c/Program Files/nodejs"
-        - "/mnt/d/Git/usr/bin/vendor_perl"
-        - "/mnt/d/Git/usr/bin/core_perl"
+        - "/snap/bin"
+        - "/home/invincible/.zcode/server/tools/bfs"
+        - "/home/invincible/.zcode/server/tools/ripgrep"
+        - "/home/invincible/.zcode/server/tools/ugrep"
   -
     kind: "find-v1"
     backtrace:
@@ -612,6 +677,15 @@ events:
       - "ranlib"
     candidate_directories:
       - "/usr/bin/"
+      - "/home/invincible/.local/bin/"
+      - "/home/invincible/bin/"
+      - "/home/invincible/.kimi-code/bin/"
+      - "/home/invincible/apps/jdk-17.0.20+8/bin/"
+      - "/home/invincible/apps/android-sdk/cmdline-tools/latest/bin/"
+      - "/home/invincible/apps/android-sdk/platform-tools/"
+      - "/home/invincible/apps/"
+      - "/home/invincible/.nvm/versions/node/v22.16.0/bin/"
+      - "/home/invincible/miniconda3/condabin/"
       - "/usr/local/sbin/"
       - "/usr/local/bin/"
       - "/usr/sbin/"
@@ -620,10 +694,6 @@ events:
       - "/usr/games/"
       - "/usr/local/games/"
       - "/usr/lib/wsl/lib/"
-      - "/mnt/c/Users/32525/bin/"
-      - "/mnt/d/Git/mingw64/bin/"
-      - "/mnt/d/Git/usr/local/bin/"
-      - "/mnt/d/Git/usr/bin/"
       - "/mnt/c/Windows/system32/"
       - "/mnt/c/Windows/"
       - "/mnt/c/Windows/System32/Wbem/"
@@ -653,11 +723,22 @@ events:
       - "/mnt/d/miniconda3/condabin/"
       - "/mnt/d/Zcode/resources/tools/ripgrep/"
       - "/mnt/d/Zcode/resources/tools/ugrep/"
-      - "/mnt/d/Git/usr/bin/vendor_perl/"
-      - "/mnt/d/Git/usr/bin/core_perl/"
+      - "/snap/bin/"
+      - "/home/invincible/.zcode/server/tools/bfs/"
+      - "/home/invincible/.zcode/server/tools/ripgrep/"
+      - "/home/invincible/.zcode/server/tools/ugrep/"
     found: "/usr/bin/ranlib"
     search_context:
       ENV{PATH}:
+        - "/home/invincible/.local/bin"
+        - "/home/invincible/bin"
+        - "/home/invincible/.kimi-code/bin"
+        - "/home/invincible/apps/jdk-17.0.20+8/bin"
+        - "/home/invincible/apps/android-sdk/cmdline-tools/latest/bin"
+        - "/home/invincible/apps/android-sdk/platform-tools"
+        - "/home/invincible/apps"
+        - "/home/invincible/.nvm/versions/node/v22.16.0/bin"
+        - "/home/invincible/miniconda3/condabin"
         - "/usr/local/sbin"
         - "/usr/local/bin"
         - "/usr/sbin"
@@ -667,14 +748,6 @@ events:
         - "/usr/games"
         - "/usr/local/games"
         - "/usr/lib/wsl/lib"
-        - "/mnt/c/Users/32525/bin"
-        - "/mnt/d/Git/mingw64/bin"
-        - "/mnt/d/Git/usr/local/bin"
-        - "/mnt/d/Git/usr/bin"
-        - "/mnt/d/Git/usr/bin"
-        - "/mnt/d/Git/mingw64/bin"
-        - "/mnt/d/Git/usr/bin"
-        - "/mnt/c/Users/32525/bin"
         - "/mnt/c/Windows/system32"
         - "/mnt/c/Windows"
         - "/mnt/c/Windows/System32/Wbem"
@@ -704,9 +777,10 @@ events:
         - "/mnt/d/miniconda3/condabin"
         - "/mnt/d/Zcode/resources/tools/ripgrep"
         - "/mnt/d/Zcode/resources/tools/ugrep"
-        - "/mnt/c/Program Files/nodejs"
-        - "/mnt/d/Git/usr/bin/vendor_perl"
-        - "/mnt/d/Git/usr/bin/core_perl"
+        - "/snap/bin"
+        - "/home/invincible/.zcode/server/tools/bfs"
+        - "/home/invincible/.zcode/server/tools/ripgrep"
+        - "/home/invincible/.zcode/server/tools/ugrep"
   -
     kind: "find-v1"
     backtrace:
@@ -728,6 +802,15 @@ events:
       - "strip"
     candidate_directories:
       - "/usr/bin/"
+      - "/home/invincible/.local/bin/"
+      - "/home/invincible/bin/"
+      - "/home/invincible/.kimi-code/bin/"
+      - "/home/invincible/apps/jdk-17.0.20+8/bin/"
+      - "/home/invincible/apps/android-sdk/cmdline-tools/latest/bin/"
+      - "/home/invincible/apps/android-sdk/platform-tools/"
+      - "/home/invincible/apps/"
+      - "/home/invincible/.nvm/versions/node/v22.16.0/bin/"
+      - "/home/invincible/miniconda3/condabin/"
       - "/usr/local/sbin/"
       - "/usr/local/bin/"
       - "/usr/sbin/"
@@ -736,10 +819,6 @@ events:
       - "/usr/games/"
       - "/usr/local/games/"
       - "/usr/lib/wsl/lib/"
-      - "/mnt/c/Users/32525/bin/"
-      - "/mnt/d/Git/mingw64/bin/"
-      - "/mnt/d/Git/usr/local/bin/"
-      - "/mnt/d/Git/usr/bin/"
       - "/mnt/c/Windows/system32/"
       - "/mnt/c/Windows/"
       - "/mnt/c/Windows/System32/Wbem/"
@@ -769,11 +848,22 @@ events:
       - "/mnt/d/miniconda3/condabin/"
       - "/mnt/d/Zcode/resources/tools/ripgrep/"
       - "/mnt/d/Zcode/resources/tools/ugrep/"
-      - "/mnt/d/Git/usr/bin/vendor_perl/"
-      - "/mnt/d/Git/usr/bin/core_perl/"
+      - "/snap/bin/"
+      - "/home/invincible/.zcode/server/tools/bfs/"
+      - "/home/invincible/.zcode/server/tools/ripgrep/"
+      - "/home/invincible/.zcode/server/tools/ugrep/"
     found: "/usr/bin/strip"
     search_context:
       ENV{PATH}:
+        - "/home/invincible/.local/bin"
+        - "/home/invincible/bin"
+        - "/home/invincible/.kimi-code/bin"
+        - "/home/invincible/apps/jdk-17.0.20+8/bin"
+        - "/home/invincible/apps/android-sdk/cmdline-tools/latest/bin"
+        - "/home/invincible/apps/android-sdk/platform-tools"
+        - "/home/invincible/apps"
+        - "/home/invincible/.nvm/versions/node/v22.16.0/bin"
+        - "/home/invincible/miniconda3/condabin"
         - "/usr/local/sbin"
         - "/usr/local/bin"
         - "/usr/sbin"
@@ -783,14 +873,6 @@ events:
         - "/usr/games"
         - "/usr/local/games"
         - "/usr/lib/wsl/lib"
-        - "/mnt/c/Users/32525/bin"
-        - "/mnt/d/Git/mingw64/bin"
-        - "/mnt/d/Git/usr/local/bin"
-        - "/mnt/d/Git/usr/bin"
-        - "/mnt/d/Git/usr/bin"
-        - "/mnt/d/Git/mingw64/bin"
-        - "/mnt/d/Git/usr/bin"
-        - "/mnt/c/Users/32525/bin"
         - "/mnt/c/Windows/system32"
         - "/mnt/c/Windows"
         - "/mnt/c/Windows/System32/Wbem"
@@ -820,9 +902,10 @@ events:
         - "/mnt/d/miniconda3/condabin"
         - "/mnt/d/Zcode/resources/tools/ripgrep"
         - "/mnt/d/Zcode/resources/tools/ugrep"
-        - "/mnt/c/Program Files/nodejs"
-        - "/mnt/d/Git/usr/bin/vendor_perl"
-        - "/mnt/d/Git/usr/bin/core_perl"
+        - "/snap/bin"
+        - "/home/invincible/.zcode/server/tools/bfs"
+        - "/home/invincible/.zcode/server/tools/ripgrep"
+        - "/home/invincible/.zcode/server/tools/ugrep"
   -
     kind: "find-v1"
     backtrace:
@@ -844,6 +927,15 @@ events:
       - "ld"
     candidate_directories:
       - "/usr/bin/"
+      - "/home/invincible/.local/bin/"
+      - "/home/invincible/bin/"
+      - "/home/invincible/.kimi-code/bin/"
+      - "/home/invincible/apps/jdk-17.0.20+8/bin/"
+      - "/home/invincible/apps/android-sdk/cmdline-tools/latest/bin/"
+      - "/home/invincible/apps/android-sdk/platform-tools/"
+      - "/home/invincible/apps/"
+      - "/home/invincible/.nvm/versions/node/v22.16.0/bin/"
+      - "/home/invincible/miniconda3/condabin/"
       - "/usr/local/sbin/"
       - "/usr/local/bin/"
       - "/usr/sbin/"
@@ -852,10 +944,6 @@ events:
       - "/usr/games/"
       - "/usr/local/games/"
       - "/usr/lib/wsl/lib/"
-      - "/mnt/c/Users/32525/bin/"
-      - "/mnt/d/Git/mingw64/bin/"
-      - "/mnt/d/Git/usr/local/bin/"
-      - "/mnt/d/Git/usr/bin/"
       - "/mnt/c/Windows/system32/"
       - "/mnt/c/Windows/"
       - "/mnt/c/Windows/System32/Wbem/"
@@ -885,11 +973,22 @@ events:
       - "/mnt/d/miniconda3/condabin/"
       - "/mnt/d/Zcode/resources/tools/ripgrep/"
       - "/mnt/d/Zcode/resources/tools/ugrep/"
-      - "/mnt/d/Git/usr/bin/vendor_perl/"
-      - "/mnt/d/Git/usr/bin/core_perl/"
+      - "/snap/bin/"
+      - "/home/invincible/.zcode/server/tools/bfs/"
+      - "/home/invincible/.zcode/server/tools/ripgrep/"
+      - "/home/invincible/.zcode/server/tools/ugrep/"
     found: "/usr/bin/ld"
     search_context:
       ENV{PATH}:
+        - "/home/invincible/.local/bin"
+        - "/home/invincible/bin"
+        - "/home/invincible/.kimi-code/bin"
+        - "/home/invincible/apps/jdk-17.0.20+8/bin"
+        - "/home/invincible/apps/android-sdk/cmdline-tools/latest/bin"
+        - "/home/invincible/apps/android-sdk/platform-tools"
+        - "/home/invincible/apps"
+        - "/home/invincible/.nvm/versions/node/v22.16.0/bin"
+        - "/home/invincible/miniconda3/condabin"
         - "/usr/local/sbin"
         - "/usr/local/bin"
         - "/usr/sbin"
@@ -899,14 +998,6 @@ events:
         - "/usr/games"
         - "/usr/local/games"
         - "/usr/lib/wsl/lib"
-        - "/mnt/c/Users/32525/bin"
-        - "/mnt/d/Git/mingw64/bin"
-        - "/mnt/d/Git/usr/local/bin"
-        - "/mnt/d/Git/usr/bin"
-        - "/mnt/d/Git/usr/bin"
-        - "/mnt/d/Git/mingw64/bin"
-        - "/mnt/d/Git/usr/bin"
-        - "/mnt/c/Users/32525/bin"
         - "/mnt/c/Windows/system32"
         - "/mnt/c/Windows"
         - "/mnt/c/Windows/System32/Wbem"
@@ -936,9 +1027,10 @@ events:
         - "/mnt/d/miniconda3/condabin"
         - "/mnt/d/Zcode/resources/tools/ripgrep"
         - "/mnt/d/Zcode/resources/tools/ugrep"
-        - "/mnt/c/Program Files/nodejs"
-        - "/mnt/d/Git/usr/bin/vendor_perl"
-        - "/mnt/d/Git/usr/bin/core_perl"
+        - "/snap/bin"
+        - "/home/invincible/.zcode/server/tools/bfs"
+        - "/home/invincible/.zcode/server/tools/ripgrep"
+        - "/home/invincible/.zcode/server/tools/ugrep"
   -
     kind: "find-v1"
     backtrace:
@@ -960,6 +1052,15 @@ events:
       - "nm"
     candidate_directories:
       - "/usr/bin/"
+      - "/home/invincible/.local/bin/"
+      - "/home/invincible/bin/"
+      - "/home/invincible/.kimi-code/bin/"
+      - "/home/invincible/apps/jdk-17.0.20+8/bin/"
+      - "/home/invincible/apps/android-sdk/cmdline-tools/latest/bin/"
+      - "/home/invincible/apps/android-sdk/platform-tools/"
+      - "/home/invincible/apps/"
+      - "/home/invincible/.nvm/versions/node/v22.16.0/bin/"
+      - "/home/invincible/miniconda3/condabin/"
       - "/usr/local/sbin/"
       - "/usr/local/bin/"
       - "/usr/sbin/"
@@ -968,10 +1069,6 @@ events:
       - "/usr/games/"
       - "/usr/local/games/"
       - "/usr/lib/wsl/lib/"
-      - "/mnt/c/Users/32525/bin/"
-      - "/mnt/d/Git/mingw64/bin/"
-      - "/mnt/d/Git/usr/local/bin/"
-      - "/mnt/d/Git/usr/bin/"
       - "/mnt/c/Windows/system32/"
       - "/mnt/c/Windows/"
       - "/mnt/c/Windows/System32/Wbem/"
@@ -1001,11 +1098,22 @@ events:
       - "/mnt/d/miniconda3/condabin/"
       - "/mnt/d/Zcode/resources/tools/ripgrep/"
       - "/mnt/d/Zcode/resources/tools/ugrep/"
-      - "/mnt/d/Git/usr/bin/vendor_perl/"
-      - "/mnt/d/Git/usr/bin/core_perl/"
+      - "/snap/bin/"
+      - "/home/invincible/.zcode/server/tools/bfs/"
+      - "/home/invincible/.zcode/server/tools/ripgrep/"
+      - "/home/invincible/.zcode/server/tools/ugrep/"
     found: "/usr/bin/nm"
     search_context:
       ENV{PATH}:
+        - "/home/invincible/.local/bin"
+        - "/home/invincible/bin"
+        - "/home/invincible/.kimi-code/bin"
+        - "/home/invincible/apps/jdk-17.0.20+8/bin"
+        - "/home/invincible/apps/android-sdk/cmdline-tools/latest/bin"
+        - "/home/invincible/apps/android-sdk/platform-tools"
+        - "/home/invincible/apps"
+        - "/home/invincible/.nvm/versions/node/v22.16.0/bin"
+        - "/home/invincible/miniconda3/condabin"
         - "/usr/local/sbin"
         - "/usr/local/bin"
         - "/usr/sbin"
@@ -1015,14 +1123,6 @@ events:
         - "/usr/games"
         - "/usr/local/games"
         - "/usr/lib/wsl/lib"
-        - "/mnt/c/Users/32525/bin"
-        - "/mnt/d/Git/mingw64/bin"
-        - "/mnt/d/Git/usr/local/bin"
-        - "/mnt/d/Git/usr/bin"
-        - "/mnt/d/Git/usr/bin"
-        - "/mnt/d/Git/mingw64/bin"
-        - "/mnt/d/Git/usr/bin"
-        - "/mnt/c/Users/32525/bin"
         - "/mnt/c/Windows/system32"
         - "/mnt/c/Windows"
         - "/mnt/c/Windows/System32/Wbem"
@@ -1052,9 +1152,10 @@ events:
         - "/mnt/d/miniconda3/condabin"
         - "/mnt/d/Zcode/resources/tools/ripgrep"
         - "/mnt/d/Zcode/resources/tools/ugrep"
-        - "/mnt/c/Program Files/nodejs"
-        - "/mnt/d/Git/usr/bin/vendor_perl"
-        - "/mnt/d/Git/usr/bin/core_perl"
+        - "/snap/bin"
+        - "/home/invincible/.zcode/server/tools/bfs"
+        - "/home/invincible/.zcode/server/tools/ripgrep"
+        - "/home/invincible/.zcode/server/tools/ugrep"
   -
     kind: "find-v1"
     backtrace:
@@ -1076,6 +1177,15 @@ events:
       - "objdump"
     candidate_directories:
       - "/usr/bin/"
+      - "/home/invincible/.local/bin/"
+      - "/home/invincible/bin/"
+      - "/home/invincible/.kimi-code/bin/"
+      - "/home/invincible/apps/jdk-17.0.20+8/bin/"
+      - "/home/invincible/apps/android-sdk/cmdline-tools/latest/bin/"
+      - "/home/invincible/apps/android-sdk/platform-tools/"
+      - "/home/invincible/apps/"
+      - "/home/invincible/.nvm/versions/node/v22.16.0/bin/"
+      - "/home/invincible/miniconda3/condabin/"
       - "/usr/local/sbin/"
       - "/usr/local/bin/"
       - "/usr/sbin/"
@@ -1084,10 +1194,6 @@ events:
       - "/usr/games/"
       - "/usr/local/games/"
       - "/usr/lib/wsl/lib/"
-      - "/mnt/c/Users/32525/bin/"
-      - "/mnt/d/Git/mingw64/bin/"
-      - "/mnt/d/Git/usr/local/bin/"
-      - "/mnt/d/Git/usr/bin/"
       - "/mnt/c/Windows/system32/"
       - "/mnt/c/Windows/"
       - "/mnt/c/Windows/System32/Wbem/"
@@ -1117,11 +1223,22 @@ events:
       - "/mnt/d/miniconda3/condabin/"
       - "/mnt/d/Zcode/resources/tools/ripgrep/"
       - "/mnt/d/Zcode/resources/tools/ugrep/"
-      - "/mnt/d/Git/usr/bin/vendor_perl/"
-      - "/mnt/d/Git/usr/bin/core_perl/"
+      - "/snap/bin/"
+      - "/home/invincible/.zcode/server/tools/bfs/"
+      - "/home/invincible/.zcode/server/tools/ripgrep/"
+      - "/home/invincible/.zcode/server/tools/ugrep/"
     found: "/usr/bin/objdump"
     search_context:
       ENV{PATH}:
+        - "/home/invincible/.local/bin"
+        - "/home/invincible/bin"
+        - "/home/invincible/.kimi-code/bin"
+        - "/home/invincible/apps/jdk-17.0.20+8/bin"
+        - "/home/invincible/apps/android-sdk/cmdline-tools/latest/bin"
+        - "/home/invincible/apps/android-sdk/platform-tools"
+        - "/home/invincible/apps"
+        - "/home/invincible/.nvm/versions/node/v22.16.0/bin"
+        - "/home/invincible/miniconda3/condabin"
         - "/usr/local/sbin"
         - "/usr/local/bin"
         - "/usr/sbin"
@@ -1131,14 +1248,6 @@ events:
         - "/usr/games"
         - "/usr/local/games"
         - "/usr/lib/wsl/lib"
-        - "/mnt/c/Users/32525/bin"
-        - "/mnt/d/Git/mingw64/bin"
-        - "/mnt/d/Git/usr/local/bin"
-        - "/mnt/d/Git/usr/bin"
-        - "/mnt/d/Git/usr/bin"
-        - "/mnt/d/Git/mingw64/bin"
-        - "/mnt/d/Git/usr/bin"
-        - "/mnt/c/Users/32525/bin"
         - "/mnt/c/Windows/system32"
         - "/mnt/c/Windows"
         - "/mnt/c/Windows/System32/Wbem"
@@ -1168,9 +1277,10 @@ events:
         - "/mnt/d/miniconda3/condabin"
         - "/mnt/d/Zcode/resources/tools/ripgrep"
         - "/mnt/d/Zcode/resources/tools/ugrep"
-        - "/mnt/c/Program Files/nodejs"
-        - "/mnt/d/Git/usr/bin/vendor_perl"
-        - "/mnt/d/Git/usr/bin/core_perl"
+        - "/snap/bin"
+        - "/home/invincible/.zcode/server/tools/bfs"
+        - "/home/invincible/.zcode/server/tools/ripgrep"
+        - "/home/invincible/.zcode/server/tools/ugrep"
   -
     kind: "find-v1"
     backtrace:
@@ -1192,6 +1302,15 @@ events:
       - "objcopy"
     candidate_directories:
       - "/usr/bin/"
+      - "/home/invincible/.local/bin/"
+      - "/home/invincible/bin/"
+      - "/home/invincible/.kimi-code/bin/"
+      - "/home/invincible/apps/jdk-17.0.20+8/bin/"
+      - "/home/invincible/apps/android-sdk/cmdline-tools/latest/bin/"
+      - "/home/invincible/apps/android-sdk/platform-tools/"
+      - "/home/invincible/apps/"
+      - "/home/invincible/.nvm/versions/node/v22.16.0/bin/"
+      - "/home/invincible/miniconda3/condabin/"
       - "/usr/local/sbin/"
       - "/usr/local/bin/"
       - "/usr/sbin/"
@@ -1200,10 +1319,6 @@ events:
       - "/usr/games/"
       - "/usr/local/games/"
       - "/usr/lib/wsl/lib/"
-      - "/mnt/c/Users/32525/bin/"
-      - "/mnt/d/Git/mingw64/bin/"
-      - "/mnt/d/Git/usr/local/bin/"
-      - "/mnt/d/Git/usr/bin/"
       - "/mnt/c/Windows/system32/"
       - "/mnt/c/Windows/"
       - "/mnt/c/Windows/System32/Wbem/"
@@ -1233,11 +1348,22 @@ events:
       - "/mnt/d/miniconda3/condabin/"
       - "/mnt/d/Zcode/resources/tools/ripgrep/"
       - "/mnt/d/Zcode/resources/tools/ugrep/"
-      - "/mnt/d/Git/usr/bin/vendor_perl/"
-      - "/mnt/d/Git/usr/bin/core_perl/"
+      - "/snap/bin/"
+      - "/home/invincible/.zcode/server/tools/bfs/"
+      - "/home/invincible/.zcode/server/tools/ripgrep/"
+      - "/home/invincible/.zcode/server/tools/ugrep/"
     found: "/usr/bin/objcopy"
     search_context:
       ENV{PATH}:
+        - "/home/invincible/.local/bin"
+        - "/home/invincible/bin"
+        - "/home/invincible/.kimi-code/bin"
+        - "/home/invincible/apps/jdk-17.0.20+8/bin"
+        - "/home/invincible/apps/android-sdk/cmdline-tools/latest/bin"
+        - "/home/invincible/apps/android-sdk/platform-tools"
+        - "/home/invincible/apps"
+        - "/home/invincible/.nvm/versions/node/v22.16.0/bin"
+        - "/home/invincible/miniconda3/condabin"
         - "/usr/local/sbin"
         - "/usr/local/bin"
         - "/usr/sbin"
@@ -1247,14 +1373,6 @@ events:
         - "/usr/games"
         - "/usr/local/games"
         - "/usr/lib/wsl/lib"
-        - "/mnt/c/Users/32525/bin"
-        - "/mnt/d/Git/mingw64/bin"
-        - "/mnt/d/Git/usr/local/bin"
-        - "/mnt/d/Git/usr/bin"
-        - "/mnt/d/Git/usr/bin"
-        - "/mnt/d/Git/mingw64/bin"
-        - "/mnt/d/Git/usr/bin"
-        - "/mnt/c/Users/32525/bin"
         - "/mnt/c/Windows/system32"
         - "/mnt/c/Windows"
         - "/mnt/c/Windows/System32/Wbem"
@@ -1284,9 +1402,10 @@ events:
         - "/mnt/d/miniconda3/condabin"
         - "/mnt/d/Zcode/resources/tools/ripgrep"
         - "/mnt/d/Zcode/resources/tools/ugrep"
-        - "/mnt/c/Program Files/nodejs"
-        - "/mnt/d/Git/usr/bin/vendor_perl"
-        - "/mnt/d/Git/usr/bin/core_perl"
+        - "/snap/bin"
+        - "/home/invincible/.zcode/server/tools/bfs"
+        - "/home/invincible/.zcode/server/tools/ripgrep"
+        - "/home/invincible/.zcode/server/tools/ugrep"
   -
     kind: "find-v1"
     backtrace:
@@ -1308,6 +1427,15 @@ events:
       - "readelf"
     candidate_directories:
       - "/usr/bin/"
+      - "/home/invincible/.local/bin/"
+      - "/home/invincible/bin/"
+      - "/home/invincible/.kimi-code/bin/"
+      - "/home/invincible/apps/jdk-17.0.20+8/bin/"
+      - "/home/invincible/apps/android-sdk/cmdline-tools/latest/bin/"
+      - "/home/invincible/apps/android-sdk/platform-tools/"
+      - "/home/invincible/apps/"
+      - "/home/invincible/.nvm/versions/node/v22.16.0/bin/"
+      - "/home/invincible/miniconda3/condabin/"
       - "/usr/local/sbin/"
       - "/usr/local/bin/"
       - "/usr/sbin/"
@@ -1316,10 +1444,6 @@ events:
       - "/usr/games/"
       - "/usr/local/games/"
       - "/usr/lib/wsl/lib/"
-      - "/mnt/c/Users/32525/bin/"
-      - "/mnt/d/Git/mingw64/bin/"
-      - "/mnt/d/Git/usr/local/bin/"
-      - "/mnt/d/Git/usr/bin/"
       - "/mnt/c/Windows/system32/"
       - "/mnt/c/Windows/"
       - "/mnt/c/Windows/System32/Wbem/"
@@ -1349,11 +1473,22 @@ events:
       - "/mnt/d/miniconda3/condabin/"
       - "/mnt/d/Zcode/resources/tools/ripgrep/"
       - "/mnt/d/Zcode/resources/tools/ugrep/"
-      - "/mnt/d/Git/usr/bin/vendor_perl/"
-      - "/mnt/d/Git/usr/bin/core_perl/"
+      - "/snap/bin/"
+      - "/home/invincible/.zcode/server/tools/bfs/"
+      - "/home/invincible/.zcode/server/tools/ripgrep/"
+      - "/home/invincible/.zcode/server/tools/ugrep/"
     found: "/usr/bin/readelf"
     search_context:
       ENV{PATH}:
+        - "/home/invincible/.local/bin"
+        - "/home/invincible/bin"
+        - "/home/invincible/.kimi-code/bin"
+        - "/home/invincible/apps/jdk-17.0.20+8/bin"
+        - "/home/invincible/apps/android-sdk/cmdline-tools/latest/bin"
+        - "/home/invincible/apps/android-sdk/platform-tools"
+        - "/home/invincible/apps"
+        - "/home/invincible/.nvm/versions/node/v22.16.0/bin"
+        - "/home/invincible/miniconda3/condabin"
         - "/usr/local/sbin"
         - "/usr/local/bin"
         - "/usr/sbin"
@@ -1363,14 +1498,6 @@ events:
         - "/usr/games"
         - "/usr/local/games"
         - "/usr/lib/wsl/lib"
-        - "/mnt/c/Users/32525/bin"
-        - "/mnt/d/Git/mingw64/bin"
-        - "/mnt/d/Git/usr/local/bin"
-        - "/mnt/d/Git/usr/bin"
-        - "/mnt/d/Git/usr/bin"
-        - "/mnt/d/Git/mingw64/bin"
-        - "/mnt/d/Git/usr/bin"
-        - "/mnt/c/Users/32525/bin"
         - "/mnt/c/Windows/system32"
         - "/mnt/c/Windows"
         - "/mnt/c/Windows/System32/Wbem"
@@ -1400,9 +1527,10 @@ events:
         - "/mnt/d/miniconda3/condabin"
         - "/mnt/d/Zcode/resources/tools/ripgrep"
         - "/mnt/d/Zcode/resources/tools/ugrep"
-        - "/mnt/c/Program Files/nodejs"
-        - "/mnt/d/Git/usr/bin/vendor_perl"
-        - "/mnt/d/Git/usr/bin/core_perl"
+        - "/snap/bin"
+        - "/home/invincible/.zcode/server/tools/bfs"
+        - "/home/invincible/.zcode/server/tools/ripgrep"
+        - "/home/invincible/.zcode/server/tools/ugrep"
   -
     kind: "find-v1"
     backtrace:
@@ -1424,6 +1552,15 @@ events:
       - "dlltool"
     candidate_directories:
       - "/usr/bin/"
+      - "/home/invincible/.local/bin/"
+      - "/home/invincible/bin/"
+      - "/home/invincible/.kimi-code/bin/"
+      - "/home/invincible/apps/jdk-17.0.20+8/bin/"
+      - "/home/invincible/apps/android-sdk/cmdline-tools/latest/bin/"
+      - "/home/invincible/apps/android-sdk/platform-tools/"
+      - "/home/invincible/apps/"
+      - "/home/invincible/.nvm/versions/node/v22.16.0/bin/"
+      - "/home/invincible/miniconda3/condabin/"
       - "/usr/local/sbin/"
       - "/usr/local/bin/"
       - "/usr/sbin/"
@@ -1432,10 +1569,6 @@ events:
       - "/usr/games/"
       - "/usr/local/games/"
       - "/usr/lib/wsl/lib/"
-      - "/mnt/c/Users/32525/bin/"
-      - "/mnt/d/Git/mingw64/bin/"
-      - "/mnt/d/Git/usr/local/bin/"
-      - "/mnt/d/Git/usr/bin/"
       - "/mnt/c/Windows/system32/"
       - "/mnt/c/Windows/"
       - "/mnt/c/Windows/System32/Wbem/"
@@ -1465,10 +1598,21 @@ events:
       - "/mnt/d/miniconda3/condabin/"
       - "/mnt/d/Zcode/resources/tools/ripgrep/"
       - "/mnt/d/Zcode/resources/tools/ugrep/"
-      - "/mnt/d/Git/usr/bin/vendor_perl/"
-      - "/mnt/d/Git/usr/bin/core_perl/"
+      - "/snap/bin/"
+      - "/home/invincible/.zcode/server/tools/bfs/"
+      - "/home/invincible/.zcode/server/tools/ripgrep/"
+      - "/home/invincible/.zcode/server/tools/ugrep/"
     searched_directories:
       - "/usr/bin/dlltool"
+      - "/home/invincible/.local/bin/dlltool"
+      - "/home/invincible/bin/dlltool"
+      - "/home/invincible/.kimi-code/bin/dlltool"
+      - "/home/invincible/apps/jdk-17.0.20+8/bin/dlltool"
+      - "/home/invincible/apps/android-sdk/cmdline-tools/latest/bin/dlltool"
+      - "/home/invincible/apps/android-sdk/platform-tools/dlltool"
+      - "/home/invincible/apps/dlltool"
+      - "/home/invincible/.nvm/versions/node/v22.16.0/bin/dlltool"
+      - "/home/invincible/miniconda3/condabin/dlltool"
       - "/usr/local/sbin/dlltool"
       - "/usr/local/bin/dlltool"
       - "/usr/sbin/dlltool"
@@ -1477,10 +1621,6 @@ events:
       - "/usr/games/dlltool"
       - "/usr/local/games/dlltool"
       - "/usr/lib/wsl/lib/dlltool"
-      - "/mnt/c/Users/32525/bin/dlltool"
-      - "/mnt/d/Git/mingw64/bin/dlltool"
-      - "/mnt/d/Git/usr/local/bin/dlltool"
-      - "/mnt/d/Git/usr/bin/dlltool"
       - "/mnt/c/Windows/system32/dlltool"
       - "/mnt/c/Windows/dlltool"
       - "/mnt/c/Windows/System32/Wbem/dlltool"
@@ -1510,11 +1650,22 @@ events:
       - "/mnt/d/miniconda3/condabin/dlltool"
       - "/mnt/d/Zcode/resources/tools/ripgrep/dlltool"
       - "/mnt/d/Zcode/resources/tools/ugrep/dlltool"
-      - "/mnt/d/Git/usr/bin/vendor_perl/dlltool"
-      - "/mnt/d/Git/usr/bin/core_perl/dlltool"
+      - "/snap/bin/dlltool"
+      - "/home/invincible/.zcode/server/tools/bfs/dlltool"
+      - "/home/invincible/.zcode/server/tools/ripgrep/dlltool"
+      - "/home/invincible/.zcode/server/tools/ugrep/dlltool"
     found: false
     search_context:
       ENV{PATH}:
+        - "/home/invincible/.local/bin"
+        - "/home/invincible/bin"
+        - "/home/invincible/.kimi-code/bin"
+        - "/home/invincible/apps/jdk-17.0.20+8/bin"
+        - "/home/invincible/apps/android-sdk/cmdline-tools/latest/bin"
+        - "/home/invincible/apps/android-sdk/platform-tools"
+        - "/home/invincible/apps"
+        - "/home/invincible/.nvm/versions/node/v22.16.0/bin"
+        - "/home/invincible/miniconda3/condabin"
         - "/usr/local/sbin"
         - "/usr/local/bin"
         - "/usr/sbin"
@@ -1524,14 +1675,6 @@ events:
         - "/usr/games"
         - "/usr/local/games"
         - "/usr/lib/wsl/lib"
-        - "/mnt/c/Users/32525/bin"
-        - "/mnt/d/Git/mingw64/bin"
-        - "/mnt/d/Git/usr/local/bin"
-        - "/mnt/d/Git/usr/bin"
-        - "/mnt/d/Git/usr/bin"
-        - "/mnt/d/Git/mingw64/bin"
-        - "/mnt/d/Git/usr/bin"
-        - "/mnt/c/Users/32525/bin"
         - "/mnt/c/Windows/system32"
         - "/mnt/c/Windows"
         - "/mnt/c/Windows/System32/Wbem"
@@ -1561,9 +1704,10 @@ events:
         - "/mnt/d/miniconda3/condabin"
         - "/mnt/d/Zcode/resources/tools/ripgrep"
         - "/mnt/d/Zcode/resources/tools/ugrep"
-        - "/mnt/c/Program Files/nodejs"
-        - "/mnt/d/Git/usr/bin/vendor_perl"
-        - "/mnt/d/Git/usr/bin/core_perl"
+        - "/snap/bin"
+        - "/home/invincible/.zcode/server/tools/bfs"
+        - "/home/invincible/.zcode/server/tools/ripgrep"
+        - "/home/invincible/.zcode/server/tools/ugrep"
   -
     kind: "find-v1"
     backtrace:
@@ -1585,6 +1729,15 @@ events:
       - "addr2line"
     candidate_directories:
       - "/usr/bin/"
+      - "/home/invincible/.local/bin/"
+      - "/home/invincible/bin/"
+      - "/home/invincible/.kimi-code/bin/"
+      - "/home/invincible/apps/jdk-17.0.20+8/bin/"
+      - "/home/invincible/apps/android-sdk/cmdline-tools/latest/bin/"
+      - "/home/invincible/apps/android-sdk/platform-tools/"
+      - "/home/invincible/apps/"
+      - "/home/invincible/.nvm/versions/node/v22.16.0/bin/"
+      - "/home/invincible/miniconda3/condabin/"
       - "/usr/local/sbin/"
       - "/usr/local/bin/"
       - "/usr/sbin/"
@@ -1593,10 +1746,6 @@ events:
       - "/usr/games/"
       - "/usr/local/games/"
       - "/usr/lib/wsl/lib/"
-      - "/mnt/c/Users/32525/bin/"
-      - "/mnt/d/Git/mingw64/bin/"
-      - "/mnt/d/Git/usr/local/bin/"
-      - "/mnt/d/Git/usr/bin/"
       - "/mnt/c/Windows/system32/"
       - "/mnt/c/Windows/"
       - "/mnt/c/Windows/System32/Wbem/"
@@ -1626,11 +1775,22 @@ events:
       - "/mnt/d/miniconda3/condabin/"
       - "/mnt/d/Zcode/resources/tools/ripgrep/"
       - "/mnt/d/Zcode/resources/tools/ugrep/"
-      - "/mnt/d/Git/usr/bin/vendor_perl/"
-      - "/mnt/d/Git/usr/bin/core_perl/"
+      - "/snap/bin/"
+      - "/home/invincible/.zcode/server/tools/bfs/"
+      - "/home/invincible/.zcode/server/tools/ripgrep/"
+      - "/home/invincible/.zcode/server/tools/ugrep/"
     found: "/usr/bin/addr2line"
     search_context:
       ENV{PATH}:
+        - "/home/invincible/.local/bin"
+        - "/home/invincible/bin"
+        - "/home/invincible/.kimi-code/bin"
+        - "/home/invincible/apps/jdk-17.0.20+8/bin"
+        - "/home/invincible/apps/android-sdk/cmdline-tools/latest/bin"
+        - "/home/invincible/apps/android-sdk/platform-tools"
+        - "/home/invincible/apps"
+        - "/home/invincible/.nvm/versions/node/v22.16.0/bin"
+        - "/home/invincible/miniconda3/condabin"
         - "/usr/local/sbin"
         - "/usr/local/bin"
         - "/usr/sbin"
@@ -1640,14 +1800,6 @@ events:
         - "/usr/games"
         - "/usr/local/games"
         - "/usr/lib/wsl/lib"
-        - "/mnt/c/Users/32525/bin"
-        - "/mnt/d/Git/mingw64/bin"
-        - "/mnt/d/Git/usr/local/bin"
-        - "/mnt/d/Git/usr/bin"
-        - "/mnt/d/Git/usr/bin"
-        - "/mnt/d/Git/mingw64/bin"
-        - "/mnt/d/Git/usr/bin"
-        - "/mnt/c/Users/32525/bin"
         - "/mnt/c/Windows/system32"
         - "/mnt/c/Windows"
         - "/mnt/c/Windows/System32/Wbem"
@@ -1677,9 +1829,10 @@ events:
         - "/mnt/d/miniconda3/condabin"
         - "/mnt/d/Zcode/resources/tools/ripgrep"
         - "/mnt/d/Zcode/resources/tools/ugrep"
-        - "/mnt/c/Program Files/nodejs"
-        - "/mnt/d/Git/usr/bin/vendor_perl"
-        - "/mnt/d/Git/usr/bin/core_perl"
+        - "/snap/bin"
+        - "/home/invincible/.zcode/server/tools/bfs"
+        - "/home/invincible/.zcode/server/tools/ripgrep"
+        - "/home/invincible/.zcode/server/tools/ugrep"
   -
     kind: "find-v1"
     backtrace:
@@ -1701,6 +1854,15 @@ events:
       - "tapi"
     candidate_directories:
       - "/usr/bin/"
+      - "/home/invincible/.local/bin/"
+      - "/home/invincible/bin/"
+      - "/home/invincible/.kimi-code/bin/"
+      - "/home/invincible/apps/jdk-17.0.20+8/bin/"
+      - "/home/invincible/apps/android-sdk/cmdline-tools/latest/bin/"
+      - "/home/invincible/apps/android-sdk/platform-tools/"
+      - "/home/invincible/apps/"
+      - "/home/invincible/.nvm/versions/node/v22.16.0/bin/"
+      - "/home/invincible/miniconda3/condabin/"
       - "/usr/local/sbin/"
       - "/usr/local/bin/"
       - "/usr/sbin/"
@@ -1709,10 +1871,6 @@ events:
       - "/usr/games/"
       - "/usr/local/games/"
       - "/usr/lib/wsl/lib/"
-      - "/mnt/c/Users/32525/bin/"
-      - "/mnt/d/Git/mingw64/bin/"
-      - "/mnt/d/Git/usr/local/bin/"
-      - "/mnt/d/Git/usr/bin/"
       - "/mnt/c/Windows/system32/"
       - "/mnt/c/Windows/"
       - "/mnt/c/Windows/System32/Wbem/"
@@ -1742,10 +1900,21 @@ events:
       - "/mnt/d/miniconda3/condabin/"
       - "/mnt/d/Zcode/resources/tools/ripgrep/"
       - "/mnt/d/Zcode/resources/tools/ugrep/"
-      - "/mnt/d/Git/usr/bin/vendor_perl/"
-      - "/mnt/d/Git/usr/bin/core_perl/"
+      - "/snap/bin/"
+      - "/home/invincible/.zcode/server/tools/bfs/"
+      - "/home/invincible/.zcode/server/tools/ripgrep/"
+      - "/home/invincible/.zcode/server/tools/ugrep/"
     searched_directories:
       - "/usr/bin/tapi"
+      - "/home/invincible/.local/bin/tapi"
+      - "/home/invincible/bin/tapi"
+      - "/home/invincible/.kimi-code/bin/tapi"
+      - "/home/invincible/apps/jdk-17.0.20+8/bin/tapi"
+      - "/home/invincible/apps/android-sdk/cmdline-tools/latest/bin/tapi"
+      - "/home/invincible/apps/android-sdk/platform-tools/tapi"
+      - "/home/invincible/apps/tapi"
+      - "/home/invincible/.nvm/versions/node/v22.16.0/bin/tapi"
+      - "/home/invincible/miniconda3/condabin/tapi"
       - "/usr/local/sbin/tapi"
       - "/usr/local/bin/tapi"
       - "/usr/sbin/tapi"
@@ -1754,10 +1923,6 @@ events:
       - "/usr/games/tapi"
       - "/usr/local/games/tapi"
       - "/usr/lib/wsl/lib/tapi"
-      - "/mnt/c/Users/32525/bin/tapi"
-      - "/mnt/d/Git/mingw64/bin/tapi"
-      - "/mnt/d/Git/usr/local/bin/tapi"
-      - "/mnt/d/Git/usr/bin/tapi"
       - "/mnt/c/Windows/system32/tapi"
       - "/mnt/c/Windows/tapi"
       - "/mnt/c/Windows/System32/Wbem/tapi"
@@ -1787,11 +1952,22 @@ events:
       - "/mnt/d/miniconda3/condabin/tapi"
       - "/mnt/d/Zcode/resources/tools/ripgrep/tapi"
       - "/mnt/d/Zcode/resources/tools/ugrep/tapi"
-      - "/mnt/d/Git/usr/bin/vendor_perl/tapi"
-      - "/mnt/d/Git/usr/bin/core_perl/tapi"
+      - "/snap/bin/tapi"
+      - "/home/invincible/.zcode/server/tools/bfs/tapi"
+      - "/home/invincible/.zcode/server/tools/ripgrep/tapi"
+      - "/home/invincible/.zcode/server/tools/ugrep/tapi"
     found: false
     search_context:
       ENV{PATH}:
+        - "/home/invincible/.local/bin"
+        - "/home/invincible/bin"
+        - "/home/invincible/.kimi-code/bin"
+        - "/home/invincible/apps/jdk-17.0.20+8/bin"
+        - "/home/invincible/apps/android-sdk/cmdline-tools/latest/bin"
+        - "/home/invincible/apps/android-sdk/platform-tools"
+        - "/home/invincible/apps"
+        - "/home/invincible/.nvm/versions/node/v22.16.0/bin"
+        - "/home/invincible/miniconda3/condabin"
         - "/usr/local/sbin"
         - "/usr/local/bin"
         - "/usr/sbin"
@@ -1801,14 +1977,6 @@ events:
         - "/usr/games"
         - "/usr/local/games"
         - "/usr/lib/wsl/lib"
-        - "/mnt/c/Users/32525/bin"
-        - "/mnt/d/Git/mingw64/bin"
-        - "/mnt/d/Git/usr/local/bin"
-        - "/mnt/d/Git/usr/bin"
-        - "/mnt/d/Git/usr/bin"
-        - "/mnt/d/Git/mingw64/bin"
-        - "/mnt/d/Git/usr/bin"
-        - "/mnt/c/Users/32525/bin"
         - "/mnt/c/Windows/system32"
         - "/mnt/c/Windows"
         - "/mnt/c/Windows/System32/Wbem"
@@ -1838,9 +2006,10 @@ events:
         - "/mnt/d/miniconda3/condabin"
         - "/mnt/d/Zcode/resources/tools/ripgrep"
         - "/mnt/d/Zcode/resources/tools/ugrep"
-        - "/mnt/c/Program Files/nodejs"
-        - "/mnt/d/Git/usr/bin/vendor_perl"
-        - "/mnt/d/Git/usr/bin/core_perl"
+        - "/snap/bin"
+        - "/home/invincible/.zcode/server/tools/bfs"
+        - "/home/invincible/.zcode/server/tools/ripgrep"
+        - "/home/invincible/.zcode/server/tools/ugrep"
   -
     kind: "find-v1"
     backtrace:
@@ -1865,6 +2034,15 @@ events:
       - "gcc-ar"
     candidate_directories:
       - "/usr/bin/"
+      - "/home/invincible/.local/bin/"
+      - "/home/invincible/bin/"
+      - "/home/invincible/.kimi-code/bin/"
+      - "/home/invincible/apps/jdk-17.0.20+8/bin/"
+      - "/home/invincible/apps/android-sdk/cmdline-tools/latest/bin/"
+      - "/home/invincible/apps/android-sdk/platform-tools/"
+      - "/home/invincible/apps/"
+      - "/home/invincible/.nvm/versions/node/v22.16.0/bin/"
+      - "/home/invincible/miniconda3/condabin/"
       - "/usr/local/sbin/"
       - "/usr/local/bin/"
       - "/usr/sbin/"
@@ -1873,10 +2051,6 @@ events:
       - "/usr/games/"
       - "/usr/local/games/"
       - "/usr/lib/wsl/lib/"
-      - "/mnt/c/Users/32525/bin/"
-      - "/mnt/d/Git/mingw64/bin/"
-      - "/mnt/d/Git/usr/local/bin/"
-      - "/mnt/d/Git/usr/bin/"
       - "/mnt/c/Windows/system32/"
       - "/mnt/c/Windows/"
       - "/mnt/c/Windows/System32/Wbem/"
@@ -1906,10 +2080,21 @@ events:
       - "/mnt/d/miniconda3/condabin/"
       - "/mnt/d/Zcode/resources/tools/ripgrep/"
       - "/mnt/d/Zcode/resources/tools/ugrep/"
-      - "/mnt/d/Git/usr/bin/vendor_perl/"
-      - "/mnt/d/Git/usr/bin/core_perl/"
+      - "/snap/bin/"
+      - "/home/invincible/.zcode/server/tools/bfs/"
+      - "/home/invincible/.zcode/server/tools/ripgrep/"
+      - "/home/invincible/.zcode/server/tools/ugrep/"
     searched_directories:
       - "/usr/bin/gcc-ar-15.2"
+      - "/home/invincible/.local/bin/gcc-ar-15.2"
+      - "/home/invincible/bin/gcc-ar-15.2"
+      - "/home/invincible/.kimi-code/bin/gcc-ar-15.2"
+      - "/home/invincible/apps/jdk-17.0.20+8/bin/gcc-ar-15.2"
+      - "/home/invincible/apps/android-sdk/cmdline-tools/latest/bin/gcc-ar-15.2"
+      - "/home/invincible/apps/android-sdk/platform-tools/gcc-ar-15.2"
+      - "/home/invincible/apps/gcc-ar-15.2"
+      - "/home/invincible/.nvm/versions/node/v22.16.0/bin/gcc-ar-15.2"
+      - "/home/invincible/miniconda3/condabin/gcc-ar-15.2"
       - "/usr/local/sbin/gcc-ar-15.2"
       - "/usr/local/bin/gcc-ar-15.2"
       - "/usr/sbin/gcc-ar-15.2"
@@ -1918,10 +2103,6 @@ events:
       - "/usr/games/gcc-ar-15.2"
       - "/usr/local/games/gcc-ar-15.2"
       - "/usr/lib/wsl/lib/gcc-ar-15.2"
-      - "/mnt/c/Users/32525/bin/gcc-ar-15.2"
-      - "/mnt/d/Git/mingw64/bin/gcc-ar-15.2"
-      - "/mnt/d/Git/usr/local/bin/gcc-ar-15.2"
-      - "/mnt/d/Git/usr/bin/gcc-ar-15.2"
       - "/mnt/c/Windows/system32/gcc-ar-15.2"
       - "/mnt/c/Windows/gcc-ar-15.2"
       - "/mnt/c/Windows/System32/Wbem/gcc-ar-15.2"
@@ -1951,11 +2132,22 @@ events:
       - "/mnt/d/miniconda3/condabin/gcc-ar-15.2"
       - "/mnt/d/Zcode/resources/tools/ripgrep/gcc-ar-15.2"
       - "/mnt/d/Zcode/resources/tools/ugrep/gcc-ar-15.2"
-      - "/mnt/d/Git/usr/bin/vendor_perl/gcc-ar-15.2"
-      - "/mnt/d/Git/usr/bin/core_perl/gcc-ar-15.2"
+      - "/snap/bin/gcc-ar-15.2"
+      - "/home/invincible/.zcode/server/tools/bfs/gcc-ar-15.2"
+      - "/home/invincible/.zcode/server/tools/ripgrep/gcc-ar-15.2"
+      - "/home/invincible/.zcode/server/tools/ugrep/gcc-ar-15.2"
     found: "/usr/bin/gcc-ar-15"
     search_context:
       ENV{PATH}:
+        - "/home/invincible/.local/bin"
+        - "/home/invincible/bin"
+        - "/home/invincible/.kimi-code/bin"
+        - "/home/invincible/apps/jdk-17.0.20+8/bin"
+        - "/home/invincible/apps/android-sdk/cmdline-tools/latest/bin"
+        - "/home/invincible/apps/android-sdk/platform-tools"
+        - "/home/invincible/apps"
+        - "/home/invincible/.nvm/versions/node/v22.16.0/bin"
+        - "/home/invincible/miniconda3/condabin"
         - "/usr/local/sbin"
         - "/usr/local/bin"
         - "/usr/sbin"
@@ -1965,14 +2157,6 @@ events:
         - "/usr/games"
         - "/usr/local/games"
         - "/usr/lib/wsl/lib"
-        - "/mnt/c/Users/32525/bin"
-        - "/mnt/d/Git/mingw64/bin"
-        - "/mnt/d/Git/usr/local/bin"
-        - "/mnt/d/Git/usr/bin"
-        - "/mnt/d/Git/usr/bin"
-        - "/mnt/d/Git/mingw64/bin"
-        - "/mnt/d/Git/usr/bin"
-        - "/mnt/c/Users/32525/bin"
         - "/mnt/c/Windows/system32"
         - "/mnt/c/Windows"
         - "/mnt/c/Windows/System32/Wbem"
@@ -2002,9 +2186,10 @@ events:
         - "/mnt/d/miniconda3/condabin"
         - "/mnt/d/Zcode/resources/tools/ripgrep"
         - "/mnt/d/Zcode/resources/tools/ugrep"
-        - "/mnt/c/Program Files/nodejs"
-        - "/mnt/d/Git/usr/bin/vendor_perl"
-        - "/mnt/d/Git/usr/bin/core_perl"
+        - "/snap/bin"
+        - "/home/invincible/.zcode/server/tools/bfs"
+        - "/home/invincible/.zcode/server/tools/ripgrep"
+        - "/home/invincible/.zcode/server/tools/ugrep"
   -
     kind: "find-v1"
     backtrace:
@@ -2029,6 +2214,15 @@ events:
       - "gcc-ranlib"
     candidate_directories:
       - "/usr/bin/"
+      - "/home/invincible/.local/bin/"
+      - "/home/invincible/bin/"
+      - "/home/invincible/.kimi-code/bin/"
+      - "/home/invincible/apps/jdk-17.0.20+8/bin/"
+      - "/home/invincible/apps/android-sdk/cmdline-tools/latest/bin/"
+      - "/home/invincible/apps/android-sdk/platform-tools/"
+      - "/home/invincible/apps/"
+      - "/home/invincible/.nvm/versions/node/v22.16.0/bin/"
+      - "/home/invincible/miniconda3/condabin/"
       - "/usr/local/sbin/"
       - "/usr/local/bin/"
       - "/usr/sbin/"
@@ -2037,10 +2231,6 @@ events:
       - "/usr/games/"
       - "/usr/local/games/"
       - "/usr/lib/wsl/lib/"
-      - "/mnt/c/Users/32525/bin/"
-      - "/mnt/d/Git/mingw64/bin/"
-      - "/mnt/d/Git/usr/local/bin/"
-      - "/mnt/d/Git/usr/bin/"
       - "/mnt/c/Windows/system32/"
       - "/mnt/c/Windows/"
       - "/mnt/c/Windows/System32/Wbem/"
@@ -2070,10 +2260,21 @@ events:
       - "/mnt/d/miniconda3/condabin/"
       - "/mnt/d/Zcode/resources/tools/ripgrep/"
       - "/mnt/d/Zcode/resources/tools/ugrep/"
-      - "/mnt/d/Git/usr/bin/vendor_perl/"
-      - "/mnt/d/Git/usr/bin/core_perl/"
+      - "/snap/bin/"
+      - "/home/invincible/.zcode/server/tools/bfs/"
+      - "/home/invincible/.zcode/server/tools/ripgrep/"
+      - "/home/invincible/.zcode/server/tools/ugrep/"
     searched_directories:
       - "/usr/bin/gcc-ranlib-15.2"
+      - "/home/invincible/.local/bin/gcc-ranlib-15.2"
+      - "/home/invincible/bin/gcc-ranlib-15.2"
+      - "/home/invincible/.kimi-code/bin/gcc-ranlib-15.2"
+      - "/home/invincible/apps/jdk-17.0.20+8/bin/gcc-ranlib-15.2"
+      - "/home/invincible/apps/android-sdk/cmdline-tools/latest/bin/gcc-ranlib-15.2"
+      - "/home/invincible/apps/android-sdk/platform-tools/gcc-ranlib-15.2"
+      - "/home/invincible/apps/gcc-ranlib-15.2"
+      - "/home/invincible/.nvm/versions/node/v22.16.0/bin/gcc-ranlib-15.2"
+      - "/home/invincible/miniconda3/condabin/gcc-ranlib-15.2"
       - "/usr/local/sbin/gcc-ranlib-15.2"
       - "/usr/local/bin/gcc-ranlib-15.2"
       - "/usr/sbin/gcc-ranlib-15.2"
@@ -2082,10 +2283,6 @@ events:
       - "/usr/games/gcc-ranlib-15.2"
       - "/usr/local/games/gcc-ranlib-15.2"
       - "/usr/lib/wsl/lib/gcc-ranlib-15.2"
-      - "/mnt/c/Users/32525/bin/gcc-ranlib-15.2"
-      - "/mnt/d/Git/mingw64/bin/gcc-ranlib-15.2"
-      - "/mnt/d/Git/usr/local/bin/gcc-ranlib-15.2"
-      - "/mnt/d/Git/usr/bin/gcc-ranlib-15.2"
       - "/mnt/c/Windows/system32/gcc-ranlib-15.2"
       - "/mnt/c/Windows/gcc-ranlib-15.2"
       - "/mnt/c/Windows/System32/Wbem/gcc-ranlib-15.2"
@@ -2115,11 +2312,22 @@ events:
       - "/mnt/d/miniconda3/condabin/gcc-ranlib-15.2"
       - "/mnt/d/Zcode/resources/tools/ripgrep/gcc-ranlib-15.2"
       - "/mnt/d/Zcode/resources/tools/ugrep/gcc-ranlib-15.2"
-      - "/mnt/d/Git/usr/bin/vendor_perl/gcc-ranlib-15.2"
-      - "/mnt/d/Git/usr/bin/core_perl/gcc-ranlib-15.2"
+      - "/snap/bin/gcc-ranlib-15.2"
+      - "/home/invincible/.zcode/server/tools/bfs/gcc-ranlib-15.2"
+      - "/home/invincible/.zcode/server/tools/ripgrep/gcc-ranlib-15.2"
+      - "/home/invincible/.zcode/server/tools/ugrep/gcc-ranlib-15.2"
     found: "/usr/bin/gcc-ranlib-15"
     search_context:
       ENV{PATH}:
+        - "/home/invincible/.local/bin"
+        - "/home/invincible/bin"
+        - "/home/invincible/.kimi-code/bin"
+        - "/home/invincible/apps/jdk-17.0.20+8/bin"
+        - "/home/invincible/apps/android-sdk/cmdline-tools/latest/bin"
+        - "/home/invincible/apps/android-sdk/platform-tools"
+        - "/home/invincible/apps"
+        - "/home/invincible/.nvm/versions/node/v22.16.0/bin"
+        - "/home/invincible/miniconda3/condabin"
         - "/usr/local/sbin"
         - "/usr/local/bin"
         - "/usr/sbin"
@@ -2129,14 +2337,6 @@ events:
         - "/usr/games"
         - "/usr/local/games"
         - "/usr/lib/wsl/lib"
-        - "/mnt/c/Users/32525/bin"
-        - "/mnt/d/Git/mingw64/bin"
-        - "/mnt/d/Git/usr/local/bin"
-        - "/mnt/d/Git/usr/bin"
-        - "/mnt/d/Git/usr/bin"
-        - "/mnt/d/Git/mingw64/bin"
-        - "/mnt/d/Git/usr/bin"
-        - "/mnt/c/Users/32525/bin"
         - "/mnt/c/Windows/system32"
         - "/mnt/c/Windows"
         - "/mnt/c/Windows/System32/Wbem"
@@ -2166,9 +2366,10 @@ events:
         - "/mnt/d/miniconda3/condabin"
         - "/mnt/d/Zcode/resources/tools/ripgrep"
         - "/mnt/d/Zcode/resources/tools/ugrep"
-        - "/mnt/c/Program Files/nodejs"
-        - "/mnt/d/Git/usr/bin/vendor_perl"
-        - "/mnt/d/Git/usr/bin/core_perl"
+        - "/snap/bin"
+        - "/home/invincible/.zcode/server/tools/bfs"
+        - "/home/invincible/.zcode/server/tools/ripgrep"
+        - "/home/invincible/.zcode/server/tools/ugrep"
   -
     kind: "try_compile-v1"
     backtrace:
@@ -2178,8 +2379,8 @@ events:
     checks:
       - "Detecting CXX compiler ABI info"
     directories:
-      source: "/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/cppversion/build/CMakeFiles/CMakeScratch/TryCompile-f7F577"
-      binary: "/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/cppversion/build/CMakeFiles/CMakeScratch/TryCompile-f7F577"
+      source: "/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try1-Completely unknown single port fitting/cppversion/build/CMakeFiles/CMakeScratch/TryCompile-lZMosD"
+      binary: "/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try1-Completely unknown single port fitting/cppversion/build/CMakeFiles/CMakeScratch/TryCompile-lZMosD"
     cmakeVariables:
       CMAKE_CXX_FLAGS: ""
       CMAKE_CXX_FLAGS_DEBUG: "-g"
@@ -2189,13 +2390,13 @@ events:
       variable: "CMAKE_CXX_ABI_COMPILED"
       cached: true
       stdout: |
-        Change Dir: '/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/cppversion/build/CMakeFiles/CMakeScratch/TryCompile-f7F577'
+        Change Dir: '/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try1-Completely unknown single port fitting/cppversion/build/CMakeFiles/CMakeScratch/TryCompile-lZMosD'
         
-        Run Build Command(s): /usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_68df1/fast
-        /usr/bin/gmake  -f CMakeFiles/cmTC_68df1.dir/build.make CMakeFiles/cmTC_68df1.dir/build
-        gmake[1]: Entering directory '/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/cppversion/build/CMakeFiles/CMakeScratch/TryCompile-f7F577'
-        Building CXX object CMakeFiles/cmTC_68df1.dir/CMakeCXXCompilerABI.cpp.o
-        /usr/bin/c++   -v -o CMakeFiles/cmTC_68df1.dir/CMakeCXXCompilerABI.cpp.o -c /usr/share/cmake-4.2/Modules/CMakeCXXCompilerABI.cpp
+        Run Build Command(s): /usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_c5ca6/fast
+        /usr/bin/gmake  -f CMakeFiles/cmTC_c5ca6.dir/build.make CMakeFiles/cmTC_c5ca6.dir/build
+        gmake[1]: Entering directory '/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try1-Completely unknown single port fitting/cppversion/build/CMakeFiles/CMakeScratch/TryCompile-lZMosD'
+        Building CXX object CMakeFiles/cmTC_c5ca6.dir/CMakeCXXCompilerABI.cpp.o
+        /usr/bin/c++   -v -o CMakeFiles/cmTC_c5ca6.dir/CMakeCXXCompilerABI.cpp.o -c /usr/share/cmake-4.2/Modules/CMakeCXXCompilerABI.cpp
         Using built-in specs.
         COLLECT_GCC=/usr/bin/c++
         OFFLOAD_TARGET_NAMES=nvptx-none:amdgcn-amdhsa
@@ -2205,8 +2406,8 @@ events:
         Thread model: posix
         Supported LTO compression algorithms: zlib zstd
         gcc version 15.2.0 (Ubuntu 15.2.0-16ubuntu1) 
-        COLLECT_GCC_OPTIONS='-v' '-o' 'CMakeFiles/cmTC_68df1.dir/CMakeCXXCompilerABI.cpp.o' '-c' '-shared-libgcc' '-mtune=generic' '-march=x86-64' '-dumpdir' 'CMakeFiles/cmTC_68df1.dir/'
-         /usr/libexec/gcc/x86_64-linux-gnu/15/cc1plus -quiet -v -imultiarch x86_64-linux-gnu -D_GNU_SOURCE /usr/share/cmake-4.2/Modules/CMakeCXXCompilerABI.cpp -quiet -dumpdir CMakeFiles/cmTC_68df1.dir/ -dumpbase CMakeCXXCompilerABI.cpp.cpp -dumpbase-ext .cpp -mtune=generic -march=x86-64 -version -fasynchronous-unwind-tables -fstack-protector-strong -Wformat -Wformat-security -fstack-clash-protection -fcf-protection -fzero-init-padding-bits=all -Wbidi-chars=any -o /tmp/cc9CU2NA.s
+        COLLECT_GCC_OPTIONS='-v' '-o' 'CMakeFiles/cmTC_c5ca6.dir/CMakeCXXCompilerABI.cpp.o' '-c' '-shared-libgcc' '-mtune=generic' '-march=x86-64' '-dumpdir' 'CMakeFiles/cmTC_c5ca6.dir/'
+         /usr/libexec/gcc/x86_64-linux-gnu/15/cc1plus -quiet -v -imultiarch x86_64-linux-gnu -D_GNU_SOURCE /usr/share/cmake-4.2/Modules/CMakeCXXCompilerABI.cpp -quiet -dumpdir CMakeFiles/cmTC_c5ca6.dir/ -dumpbase CMakeCXXCompilerABI.cpp.cpp -dumpbase-ext .cpp -mtune=generic -march=x86-64 -version -fasynchronous-unwind-tables -fstack-protector-strong -Wformat -Wformat-security -fstack-clash-protection -fcf-protection -fzero-init-padding-bits=all -Wbidi-chars=any -o /tmp/cc0snEA0.s
         GNU C++17 (Ubuntu 15.2.0-16ubuntu1) version 15.2.0 (x86_64-linux-gnu)
         	compiled by GNU C version 15.2.0, GMP version 6.3.0, MPFR version 4.2.2, MPC version 1.3.1, isl version isl-0.27-GMP
         
@@ -2227,14 +2428,14 @@ events:
          /usr/include
         End of search list.
         Compiler executable checksum: b661a74662ad7cf413c4193391ab5290
-        COLLECT_GCC_OPTIONS='-v' '-o' 'CMakeFiles/cmTC_68df1.dir/CMakeCXXCompilerABI.cpp.o' '-c' '-shared-libgcc' '-mtune=generic' '-march=x86-64' '-dumpdir' 'CMakeFiles/cmTC_68df1.dir/'
-         /usr/bin/x86_64-linux-gnu-as -v --64 -o CMakeFiles/cmTC_68df1.dir/CMakeCXXCompilerABI.cpp.o /tmp/cc9CU2NA.s
+        COLLECT_GCC_OPTIONS='-v' '-o' 'CMakeFiles/cmTC_c5ca6.dir/CMakeCXXCompilerABI.cpp.o' '-c' '-shared-libgcc' '-mtune=generic' '-march=x86-64' '-dumpdir' 'CMakeFiles/cmTC_c5ca6.dir/'
+         /usr/bin/x86_64-linux-gnu-as -v --64 -o CMakeFiles/cmTC_c5ca6.dir/CMakeCXXCompilerABI.cpp.o /tmp/cc0snEA0.s
         GNU assembler version 2.46 (x86_64-linux-gnu) using BFD version (GNU Binutils for Ubuntu) 2.46
         COMPILER_PATH=/usr/libexec/gcc/x86_64-linux-gnu/15/:/usr/libexec/gcc/x86_64-linux-gnu/15/:/usr/libexec/gcc/x86_64-linux-gnu/:/usr/lib/gcc/x86_64-linux-gnu/15/:/usr/lib/gcc/x86_64-linux-gnu/
         LIBRARY_PATH=/usr/lib/gcc/x86_64-linux-gnu/15/:/usr/lib/gcc/x86_64-linux-gnu/15/../../../x86_64-linux-gnu/:/usr/lib/gcc/x86_64-linux-gnu/15/../../../../lib/:/lib/x86_64-linux-gnu/:/lib/../lib/:/usr/lib/x86_64-linux-gnu/:/usr/lib/../lib/:/usr/lib/gcc/x86_64-linux-gnu/15/../../../:/lib/:/usr/lib/
-        COLLECT_GCC_OPTIONS='-v' '-o' 'CMakeFiles/cmTC_68df1.dir/CMakeCXXCompilerABI.cpp.o' '-c' '-shared-libgcc' '-mtune=generic' '-march=x86-64' '-dumpdir' 'CMakeFiles/cmTC_68df1.dir/CMakeCXXCompilerABI.cpp.'
-        Linking CXX executable cmTC_68df1
-        /usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_68df1.dir/link.txt --verbose=1
+        COLLECT_GCC_OPTIONS='-v' '-o' 'CMakeFiles/cmTC_c5ca6.dir/CMakeCXXCompilerABI.cpp.o' '-c' '-shared-libgcc' '-mtune=generic' '-march=x86-64' '-dumpdir' 'CMakeFiles/cmTC_c5ca6.dir/CMakeCXXCompilerABI.cpp.'
+        Linking CXX executable cmTC_c5ca6
+        /usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_c5ca6.dir/link.txt --verbose=1
         Using built-in specs.
         COLLECT_GCC=/usr/bin/c++
         COLLECT_LTO_WRAPPER=/usr/libexec/gcc/x86_64-linux-gnu/15/lto-wrapper
@@ -2247,14 +2448,14 @@ events:
         gcc version 15.2.0 (Ubuntu 15.2.0-16ubuntu1) 
         COMPILER_PATH=/usr/libexec/gcc/x86_64-linux-gnu/15/:/usr/libexec/gcc/x86_64-linux-gnu/15/:/usr/libexec/gcc/x86_64-linux-gnu/:/usr/lib/gcc/x86_64-linux-gnu/15/:/usr/lib/gcc/x86_64-linux-gnu/
         LIBRARY_PATH=/usr/lib/gcc/x86_64-linux-gnu/15/:/usr/lib/gcc/x86_64-linux-gnu/15/../../../x86_64-linux-gnu/:/usr/lib/gcc/x86_64-linux-gnu/15/../../../../lib/:/lib/x86_64-linux-gnu/:/lib/../lib/:/usr/lib/x86_64-linux-gnu/:/usr/lib/../lib/:/usr/lib/gcc/x86_64-linux-gnu/15/../../../:/lib/:/usr/lib/
-        COLLECT_GCC_OPTIONS='-v' '-o' 'cmTC_68df1' '-foffload-options=-l_GCC_stdc++' '-foffload-options=-l_GCC_m' '-shared-libgcc' '-mtune=generic' '-march=x86-64' '-dumpdir' 'cmTC_68df1.'
-         /usr/libexec/gcc/x86_64-linux-gnu/15/collect2 -plugin /usr/libexec/gcc/x86_64-linux-gnu/15/liblto_plugin.so -plugin-opt=/usr/libexec/gcc/x86_64-linux-gnu/15/lto-wrapper -plugin-opt=-fresolution=/tmp/ccktxGoH.res -plugin-opt=-pass-through=-lgcc_s -plugin-opt=-pass-through=-lgcc -plugin-opt=-pass-through=-lc -plugin-opt=-pass-through=-lgcc_s -plugin-opt=-pass-through=-lgcc --build-id --eh-frame-hdr -m elf_x86_64 --hash-style=gnu --as-needed -dynamic-linker /lib64/ld-linux-x86-64.so.2 -pie -z now -z relro -o cmTC_68df1 /usr/lib/gcc/x86_64-linux-gnu/15/../../../x86_64-linux-gnu/Scrt1.o /usr/lib/gcc/x86_64-linux-gnu/15/../../../x86_64-linux-gnu/crti.o /usr/lib/gcc/x86_64-linux-gnu/15/crtbeginS.o -L/usr/lib/gcc/x86_64-linux-gnu/15 -L/usr/lib/gcc/x86_64-linux-gnu/15/../../../x86_64-linux-gnu -L/usr/lib/gcc/x86_64-linux-gnu/15/../../../../lib -L/lib/x86_64-linux-gnu -L/lib/../lib -L/usr/lib/x86_64-linux-gnu -L/usr/lib/../lib -L/usr/lib/gcc/x86_64-linux-gnu/15/../../.. -L/lib -L/usr/lib -v CMakeFiles/cmTC_68df1.dir/CMakeCXXCompilerABI.cpp.o -lstdc++ -lm -lgcc_s -lgcc -lc -lgcc_s -lgcc /usr/lib/gcc/x86_64-linux-gnu/15/crtendS.o /usr/lib/gcc/x86_64-linux-gnu/15/../../../x86_64-linux-gnu/crtn.o
+        COLLECT_GCC_OPTIONS='-v' '-o' 'cmTC_c5ca6' '-foffload-options=-l_GCC_stdc++' '-foffload-options=-l_GCC_m' '-shared-libgcc' '-mtune=generic' '-march=x86-64' '-dumpdir' 'cmTC_c5ca6.'
+         /usr/libexec/gcc/x86_64-linux-gnu/15/collect2 -plugin /usr/libexec/gcc/x86_64-linux-gnu/15/liblto_plugin.so -plugin-opt=/usr/libexec/gcc/x86_64-linux-gnu/15/lto-wrapper -plugin-opt=-fresolution=/tmp/ccyyoRiW.res -plugin-opt=-pass-through=-lgcc_s -plugin-opt=-pass-through=-lgcc -plugin-opt=-pass-through=-lc -plugin-opt=-pass-through=-lgcc_s -plugin-opt=-pass-through=-lgcc --build-id --eh-frame-hdr -m elf_x86_64 --hash-style=gnu --as-needed -dynamic-linker /lib64/ld-linux-x86-64.so.2 -pie -z now -z relro -o cmTC_c5ca6 /usr/lib/gcc/x86_64-linux-gnu/15/../../../x86_64-linux-gnu/Scrt1.o /usr/lib/gcc/x86_64-linux-gnu/15/../../../x86_64-linux-gnu/crti.o /usr/lib/gcc/x86_64-linux-gnu/15/crtbeginS.o -L/usr/lib/gcc/x86_64-linux-gnu/15 -L/usr/lib/gcc/x86_64-linux-gnu/15/../../../x86_64-linux-gnu -L/usr/lib/gcc/x86_64-linux-gnu/15/../../../../lib -L/lib/x86_64-linux-gnu -L/lib/../lib -L/usr/lib/x86_64-linux-gnu -L/usr/lib/../lib -L/usr/lib/gcc/x86_64-linux-gnu/15/../../.. -L/lib -L/usr/lib -v CMakeFiles/cmTC_c5ca6.dir/CMakeCXXCompilerABI.cpp.o -lstdc++ -lm -lgcc_s -lgcc -lc -lgcc_s -lgcc /usr/lib/gcc/x86_64-linux-gnu/15/crtendS.o /usr/lib/gcc/x86_64-linux-gnu/15/../../../x86_64-linux-gnu/crtn.o
         collect2 version 15.2.0
-        /usr/bin/ld -plugin /usr/libexec/gcc/x86_64-linux-gnu/15/liblto_plugin.so -plugin-opt=/usr/libexec/gcc/x86_64-linux-gnu/15/lto-wrapper -plugin-opt=-fresolution=/tmp/ccktxGoH.res -plugin-opt=-pass-through=-lgcc_s -plugin-opt=-pass-through=-lgcc -plugin-opt=-pass-through=-lc -plugin-opt=-pass-through=-lgcc_s -plugin-opt=-pass-through=-lgcc --build-id --eh-frame-hdr -m elf_x86_64 --hash-style=gnu --as-needed -dynamic-linker /lib64/ld-linux-x86-64.so.2 -pie -z now -z relro -o cmTC_68df1 /usr/lib/gcc/x86_64-linux-gnu/15/../../../x86_64-linux-gnu/Scrt1.o /usr/lib/gcc/x86_64-linux-gnu/15/../../../x86_64-linux-gnu/crti.o /usr/lib/gcc/x86_64-linux-gnu/15/crtbeginS.o -L/usr/lib/gcc/x86_64-linux-gnu/15 -L/usr/lib/gcc/x86_64-linux-gnu/15/../../../x86_64-linux-gnu -L/usr/lib/gcc/x86_64-linux-gnu/15/../../../../lib -L/lib/x86_64-linux-gnu -L/lib/../lib -L/usr/lib/x86_64-linux-gnu -L/usr/lib/../lib -L/usr/lib/gcc/x86_64-linux-gnu/15/../../.. -L/lib -L/usr/lib -v CMakeFiles/cmTC_68df1.dir/CMakeCXXCompilerABI.cpp.o -lstdc++ -lm -lgcc_s -lgcc -lc -lgcc_s -lgcc /usr/lib/gcc/x86_64-linux-gnu/15/crtendS.o /usr/lib/gcc/x86_64-linux-gnu/15/../../../x86_64-linux-gnu/crtn.o
+        /usr/bin/ld -plugin /usr/libexec/gcc/x86_64-linux-gnu/15/liblto_plugin.so -plugin-opt=/usr/libexec/gcc/x86_64-linux-gnu/15/lto-wrapper -plugin-opt=-fresolution=/tmp/ccyyoRiW.res -plugin-opt=-pass-through=-lgcc_s -plugin-opt=-pass-through=-lgcc -plugin-opt=-pass-through=-lc -plugin-opt=-pass-through=-lgcc_s -plugin-opt=-pass-through=-lgcc --build-id --eh-frame-hdr -m elf_x86_64 --hash-style=gnu --as-needed -dynamic-linker /lib64/ld-linux-x86-64.so.2 -pie -z now -z relro -o cmTC_c5ca6 /usr/lib/gcc/x86_64-linux-gnu/15/../../../x86_64-linux-gnu/Scrt1.o /usr/lib/gcc/x86_64-linux-gnu/15/../../../x86_64-linux-gnu/crti.o /usr/lib/gcc/x86_64-linux-gnu/15/crtbeginS.o -L/usr/lib/gcc/x86_64-linux-gnu/15 -L/usr/lib/gcc/x86_64-linux-gnu/15/../../../x86_64-linux-gnu -L/usr/lib/gcc/x86_64-linux-gnu/15/../../../../lib -L/lib/x86_64-linux-gnu -L/lib/../lib -L/usr/lib/x86_64-linux-gnu -L/usr/lib/../lib -L/usr/lib/gcc/x86_64-linux-gnu/15/../../.. -L/lib -L/usr/lib -v CMakeFiles/cmTC_c5ca6.dir/CMakeCXXCompilerABI.cpp.o -lstdc++ -lm -lgcc_s -lgcc -lc -lgcc_s -lgcc /usr/lib/gcc/x86_64-linux-gnu/15/crtendS.o /usr/lib/gcc/x86_64-linux-gnu/15/../../../x86_64-linux-gnu/crtn.o
         GNU ld (GNU Binutils for Ubuntu) 2.46
-        COLLECT_GCC_OPTIONS='-v' '-o' 'cmTC_68df1' '-foffload-options=-l_GCC_stdc++' '-foffload-options=-l_GCC_m' '-shared-libgcc' '-mtune=generic' '-march=x86-64' '-dumpdir' 'cmTC_68df1.'
-        /usr/bin/c++  -v -Wl,-v CMakeFiles/cmTC_68df1.dir/CMakeCXXCompilerABI.cpp.o -o cmTC_68df1
-        gmake[1]: Leaving directory '/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/cppversion/build/CMakeFiles/CMakeScratch/TryCompile-f7F577'
+        COLLECT_GCC_OPTIONS='-v' '-o' 'cmTC_c5ca6' '-foffload-options=-l_GCC_stdc++' '-foffload-options=-l_GCC_m' '-shared-libgcc' '-mtune=generic' '-march=x86-64' '-dumpdir' 'cmTC_c5ca6.'
+        /usr/bin/c++  -v -Wl,-v CMakeFiles/cmTC_c5ca6.dir/CMakeCXXCompilerABI.cpp.o -o cmTC_c5ca6
+        gmake[1]: Leaving directory '/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try1-Completely unknown single port fitting/cppversion/build/CMakeFiles/CMakeScratch/TryCompile-lZMosD'
         
       exitCode: 0
   -
@@ -2295,13 +2496,13 @@ events:
       Parsed CXX implicit link information:
         link line regex: [^( *|.*[/\\])(ld[0-9]*(|\\.[a-rt-z][a-z]*|\\.s[a-np-z][a-z]*|\\.so[a-z]+)|CMAKE_LINK_STARTFILE-NOTFOUND|([^/\\]+-)?ld|collect2)[^/\\]*( |$)]
         linker tool regex: [^[ 	]*(->|"|[0-9]+>[ 	-]*Build:[ 	0-9]+ ms[ 	]*)?[ 	]*(([^"]*[/\\])?(ld[0-9]*(|\\.[a-rt-z][a-z]*|\\.s[a-np-z][a-z]*|\\.so[a-z]+)))("|,| |$)]
-        ignore line: [Change Dir: '/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/cppversion/build/CMakeFiles/CMakeScratch/TryCompile-f7F577']
+        ignore line: [Change Dir: '/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try1-Completely unknown single port fitting/cppversion/build/CMakeFiles/CMakeScratch/TryCompile-lZMosD']
         ignore line: []
-        ignore line: [Run Build Command(s): /usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_68df1/fast]
-        ignore line: [/usr/bin/gmake  -f CMakeFiles/cmTC_68df1.dir/build.make CMakeFiles/cmTC_68df1.dir/build]
-        ignore line: [gmake[1]: Entering directory '/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/cppversion/build/CMakeFiles/CMakeScratch/TryCompile-f7F577']
-        ignore line: [Building CXX object CMakeFiles/cmTC_68df1.dir/CMakeCXXCompilerABI.cpp.o]
-        ignore line: [/usr/bin/c++   -v -o CMakeFiles/cmTC_68df1.dir/CMakeCXXCompilerABI.cpp.o -c /usr/share/cmake-4.2/Modules/CMakeCXXCompilerABI.cpp]
+        ignore line: [Run Build Command(s): /usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_c5ca6/fast]
+        ignore line: [/usr/bin/gmake  -f CMakeFiles/cmTC_c5ca6.dir/build.make CMakeFiles/cmTC_c5ca6.dir/build]
+        ignore line: [gmake[1]: Entering directory '/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try1-Completely unknown single port fitting/cppversion/build/CMakeFiles/CMakeScratch/TryCompile-lZMosD']
+        ignore line: [Building CXX object CMakeFiles/cmTC_c5ca6.dir/CMakeCXXCompilerABI.cpp.o]
+        ignore line: [/usr/bin/c++   -v -o CMakeFiles/cmTC_c5ca6.dir/CMakeCXXCompilerABI.cpp.o -c /usr/share/cmake-4.2/Modules/CMakeCXXCompilerABI.cpp]
         ignore line: [Using built-in specs.]
         ignore line: [COLLECT_GCC=/usr/bin/c++]
         ignore line: [OFFLOAD_TARGET_NAMES=nvptx-none:amdgcn-amdhsa]
@@ -2311,8 +2512,8 @@ events:
         ignore line: [Thread model: posix]
         ignore line: [Supported LTO compression algorithms: zlib zstd]
         ignore line: [gcc version 15.2.0 (Ubuntu 15.2.0-16ubuntu1) ]
-        ignore line: [COLLECT_GCC_OPTIONS='-v' '-o' 'CMakeFiles/cmTC_68df1.dir/CMakeCXXCompilerABI.cpp.o' '-c' '-shared-libgcc' '-mtune=generic' '-march=x86-64' '-dumpdir' 'CMakeFiles/cmTC_68df1.dir/']
-        ignore line: [ /usr/libexec/gcc/x86_64-linux-gnu/15/cc1plus -quiet -v -imultiarch x86_64-linux-gnu -D_GNU_SOURCE /usr/share/cmake-4.2/Modules/CMakeCXXCompilerABI.cpp -quiet -dumpdir CMakeFiles/cmTC_68df1.dir/ -dumpbase CMakeCXXCompilerABI.cpp.cpp -dumpbase-ext .cpp -mtune=generic -march=x86-64 -version -fasynchronous-unwind-tables -fstack-protector-strong -Wformat -Wformat-security -fstack-clash-protection -fcf-protection -fzero-init-padding-bits=all -Wbidi-chars=any -o /tmp/cc9CU2NA.s]
+        ignore line: [COLLECT_GCC_OPTIONS='-v' '-o' 'CMakeFiles/cmTC_c5ca6.dir/CMakeCXXCompilerABI.cpp.o' '-c' '-shared-libgcc' '-mtune=generic' '-march=x86-64' '-dumpdir' 'CMakeFiles/cmTC_c5ca6.dir/']
+        ignore line: [ /usr/libexec/gcc/x86_64-linux-gnu/15/cc1plus -quiet -v -imultiarch x86_64-linux-gnu -D_GNU_SOURCE /usr/share/cmake-4.2/Modules/CMakeCXXCompilerABI.cpp -quiet -dumpdir CMakeFiles/cmTC_c5ca6.dir/ -dumpbase CMakeCXXCompilerABI.cpp.cpp -dumpbase-ext .cpp -mtune=generic -march=x86-64 -version -fasynchronous-unwind-tables -fstack-protector-strong -Wformat -Wformat-security -fstack-clash-protection -fcf-protection -fzero-init-padding-bits=all -Wbidi-chars=any -o /tmp/cc0snEA0.s]
         ignore line: [GNU C++17 (Ubuntu 15.2.0-16ubuntu1) version 15.2.0 (x86_64-linux-gnu)]
         ignore line: [	compiled by GNU C version 15.2.0  GMP version 6.3.0  MPFR version 4.2.2  MPC version 1.3.1  isl version isl-0.27-GMP]
         ignore line: []
@@ -2333,14 +2534,14 @@ events:
         ignore line: [ /usr/include]
         ignore line: [End of search list.]
         ignore line: [Compiler executable checksum: b661a74662ad7cf413c4193391ab5290]
-        ignore line: [COLLECT_GCC_OPTIONS='-v' '-o' 'CMakeFiles/cmTC_68df1.dir/CMakeCXXCompilerABI.cpp.o' '-c' '-shared-libgcc' '-mtune=generic' '-march=x86-64' '-dumpdir' 'CMakeFiles/cmTC_68df1.dir/']
-        ignore line: [ /usr/bin/x86_64-linux-gnu-as -v --64 -o CMakeFiles/cmTC_68df1.dir/CMakeCXXCompilerABI.cpp.o /tmp/cc9CU2NA.s]
+        ignore line: [COLLECT_GCC_OPTIONS='-v' '-o' 'CMakeFiles/cmTC_c5ca6.dir/CMakeCXXCompilerABI.cpp.o' '-c' '-shared-libgcc' '-mtune=generic' '-march=x86-64' '-dumpdir' 'CMakeFiles/cmTC_c5ca6.dir/']
+        ignore line: [ /usr/bin/x86_64-linux-gnu-as -v --64 -o CMakeFiles/cmTC_c5ca6.dir/CMakeCXXCompilerABI.cpp.o /tmp/cc0snEA0.s]
         ignore line: [GNU assembler version 2.46 (x86_64-linux-gnu) using BFD version (GNU Binutils for Ubuntu) 2.46]
         ignore line: [COMPILER_PATH=/usr/libexec/gcc/x86_64-linux-gnu/15/:/usr/libexec/gcc/x86_64-linux-gnu/15/:/usr/libexec/gcc/x86_64-linux-gnu/:/usr/lib/gcc/x86_64-linux-gnu/15/:/usr/lib/gcc/x86_64-linux-gnu/]
         ignore line: [LIBRARY_PATH=/usr/lib/gcc/x86_64-linux-gnu/15/:/usr/lib/gcc/x86_64-linux-gnu/15/../../../x86_64-linux-gnu/:/usr/lib/gcc/x86_64-linux-gnu/15/../../../../lib/:/lib/x86_64-linux-gnu/:/lib/../lib/:/usr/lib/x86_64-linux-gnu/:/usr/lib/../lib/:/usr/lib/gcc/x86_64-linux-gnu/15/../../../:/lib/:/usr/lib/]
-        ignore line: [COLLECT_GCC_OPTIONS='-v' '-o' 'CMakeFiles/cmTC_68df1.dir/CMakeCXXCompilerABI.cpp.o' '-c' '-shared-libgcc' '-mtune=generic' '-march=x86-64' '-dumpdir' 'CMakeFiles/cmTC_68df1.dir/CMakeCXXCompilerABI.cpp.']
-        ignore line: [Linking CXX executable cmTC_68df1]
-        ignore line: [/usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_68df1.dir/link.txt --verbose=1]
+        ignore line: [COLLECT_GCC_OPTIONS='-v' '-o' 'CMakeFiles/cmTC_c5ca6.dir/CMakeCXXCompilerABI.cpp.o' '-c' '-shared-libgcc' '-mtune=generic' '-march=x86-64' '-dumpdir' 'CMakeFiles/cmTC_c5ca6.dir/CMakeCXXCompilerABI.cpp.']
+        ignore line: [Linking CXX executable cmTC_c5ca6]
+        ignore line: [/usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_c5ca6.dir/link.txt --verbose=1]
         ignore line: [Using built-in specs.]
         ignore line: [COLLECT_GCC=/usr/bin/c++]
         ignore line: [COLLECT_LTO_WRAPPER=/usr/libexec/gcc/x86_64-linux-gnu/15/lto-wrapper]
@@ -2353,13 +2554,13 @@ events:
         ignore line: [gcc version 15.2.0 (Ubuntu 15.2.0-16ubuntu1) ]
         ignore line: [COMPILER_PATH=/usr/libexec/gcc/x86_64-linux-gnu/15/:/usr/libexec/gcc/x86_64-linux-gnu/15/:/usr/libexec/gcc/x86_64-linux-gnu/:/usr/lib/gcc/x86_64-linux-gnu/15/:/usr/lib/gcc/x86_64-linux-gnu/]
         ignore line: [LIBRARY_PATH=/usr/lib/gcc/x86_64-linux-gnu/15/:/usr/lib/gcc/x86_64-linux-gnu/15/../../../x86_64-linux-gnu/:/usr/lib/gcc/x86_64-linux-gnu/15/../../../../lib/:/lib/x86_64-linux-gnu/:/lib/../lib/:/usr/lib/x86_64-linux-gnu/:/usr/lib/../lib/:/usr/lib/gcc/x86_64-linux-gnu/15/../../../:/lib/:/usr/lib/]
-        ignore line: [COLLECT_GCC_OPTIONS='-v' '-o' 'cmTC_68df1' '-foffload-options=-l_GCC_stdc++' '-foffload-options=-l_GCC_m' '-shared-libgcc' '-mtune=generic' '-march=x86-64' '-dumpdir' 'cmTC_68df1.']
-        link line: [ /usr/libexec/gcc/x86_64-linux-gnu/15/collect2 -plugin /usr/libexec/gcc/x86_64-linux-gnu/15/liblto_plugin.so -plugin-opt=/usr/libexec/gcc/x86_64-linux-gnu/15/lto-wrapper -plugin-opt=-fresolution=/tmp/ccktxGoH.res -plugin-opt=-pass-through=-lgcc_s -plugin-opt=-pass-through=-lgcc -plugin-opt=-pass-through=-lc -plugin-opt=-pass-through=-lgcc_s -plugin-opt=-pass-through=-lgcc --build-id --eh-frame-hdr -m elf_x86_64 --hash-style=gnu --as-needed -dynamic-linker /lib64/ld-linux-x86-64.so.2 -pie -z now -z relro -o cmTC_68df1 /usr/lib/gcc/x86_64-linux-gnu/15/../../../x86_64-linux-gnu/Scrt1.o /usr/lib/gcc/x86_64-linux-gnu/15/../../../x86_64-linux-gnu/crti.o /usr/lib/gcc/x86_64-linux-gnu/15/crtbeginS.o -L/usr/lib/gcc/x86_64-linux-gnu/15 -L/usr/lib/gcc/x86_64-linux-gnu/15/../../../x86_64-linux-gnu -L/usr/lib/gcc/x86_64-linux-gnu/15/../../../../lib -L/lib/x86_64-linux-gnu -L/lib/../lib -L/usr/lib/x86_64-linux-gnu -L/usr/lib/../lib -L/usr/lib/gcc/x86_64-linux-gnu/15/../../.. -L/lib -L/usr/lib -v CMakeFiles/cmTC_68df1.dir/CMakeCXXCompilerABI.cpp.o -lstdc++ -lm -lgcc_s -lgcc -lc -lgcc_s -lgcc /usr/lib/gcc/x86_64-linux-gnu/15/crtendS.o /usr/lib/gcc/x86_64-linux-gnu/15/../../../x86_64-linux-gnu/crtn.o]
+        ignore line: [COLLECT_GCC_OPTIONS='-v' '-o' 'cmTC_c5ca6' '-foffload-options=-l_GCC_stdc++' '-foffload-options=-l_GCC_m' '-shared-libgcc' '-mtune=generic' '-march=x86-64' '-dumpdir' 'cmTC_c5ca6.']
+        link line: [ /usr/libexec/gcc/x86_64-linux-gnu/15/collect2 -plugin /usr/libexec/gcc/x86_64-linux-gnu/15/liblto_plugin.so -plugin-opt=/usr/libexec/gcc/x86_64-linux-gnu/15/lto-wrapper -plugin-opt=-fresolution=/tmp/ccyyoRiW.res -plugin-opt=-pass-through=-lgcc_s -plugin-opt=-pass-through=-lgcc -plugin-opt=-pass-through=-lc -plugin-opt=-pass-through=-lgcc_s -plugin-opt=-pass-through=-lgcc --build-id --eh-frame-hdr -m elf_x86_64 --hash-style=gnu --as-needed -dynamic-linker /lib64/ld-linux-x86-64.so.2 -pie -z now -z relro -o cmTC_c5ca6 /usr/lib/gcc/x86_64-linux-gnu/15/../../../x86_64-linux-gnu/Scrt1.o /usr/lib/gcc/x86_64-linux-gnu/15/../../../x86_64-linux-gnu/crti.o /usr/lib/gcc/x86_64-linux-gnu/15/crtbeginS.o -L/usr/lib/gcc/x86_64-linux-gnu/15 -L/usr/lib/gcc/x86_64-linux-gnu/15/../../../x86_64-linux-gnu -L/usr/lib/gcc/x86_64-linux-gnu/15/../../../../lib -L/lib/x86_64-linux-gnu -L/lib/../lib -L/usr/lib/x86_64-linux-gnu -L/usr/lib/../lib -L/usr/lib/gcc/x86_64-linux-gnu/15/../../.. -L/lib -L/usr/lib -v CMakeFiles/cmTC_c5ca6.dir/CMakeCXXCompilerABI.cpp.o -lstdc++ -lm -lgcc_s -lgcc -lc -lgcc_s -lgcc /usr/lib/gcc/x86_64-linux-gnu/15/crtendS.o /usr/lib/gcc/x86_64-linux-gnu/15/../../../x86_64-linux-gnu/crtn.o]
           arg [/usr/libexec/gcc/x86_64-linux-gnu/15/collect2] ==> ignore
           arg [-plugin] ==> ignore
           arg [/usr/libexec/gcc/x86_64-linux-gnu/15/liblto_plugin.so] ==> ignore
           arg [-plugin-opt=/usr/libexec/gcc/x86_64-linux-gnu/15/lto-wrapper] ==> ignore
-          arg [-plugin-opt=-fresolution=/tmp/ccktxGoH.res] ==> ignore
+          arg [-plugin-opt=-fresolution=/tmp/ccyyoRiW.res] ==> ignore
           arg [-plugin-opt=-pass-through=-lgcc_s] ==> ignore
           arg [-plugin-opt=-pass-through=-lgcc] ==> ignore
           arg [-plugin-opt=-pass-through=-lc] ==> ignore
@@ -2377,7 +2578,7 @@ events:
           arg [-znow] ==> ignore
           arg [-zrelro] ==> ignore
           arg [-o] ==> ignore
-          arg [cmTC_68df1] ==> ignore
+          arg [cmTC_c5ca6] ==> ignore
           arg [/usr/lib/gcc/x86_64-linux-gnu/15/../../../x86_64-linux-gnu/Scrt1.o] ==> obj [/usr/lib/gcc/x86_64-linux-gnu/15/../../../x86_64-linux-gnu/Scrt1.o]
           arg [/usr/lib/gcc/x86_64-linux-gnu/15/../../../x86_64-linux-gnu/crti.o] ==> obj [/usr/lib/gcc/x86_64-linux-gnu/15/../../../x86_64-linux-gnu/crti.o]
           arg [/usr/lib/gcc/x86_64-linux-gnu/15/crtbeginS.o] ==> obj [/usr/lib/gcc/x86_64-linux-gnu/15/crtbeginS.o]
@@ -2392,7 +2593,7 @@ events:
           arg [-L/lib] ==> dir [/lib]
           arg [-L/usr/lib] ==> dir [/usr/lib]
           arg [-v] ==> ignore
-          arg [CMakeFiles/cmTC_68df1.dir/CMakeCXXCompilerABI.cpp.o] ==> ignore
+          arg [CMakeFiles/cmTC_c5ca6.dir/CMakeCXXCompilerABI.cpp.o] ==> ignore
           arg [-lstdc++] ==> lib [stdc++]
           arg [-lm] ==> lib [m]
           arg [-lgcc_s] ==> lib [gcc_s]
@@ -2403,7 +2604,7 @@ events:
           arg [/usr/lib/gcc/x86_64-linux-gnu/15/crtendS.o] ==> obj [/usr/lib/gcc/x86_64-linux-gnu/15/crtendS.o]
           arg [/usr/lib/gcc/x86_64-linux-gnu/15/../../../x86_64-linux-gnu/crtn.o] ==> obj [/usr/lib/gcc/x86_64-linux-gnu/15/../../../x86_64-linux-gnu/crtn.o]
         ignore line: [collect2 version 15.2.0]
-        ignore line: [/usr/bin/ld -plugin /usr/libexec/gcc/x86_64-linux-gnu/15/liblto_plugin.so -plugin-opt=/usr/libexec/gcc/x86_64-linux-gnu/15/lto-wrapper -plugin-opt=-fresolution=/tmp/ccktxGoH.res -plugin-opt=-pass-through=-lgcc_s -plugin-opt=-pass-through=-lgcc -plugin-opt=-pass-through=-lc -plugin-opt=-pass-through=-lgcc_s -plugin-opt=-pass-through=-lgcc --build-id --eh-frame-hdr -m elf_x86_64 --hash-style=gnu --as-needed -dynamic-linker /lib64/ld-linux-x86-64.so.2 -pie -z now -z relro -o cmTC_68df1 /usr/lib/gcc/x86_64-linux-gnu/15/../../../x86_64-linux-gnu/Scrt1.o /usr/lib/gcc/x86_64-linux-gnu/15/../../../x86_64-linux-gnu/crti.o /usr/lib/gcc/x86_64-linux-gnu/15/crtbeginS.o -L/usr/lib/gcc/x86_64-linux-gnu/15 -L/usr/lib/gcc/x86_64-linux-gnu/15/../../../x86_64-linux-gnu -L/usr/lib/gcc/x86_64-linux-gnu/15/../../../../lib -L/lib/x86_64-linux-gnu -L/lib/../lib -L/usr/lib/x86_64-linux-gnu -L/usr/lib/../lib -L/usr/lib/gcc/x86_64-linux-gnu/15/../../.. -L/lib -L/usr/lib -v CMakeFiles/cmTC_68df1.dir/CMakeCXXCompilerABI.cpp.o -lstdc++ -lm -lgcc_s -lgcc -lc -lgcc_s -lgcc /usr/lib/gcc/x86_64-linux-gnu/15/crtendS.o /usr/lib/gcc/x86_64-linux-gnu/15/../../../x86_64-linux-gnu/crtn.o]
+        ignore line: [/usr/bin/ld -plugin /usr/libexec/gcc/x86_64-linux-gnu/15/liblto_plugin.so -plugin-opt=/usr/libexec/gcc/x86_64-linux-gnu/15/lto-wrapper -plugin-opt=-fresolution=/tmp/ccyyoRiW.res -plugin-opt=-pass-through=-lgcc_s -plugin-opt=-pass-through=-lgcc -plugin-opt=-pass-through=-lc -plugin-opt=-pass-through=-lgcc_s -plugin-opt=-pass-through=-lgcc --build-id --eh-frame-hdr -m elf_x86_64 --hash-style=gnu --as-needed -dynamic-linker /lib64/ld-linux-x86-64.so.2 -pie -z now -z relro -o cmTC_c5ca6 /usr/lib/gcc/x86_64-linux-gnu/15/../../../x86_64-linux-gnu/Scrt1.o /usr/lib/gcc/x86_64-linux-gnu/15/../../../x86_64-linux-gnu/crti.o /usr/lib/gcc/x86_64-linux-gnu/15/crtbeginS.o -L/usr/lib/gcc/x86_64-linux-gnu/15 -L/usr/lib/gcc/x86_64-linux-gnu/15/../../../x86_64-linux-gnu -L/usr/lib/gcc/x86_64-linux-gnu/15/../../../../lib -L/lib/x86_64-linux-gnu -L/lib/../lib -L/usr/lib/x86_64-linux-gnu -L/usr/lib/../lib -L/usr/lib/gcc/x86_64-linux-gnu/15/../../.. -L/lib -L/usr/lib -v CMakeFiles/cmTC_c5ca6.dir/CMakeCXXCompilerABI.cpp.o -lstdc++ -lm -lgcc_s -lgcc -lc -lgcc_s -lgcc /usr/lib/gcc/x86_64-linux-gnu/15/crtendS.o /usr/lib/gcc/x86_64-linux-gnu/15/../../../x86_64-linux-gnu/crtn.o]
         linker tool for 'CXX': /usr/bin/ld
         collapse obj [/usr/lib/gcc/x86_64-linux-gnu/15/../../../x86_64-linux-gnu/Scrt1.o] ==> [/usr/lib/x86_64-linux-gnu/Scrt1.o]
         collapse obj [/usr/lib/gcc/x86_64-linux-gnu/15/../../../x86_64-linux-gnu/crti.o] ==> [/usr/lib/x86_64-linux-gnu/crti.o]
@@ -2441,12 +2642,12 @@ events:
       - "/usr/share/cmake-4.2/Modules/CheckCXXSourceCompiles.cmake:103 (cmake_check_source_compiles)"
       - "/usr/share/cmake-4.2/Modules/FindThreads.cmake:162 (check_cxx_source_compiles)"
       - "/usr/share/cmake-4.2/Modules/FindThreads.cmake:226 (_threads_check_libc)"
-      - "CMakeLists.txt:25 (find_package)"
+      - "CMakeLists.txt:28 (find_package)"
     checks:
       - "Performing Test CMAKE_HAVE_LIBC_PTHREAD"
     directories:
-      source: "/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/cppversion/build/CMakeFiles/CMakeScratch/TryCompile-W6cVHx"
-      binary: "/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/cppversion/build/CMakeFiles/CMakeScratch/TryCompile-W6cVHx"
+      source: "/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try1-Completely unknown single port fitting/cppversion/build/CMakeFiles/CMakeScratch/TryCompile-aPPWEz"
+      binary: "/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try1-Completely unknown single port fitting/cppversion/build/CMakeFiles/CMakeScratch/TryCompile-aPPWEz"
     cmakeVariables:
       CMAKE_CXX_FLAGS: ""
       CMAKE_CXX_FLAGS_DEBUG: "-g"
@@ -2455,17 +2656,17 @@ events:
       variable: "CMAKE_HAVE_LIBC_PTHREAD"
       cached: true
       stdout: |
-        Change Dir: '/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/cppversion/build/CMakeFiles/CMakeScratch/TryCompile-W6cVHx'
+        Change Dir: '/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try1-Completely unknown single port fitting/cppversion/build/CMakeFiles/CMakeScratch/TryCompile-aPPWEz'
         
-        Run Build Command(s): /usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_6dcaa/fast
-        /usr/bin/gmake  -f CMakeFiles/cmTC_6dcaa.dir/build.make CMakeFiles/cmTC_6dcaa.dir/build
-        gmake[1]: Entering directory '/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/cppversion/build/CMakeFiles/CMakeScratch/TryCompile-W6cVHx'
-        Building CXX object CMakeFiles/cmTC_6dcaa.dir/src.cxx.o
-        /usr/bin/c++ -DCMAKE_HAVE_LIBC_PTHREAD  -std=gnu++17 -o CMakeFiles/cmTC_6dcaa.dir/src.cxx.o -c /home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/cppversion/build/CMakeFiles/CMakeScratch/TryCompile-W6cVHx/src.cxx
-        Linking CXX executable cmTC_6dcaa
-        /usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_6dcaa.dir/link.txt --verbose=1
-        /usr/bin/c++ CMakeFiles/cmTC_6dcaa.dir/src.cxx.o -o cmTC_6dcaa
-        gmake[1]: Leaving directory '/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/cppversion/build/CMakeFiles/CMakeScratch/TryCompile-W6cVHx'
+        Run Build Command(s): /usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_50dbd/fast
+        /usr/bin/gmake  -f CMakeFiles/cmTC_50dbd.dir/build.make CMakeFiles/cmTC_50dbd.dir/build
+        gmake[1]: Entering directory '/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try1-Completely unknown single port fitting/cppversion/build/CMakeFiles/CMakeScratch/TryCompile-aPPWEz'
+        Building CXX object CMakeFiles/cmTC_50dbd.dir/src.cxx.o
+        /usr/bin/c++ -DCMAKE_HAVE_LIBC_PTHREAD  -std=gnu++17 -o CMakeFiles/cmTC_50dbd.dir/src.cxx.o -c "/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try1-Completely unknown single port fitting/cppversion/build/CMakeFiles/CMakeScratch/TryCompile-aPPWEz/src.cxx"
+        Linking CXX executable cmTC_50dbd
+        /usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_50dbd.dir/link.txt --verbose=1
+        /usr/bin/c++ CMakeFiles/cmTC_50dbd.dir/src.cxx.o -o cmTC_50dbd
+        gmake[1]: Leaving directory '/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try1-Completely unknown single port fitting/cppversion/build/CMakeFiles/CMakeScratch/TryCompile-aPPWEz'
         
       exitCode: 0
 ...

@@ -4,7 +4,7 @@
 # compile CXX with /usr/bin/c++
 CXX_DEFINES = 
 
-CXX_INCLUDES = -I/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/cppversion/src
+CXX_INCLUDES = -I"/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try1-Completely unknown single port fitting/cppversion/src"
 
 CXX_FLAGS = -O2 -std=gnu++17 -Wall -Wextra
 

@@ -16,6 +16,11 @@ namespace rlc {
 
 struct Config {
     int maxN = 4;                       // engine-A library size limit (A1)
+    std::optional<int> exactN;          // v2 prior: exactly N devices (an L
+                                        // with its series DCR is ONE device);
+                                        // when set, the search uses the
+                                        // single N-device layer and maxN is
+                                        // ignored (count.txt prior)
     int maxOrder = 4;                   // engine-B rational order scan limit
     int skIters = 15;
     bool enableF2 = true;

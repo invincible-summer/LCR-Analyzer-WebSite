@@ -114,12 +114,19 @@ struct MnaElement {
     int a, b;
     char kind;
     double value;
+    double dcr;  // series DC resistance of an L device (v2)
 };
 
 inline void mnaBuild(const Tree* t, const std::vector<double>& values, size_t& idx, int a,
                      int b, int& nextNode, std::vector<MnaElement>& out) {
     if (t->isLeaf) {
-        out.push_back(MnaElement{a, b, t->elem, values[idx++]});
+        if (t->elem == 'L') {  // real inductor: [L, Rd]
+            out.push_back(MnaElement{a, b, 'L', values[idx], values[idx + 1]});
+            idx += 2;
+        } else {
+            out.push_back(MnaElement{a, b, t->elem, values[idx], 0.0});
+            idx += 1;
+        }
         return;
     }
     if (t->kind == NK::Par) {
@@ -152,7 +159,8 @@ inline Complex mnaImpedance(const TreePtr& tree, const std::vector<double>& valu
         if (e.kind == 'R') {
             y = LC(1.0L / (long double)e.value, 0.0L);
         } else if (e.kind == 'L') {
-            y = LC(1.0L, 0.0L) / (sl * (long double)e.value);
+            y = LC(1.0L, 0.0L) /
+                (LC((long double)e.dcr, 0.0L) + sl * (long double)e.value);
         } else {
             y = sl * (long double)e.value;
         }
@@ -219,10 +227,9 @@ inline double maxRelDiffOnGrid(const TreePtr& t1, const std::vector<double>& th1
 inline std::vector<double> sampleIdentifiable(const TreePtr& tree, uint64_t seed,
                                               const std::vector<double>& f, bool& identifiable,
                                               double& minSensOut, int maxTries = 300) {
-    auto kinds = leafKinds(tree);
-    const size_t p = kinds.size();
     std::vector<double> lb, ub;
     thetaBounds(tree, lb, ub);
+    const size_t p = lb.size();  // parameters (two per L device)
     std::vector<double> grid = makeValidationGrid(f);
     const size_t g = grid.size();
     std::vector<Complex> s(g);
@@ -285,5 +292,31 @@ void suiteSweepN5(TestCtx& t);
 void suiteSweepN6(TestCtx& t);
 void suiteNoisySweep(TestCtx& t);
 void suiteExtremesBands(TestCtx& t);
+void suiteAdjacency(TestCtx& t);
+void suiteIofmt(TestCtx& t);
+void suiteExactN(TestCtx& t);
+
+// EXACT / EQUIV / MISS classification of one identification run against a
+// synthetic DUT (mirrors demo.py::classify).
+inline std::string classifyDut(const DUT& dut, const IdentifyResult& res,
+                               const std::vector<double>& f, double equivTol,
+                               double& paramErr) {
+    paramErr = -1.0;
+    if (res.classes.empty()) return "MISS";
+    const EquivalenceClass& best = res.classes[0];
+    const Candidate& rep = best.representative;
+    if (canonical(rep.tree) == canonical(dut.tree)) {
+        paramErr = maxParamError(rep.theta, dut);
+        return "EXACT";
+    }
+    Candidate truth;
+    truth.tree = dut.tree;
+    truth.theta = dut.theta();
+    auto grid = makeValidationGrid(f);
+    for (const auto& mem : best.members) {
+        if (areEquivalent(mem, truth, grid, equivTol)) return "EQUIV";
+    }
+    return "MISS";
+}
 
 }  // namespace rlctest

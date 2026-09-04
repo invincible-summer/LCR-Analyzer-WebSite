@@ -80,17 +80,20 @@ std::vector<double> Candidate::values() const {
 
 std::vector<std::vector<double>> heuristicStarts(const TreePtr& tree,
                                                  const StartHints* hints) {
-    std::vector<char> kinds = leafKinds(tree);
+    std::vector<char> kinds = paramKinds(tree);  // 'D' = Rd parameter of L
     std::vector<double> lb, ub;
     thetaBounds(tree, lb, ub);
     const size_t p = kinds.size();
     std::vector<double> mid(p);
     for (size_t i = 0; i < p; ++i) mid[i] = 0.5 * (lb[i] + ub[i]);
+    auto dcrBounds = kindBounds('D');
+    const double rdMid = 0.5 * (dcrBounds.first + dcrBounds.second);
 
     auto baseEstimate = [&](char kind, size_t i) -> double {
-        if (hints == nullptr) return mid[i];
+        if (hints == nullptr) return kind == 'D' ? rdMid : mid[i];
         if (kind == 'R') return std::log10(clipKind('R', hints->rLevel));
         if (kind == 'L') return std::log10(clipKind('L', hints->lEst));
+        if (kind == 'D') return rdMid;  // no robust data-driven Rd estimate
         return std::log10(clipKind('C', hints->cEst));
     };
 

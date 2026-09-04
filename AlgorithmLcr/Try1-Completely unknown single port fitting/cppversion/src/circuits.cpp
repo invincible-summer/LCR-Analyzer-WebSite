@@ -10,12 +10,14 @@
 namespace rlc {
 namespace {
 
-// KIND_BOUNDS of circuits.py: log10 search domain per element kind.
+// KIND_BOUNDS of circuits.py: log10 search domain per element kind, plus the
+// v2 DCR domain ('D' = series DC resistance of an L device).
 const std::map<char, std::pair<double, double>>& kindBoundsTable() {
     static const std::map<char, std::pair<double, double>> tbl = {
         {'R', {-3.0, 7.0}},    // 1 mOhm .. 10 MOhm
         {'L', {-10.0, 1.0}},   // 100 pH .. 10 H
         {'C', {-13.0, -3.0}},  // 0.1 pF .. 1 mF
+        {'D', {-6.0, 7.0}},    // 1 uOhm .. 10 MOhm (inductor DCR)
     };
     return tbl;
 }
@@ -28,20 +30,28 @@ struct EvalCtx {
 
 // Python's evaluate: PAR collects admittances ys = [1/z_c], sums them
 // left-to-right over the sorted children, then takes the reciprocal.
+// An L device consumes two values [L, Rd]: Z = Rd + s*L.
 void evalRec(const Tree* t, EvalCtx& ctx, size_t& idx, Complex* out) {
     if (t->isLeaf) {
-        const double v = ctx.values[idx++];
         switch (t->elem) {
-        case 'R':
+        case 'R': {
+            const double v = ctx.values[idx++];
             for (size_t k = 0; k < ctx.m; ++k) out[k] = Complex(v, 0.0);
             return;
-        case 'L':
-            for (size_t k = 0; k < ctx.m; ++k) out[k] = ctx.s[k] * v;
+        }
+        case 'L': {
+            const double l = ctx.values[idx];
+            const double rd = ctx.values[idx + 1];
+            idx += 2;
+            for (size_t k = 0; k < ctx.m; ++k) out[k] = rd + ctx.s[k] * l;
             return;
-        default:
+        }
+        default: {
+            const double v = ctx.values[idx++];
             for (size_t k = 0; k < ctx.m; ++k)
                 out[k] = Complex(1.0, 0.0) / (ctx.s[k] * v);
             return;
+        }
         }
     }
     std::vector<Complex> zc(ctx.m);
@@ -116,17 +126,42 @@ TreePtr normalize(const TreePtr& tree) {
             flat.push_back(c);
         }
     }
-    std::map<char, TreePtr> leaves;
+    // R2': one leaf per kind, except parallel L leaves (second-order tanks)
+    // which are kept as distinct devices; R4: a series R leaf folds into a
+    // sibling L leaf's DC resistance.
+    std::vector<TreePtr> kept;
+    bool haveR = false, haveL = false;
     std::vector<TreePtr> subs;
     for (const auto& c : flat) {
-        if (c->isLeaf) {
-            leaves.emplace(c->elem, c);  // R2 keep first leaf per kind
-        } else {
+        if (!c->isLeaf) {
             subs.push_back(c);
+            continue;
         }
+        if (c->elem == 'L') {
+            haveL = true;
+            if (tree->kind == NK::Par) {  // parallel L leaves never merge
+                kept.push_back(c);
+                continue;
+            }
+        }
+        if (c->elem == 'R') haveR = true;
+        bool dup = false;
+        for (const auto& k : kept) {
+            if (k->isLeaf && k->elem == c->elem) {  // R2' keep first per kind
+                dup = true;
+                break;
+            }
+        }
+        if (!dup) kept.push_back(c);
     }
-    std::vector<TreePtr> children;
-    for (const auto& kv : leaves) children.push_back(kv.second);
+    if (tree->kind == NK::Ser && haveR && haveL) {  // R4 series absorption
+        std::vector<TreePtr> noR;
+        for (const auto& c : kept) {
+            if (!(c->isLeaf && c->elem == 'R')) noR.push_back(c);
+        }
+        kept = std::move(noR);
+    }
+    std::vector<TreePtr> children = std::move(kept);
     for (const auto& s : subs) children.push_back(s);
     if (children.size() == 1) return children[0];
     return Tree::makeNode(tree->kind, std::move(children));
@@ -139,11 +174,34 @@ int nLeaves(const TreePtr& t) {
     return n;
 }
 
+int nParams(const TreePtr& t) {
+    if (t->isLeaf) return nParamsOfLeaf(t->elem);
+    int n = 0;
+    for (const auto& c : t->kids) n += nParams(c);
+    return n;
+}
+
+int nParamsOfLeaf(char kind) { return kind == 'L' ? 2 : 1; }
+
 std::vector<char> leafKinds(const TreePtr& t) {
     std::vector<char> out;
     std::function<void(const Tree*)> rec = [&](const Tree* p) {
         if (p->isLeaf) {
             out.push_back(p->elem);
+            return;
+        }
+        for (const auto& c : p->kids) rec(c.get());
+    };
+    rec(t.get());
+    return out;
+}
+
+std::vector<char> paramKinds(const TreePtr& t) {
+    std::vector<char> out;
+    std::function<void(const Tree*)> rec = [&](const Tree* p) {
+        if (p->isLeaf) {
+            out.push_back(p->elem);
+            if (p->elem == 'L') out.push_back('D');  // the Rd parameter
             return;
         }
         for (const auto& c : p->kids) rec(c.get());
@@ -166,7 +224,7 @@ std::pair<double, double> kindBounds(char kind) {
 }
 
 void thetaBounds(const TreePtr& t, std::vector<double>& lb, std::vector<double>& ub) {
-    auto kinds = leafKinds(t);
+    auto kinds = paramKinds(t);
     lb.clear();
     ub.clear();
     lb.reserve(kinds.size());
@@ -204,32 +262,42 @@ void evalThetaFreq(const TreePtr& t, const std::vector<double>& theta,
     evalTheta(t, theta, s.data(), m, out);
 }
 
-// Forward AD: rec fills z (m) and J rows [i0, i0+nleaves(t)); returns z.
-// Leaf i row: dZ/dtheta_i = dZ/dv * ln(10) * v.  SER rows are disjoint sums.
-// PAR rows: dZ = Z^2 * sum dZc / Zc^2, applied by scaling each child's rows.
+// Forward AD: rec fills z (m) and J rows [i0, i0+nParams(t)); returns z.
+// Leaf rows: dZ/dtheta = dZ/dv * ln(10) * v; an L device owns TWO rows
+// (dZ/dlogL = s*ln10*L at i, dZ/dlogRd = ln10*Rd at i+1).  SER rows are
+// disjoint sums.  PAR rows: dZ = Z^2 * sum dZc / Zc^2, applied by scaling
+// each child's row block.
 namespace {
 std::vector<Complex> jacRec(const Tree* t, const std::vector<double>& values,
                             const Complex* s, size_t m, size_t& idx, size_t i0,
                             Complex* J) {
     if (t->isLeaf) {
-        const size_t i = idx++;
-        const double v = values[i];
         Complex* row = J + i0 * m;
         switch (t->elem) {
         case 'R': {
+            const size_t i = idx++;
+            const double v = values[i];
             std::vector<Complex> z(m, Complex(v, 0.0));
             for (size_t k = 0; k < m; ++k) row[k] = Complex(kLn10 * v, 0.0);
             return z;
         }
         case 'L': {
+            const size_t il = idx;
+            const size_t ird = idx + 1;
+            idx += 2;
+            const double l = values[il], rd = values[ird];
+            Complex* rowRd = J + (i0 + 1) * m;
             std::vector<Complex> z(m);
             for (size_t k = 0; k < m; ++k) {
-                z[k] = s[k] * v;
-                row[k] = s[k] * (kLn10 * v);
+                z[k] = rd + s[k] * l;
+                row[k] = s[k] * (kLn10 * l);        // dZ/dlogL
+                rowRd[k] = Complex(kLn10 * rd, 0.0);  // dZ/dlogRd
             }
             return z;
         }
         default: {
+            const size_t i = idx++;
+            const double v = values[i];
             std::vector<Complex> z(m);
             for (size_t k = 0; k < m; ++k) {
                 z[k] = Complex(1.0, 0.0) / (s[k] * v);
@@ -246,7 +314,7 @@ std::vector<Complex> jacRec(const Tree* t, const std::vector<double>& values,
         bool first = true;
         for (const auto& c : t->kids) {
             auto zc = jacRec(c.get(), values, s, m, idx, ci, J);
-            ci += (size_t)nLeaves(c);
+            ci += (size_t)nParams(c);
             if (first) {
                 z = zc;
                 first = false;
@@ -271,12 +339,12 @@ std::vector<Complex> jacRec(const Tree* t, const std::vector<double>& values,
             for (size_t k = 0; k < m; ++k) Y[k] = Y[k] + yc[k];
         }
         ycs.push_back(std::move(yc));
-        ci += (size_t)nLeaves(c);
+        ci += (size_t)nParams(c);
     }
     for (size_t k = 0; k < m; ++k) z[k] = Complex(1.0, 0.0) / Y[k];
     size_t r = i0;
     for (size_t c = 0; c < t->kids.size(); ++c) {
-        size_t nr = (size_t)nLeaves(t->kids[c]);
+        size_t nr = (size_t)nParams(t->kids[c]);
         for (size_t i = 0; i < nr; ++i) {
             Complex* row = J + (r + i) * m;
             for (size_t k = 0; k < m; ++k) {
@@ -351,6 +419,12 @@ std::string toString(const TreePtr& tree, const std::vector<double>* theta) {
     std::function<std::string(const Tree*)> fmt = [&](const Tree* t) -> std::string {
         if (t->isLeaf) {
             if (!vp) return std::string(1, t->elem);
+            if (t->elem == 'L') {
+                double l = vp->at(idx);
+                double rd = vp->at(idx + 1);
+                idx += 2;
+                return std::string("L(") + fmtEng(l) + ", Rd " + fmtEng(rd) + ")";
+            }
             double v = vp->at(idx++);
             return std::string(1, t->elem) + "(" + fmtEng(v) + ")";
         }

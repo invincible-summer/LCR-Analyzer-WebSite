@@ -1,7 +1,7 @@
 CMakeFiles/rlc_id.dir/src/circuits.cpp.o: \
- /home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/cppversion/src/circuits.cpp \
+ /home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try1-Completely\ unknown\ single\ port\ fitting/cppversion/src/circuits.cpp \
  /usr/include/stdc-predef.h \
- /home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/cppversion/src/circuits.hpp \
+ /home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try1-Completely\ unknown\ single\ port\ fitting/cppversion/src/circuits.hpp \
  /usr/include/c++/15/complex \
  /usr/include/x86_64-linux-gnu/c++/15/bits/c++config.h \
  /usr/include/x86_64-linux-gnu/c++/15/bits/os_defines.h \

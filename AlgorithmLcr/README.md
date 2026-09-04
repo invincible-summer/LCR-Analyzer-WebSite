@@ -8,7 +8,7 @@
 
 | 子目录 | 课题 | 设定 | 状态 |
 |---|---|---|---|
-| [Try1-Completely unknown single port fitting](Try1-Completely unknown single port fitting/) | 完全未知单端口拟合 | 元件类型/参数全未知，仅有 z(f) 测量点 → 双引擎（串并联规范树枚举 + SK 有理拟合/Foster 综合）+ AICc 选择；电感为 L+DCR 绑定器件（v2），可选「器件数恰为 n」约束（count.txt） | P1 完成；v2（实电感 + exact_n）重构中，测试更新 |
+| [Try1-Completely unknown single port fitting](Try1-Completely unknown single port fitting/) | 完全未知单端口拟合 | 元件类型/参数全未知，仅有 z(f) 测量点 → 双引擎（串并联规范树枚举 + SK 有理拟合/Foster 综合）+ AICc 选择；电感为 L+DCR 绑定器件（v2），可选「器件数恰为 n」约束（count.txt） | v2 完成：py 165 测试全绿 + demo 14/14；C++ cppversion 同步（含 iofmt/adjacency），确定性套件全绿 |
 | [Try2-Known component types, quantities and parameters](Try2-Known component types, quantities and parameters/) | 已知元件的拓扑枚举识别 | 元件多重集完全已知（电感含 DCR 双参数）→ 多重图无同构完备枚举 + 批量节点分析 + Try1 误差度量 | P1 完成，50 测试全绿 |
 
 ## 两个课题的关系

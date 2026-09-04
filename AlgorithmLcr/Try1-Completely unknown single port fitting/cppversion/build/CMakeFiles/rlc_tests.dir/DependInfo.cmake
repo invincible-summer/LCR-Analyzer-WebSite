@@ -8,9 +8,10 @@ set(CMAKE_DEPENDS_LANGUAGES
 
 # The set of dependency files which are needed:
 set(CMAKE_DEPENDS_DEPENDENCY_FILES
-  "/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/cppversion/tests/suites_core.cpp" "CMakeFiles/rlc_tests.dir/tests/suites_core.cpp.o" "gcc" "CMakeFiles/rlc_tests.dir/tests/suites_core.cpp.o.d"
-  "/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/cppversion/tests/suites_sweep.cpp" "CMakeFiles/rlc_tests.dir/tests/suites_sweep.cpp.o" "gcc" "CMakeFiles/rlc_tests.dir/tests/suites_sweep.cpp.o.d"
-  "/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/cppversion/tests/test_main.cpp" "CMakeFiles/rlc_tests.dir/tests/test_main.cpp.o" "gcc" "CMakeFiles/rlc_tests.dir/tests/test_main.cpp.o.d"
+  "/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try1-Completely unknown single port fitting/cppversion/tests/suites_core.cpp" "CMakeFiles/rlc_tests.dir/tests/suites_core.cpp.o" "gcc" "CMakeFiles/rlc_tests.dir/tests/suites_core.cpp.o.d"
+  "/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try1-Completely unknown single port fitting/cppversion/tests/suites_io.cpp" "CMakeFiles/rlc_tests.dir/tests/suites_io.cpp.o" "gcc" "CMakeFiles/rlc_tests.dir/tests/suites_io.cpp.o.d"
+  "/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try1-Completely unknown single port fitting/cppversion/tests/suites_sweep.cpp" "CMakeFiles/rlc_tests.dir/tests/suites_sweep.cpp.o" "gcc" "CMakeFiles/rlc_tests.dir/tests/suites_sweep.cpp.o.d"
+  "/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try1-Completely unknown single port fitting/cppversion/tests/test_main.cpp" "CMakeFiles/rlc_tests.dir/tests/test_main.cpp.o" "gcc" "CMakeFiles/rlc_tests.dir/tests/test_main.cpp.o.d"
   "" "rlc_tests" "gcc" "CMakeFiles/rlc_tests.dir/link.d"
   )
 

@@ -53,10 +53,10 @@ RM = /usr/bin/cmake -E rm -f
 EQUALS = =
 
 # The top-level source directory on which CMake was run.
-CMAKE_SOURCE_DIR = /home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/cppversion
+CMAKE_SOURCE_DIR = "/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try1-Completely unknown single port fitting/cppversion"
 
 # The top-level build directory on which CMake was run.
-CMAKE_BINARY_DIR = /home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/cppversion/build
+CMAKE_BINARY_DIR = "/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try1-Completely unknown single port fitting/cppversion/build"
 
 # Include any dependencies generated for this target.
 include CMakeFiles/rlc_id.dir/depend.make
@@ -72,149 +72,179 @@ include CMakeFiles/rlc_id.dir/flags.make
 CMakeFiles/rlc_id.dir/codegen:
 .PHONY : CMakeFiles/rlc_id.dir/codegen
 
+CMakeFiles/rlc_id.dir/src/adjacency.cpp.o: CMakeFiles/rlc_id.dir/flags.make
+CMakeFiles/rlc_id.dir/src/adjacency.cpp.o: /home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try1-Completely\ unknown\ single\ port\ fitting/cppversion/src/adjacency.cpp
+CMakeFiles/rlc_id.dir/src/adjacency.cpp.o: CMakeFiles/rlc_id.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir="/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try1-Completely unknown single port fitting/cppversion/build/CMakeFiles" --progress-num=$(CMAKE_PROGRESS_1) "Building CXX object CMakeFiles/rlc_id.dir/src/adjacency.cpp.o"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/rlc_id.dir/src/adjacency.cpp.o -MF CMakeFiles/rlc_id.dir/src/adjacency.cpp.o.d -o CMakeFiles/rlc_id.dir/src/adjacency.cpp.o -c "/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try1-Completely unknown single port fitting/cppversion/src/adjacency.cpp"
+
+CMakeFiles/rlc_id.dir/src/adjacency.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/rlc_id.dir/src/adjacency.cpp.i"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E "/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try1-Completely unknown single port fitting/cppversion/src/adjacency.cpp" > CMakeFiles/rlc_id.dir/src/adjacency.cpp.i
+
+CMakeFiles/rlc_id.dir/src/adjacency.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/rlc_id.dir/src/adjacency.cpp.s"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S "/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try1-Completely unknown single port fitting/cppversion/src/adjacency.cpp" -o CMakeFiles/rlc_id.dir/src/adjacency.cpp.s
+
 CMakeFiles/rlc_id.dir/src/circuits.cpp.o: CMakeFiles/rlc_id.dir/flags.make
-CMakeFiles/rlc_id.dir/src/circuits.cpp.o: /home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/cppversion/src/circuits.cpp
+CMakeFiles/rlc_id.dir/src/circuits.cpp.o: /home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try1-Completely\ unknown\ single\ port\ fitting/cppversion/src/circuits.cpp
 CMakeFiles/rlc_id.dir/src/circuits.cpp.o: CMakeFiles/rlc_id.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/cppversion/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Building CXX object CMakeFiles/rlc_id.dir/src/circuits.cpp.o"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/rlc_id.dir/src/circuits.cpp.o -MF CMakeFiles/rlc_id.dir/src/circuits.cpp.o.d -o CMakeFiles/rlc_id.dir/src/circuits.cpp.o -c /home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/cppversion/src/circuits.cpp
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir="/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try1-Completely unknown single port fitting/cppversion/build/CMakeFiles" --progress-num=$(CMAKE_PROGRESS_2) "Building CXX object CMakeFiles/rlc_id.dir/src/circuits.cpp.o"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/rlc_id.dir/src/circuits.cpp.o -MF CMakeFiles/rlc_id.dir/src/circuits.cpp.o.d -o CMakeFiles/rlc_id.dir/src/circuits.cpp.o -c "/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try1-Completely unknown single port fitting/cppversion/src/circuits.cpp"
 
 CMakeFiles/rlc_id.dir/src/circuits.cpp.i: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/rlc_id.dir/src/circuits.cpp.i"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/cppversion/src/circuits.cpp > CMakeFiles/rlc_id.dir/src/circuits.cpp.i
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E "/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try1-Completely unknown single port fitting/cppversion/src/circuits.cpp" > CMakeFiles/rlc_id.dir/src/circuits.cpp.i
 
 CMakeFiles/rlc_id.dir/src/circuits.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/rlc_id.dir/src/circuits.cpp.s"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/cppversion/src/circuits.cpp -o CMakeFiles/rlc_id.dir/src/circuits.cpp.s
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S "/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try1-Completely unknown single port fitting/cppversion/src/circuits.cpp" -o CMakeFiles/rlc_id.dir/src/circuits.cpp.s
+
+CMakeFiles/rlc_id.dir/src/iofmt.cpp.o: CMakeFiles/rlc_id.dir/flags.make
+CMakeFiles/rlc_id.dir/src/iofmt.cpp.o: /home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try1-Completely\ unknown\ single\ port\ fitting/cppversion/src/iofmt.cpp
+CMakeFiles/rlc_id.dir/src/iofmt.cpp.o: CMakeFiles/rlc_id.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir="/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try1-Completely unknown single port fitting/cppversion/build/CMakeFiles" --progress-num=$(CMAKE_PROGRESS_3) "Building CXX object CMakeFiles/rlc_id.dir/src/iofmt.cpp.o"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/rlc_id.dir/src/iofmt.cpp.o -MF CMakeFiles/rlc_id.dir/src/iofmt.cpp.o.d -o CMakeFiles/rlc_id.dir/src/iofmt.cpp.o -c "/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try1-Completely unknown single port fitting/cppversion/src/iofmt.cpp"
+
+CMakeFiles/rlc_id.dir/src/iofmt.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/rlc_id.dir/src/iofmt.cpp.i"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E "/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try1-Completely unknown single port fitting/cppversion/src/iofmt.cpp" > CMakeFiles/rlc_id.dir/src/iofmt.cpp.i
+
+CMakeFiles/rlc_id.dir/src/iofmt.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/rlc_id.dir/src/iofmt.cpp.s"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S "/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try1-Completely unknown single port fitting/cppversion/src/iofmt.cpp" -o CMakeFiles/rlc_id.dir/src/iofmt.cpp.s
 
 CMakeFiles/rlc_id.dir/src/linalg.cpp.o: CMakeFiles/rlc_id.dir/flags.make
-CMakeFiles/rlc_id.dir/src/linalg.cpp.o: /home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/cppversion/src/linalg.cpp
+CMakeFiles/rlc_id.dir/src/linalg.cpp.o: /home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try1-Completely\ unknown\ single\ port\ fitting/cppversion/src/linalg.cpp
 CMakeFiles/rlc_id.dir/src/linalg.cpp.o: CMakeFiles/rlc_id.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/cppversion/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_2) "Building CXX object CMakeFiles/rlc_id.dir/src/linalg.cpp.o"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/rlc_id.dir/src/linalg.cpp.o -MF CMakeFiles/rlc_id.dir/src/linalg.cpp.o.d -o CMakeFiles/rlc_id.dir/src/linalg.cpp.o -c /home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/cppversion/src/linalg.cpp
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir="/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try1-Completely unknown single port fitting/cppversion/build/CMakeFiles" --progress-num=$(CMAKE_PROGRESS_4) "Building CXX object CMakeFiles/rlc_id.dir/src/linalg.cpp.o"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/rlc_id.dir/src/linalg.cpp.o -MF CMakeFiles/rlc_id.dir/src/linalg.cpp.o.d -o CMakeFiles/rlc_id.dir/src/linalg.cpp.o -c "/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try1-Completely unknown single port fitting/cppversion/src/linalg.cpp"
 
 CMakeFiles/rlc_id.dir/src/linalg.cpp.i: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/rlc_id.dir/src/linalg.cpp.i"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/cppversion/src/linalg.cpp > CMakeFiles/rlc_id.dir/src/linalg.cpp.i
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E "/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try1-Completely unknown single port fitting/cppversion/src/linalg.cpp" > CMakeFiles/rlc_id.dir/src/linalg.cpp.i
 
 CMakeFiles/rlc_id.dir/src/linalg.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/rlc_id.dir/src/linalg.cpp.s"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/cppversion/src/linalg.cpp -o CMakeFiles/rlc_id.dir/src/linalg.cpp.s
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S "/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try1-Completely unknown single port fitting/cppversion/src/linalg.cpp" -o CMakeFiles/rlc_id.dir/src/linalg.cpp.s
 
 CMakeFiles/rlc_id.dir/src/library.cpp.o: CMakeFiles/rlc_id.dir/flags.make
-CMakeFiles/rlc_id.dir/src/library.cpp.o: /home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/cppversion/src/library.cpp
+CMakeFiles/rlc_id.dir/src/library.cpp.o: /home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try1-Completely\ unknown\ single\ port\ fitting/cppversion/src/library.cpp
 CMakeFiles/rlc_id.dir/src/library.cpp.o: CMakeFiles/rlc_id.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/cppversion/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_3) "Building CXX object CMakeFiles/rlc_id.dir/src/library.cpp.o"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/rlc_id.dir/src/library.cpp.o -MF CMakeFiles/rlc_id.dir/src/library.cpp.o.d -o CMakeFiles/rlc_id.dir/src/library.cpp.o -c /home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/cppversion/src/library.cpp
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir="/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try1-Completely unknown single port fitting/cppversion/build/CMakeFiles" --progress-num=$(CMAKE_PROGRESS_5) "Building CXX object CMakeFiles/rlc_id.dir/src/library.cpp.o"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/rlc_id.dir/src/library.cpp.o -MF CMakeFiles/rlc_id.dir/src/library.cpp.o.d -o CMakeFiles/rlc_id.dir/src/library.cpp.o -c "/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try1-Completely unknown single port fitting/cppversion/src/library.cpp"
 
 CMakeFiles/rlc_id.dir/src/library.cpp.i: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/rlc_id.dir/src/library.cpp.i"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/cppversion/src/library.cpp > CMakeFiles/rlc_id.dir/src/library.cpp.i
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E "/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try1-Completely unknown single port fitting/cppversion/src/library.cpp" > CMakeFiles/rlc_id.dir/src/library.cpp.i
 
 CMakeFiles/rlc_id.dir/src/library.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/rlc_id.dir/src/library.cpp.s"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/cppversion/src/library.cpp -o CMakeFiles/rlc_id.dir/src/library.cpp.s
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S "/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try1-Completely unknown single port fitting/cppversion/src/library.cpp" -o CMakeFiles/rlc_id.dir/src/library.cpp.s
 
 CMakeFiles/rlc_id.dir/src/fit_engine_a.cpp.o: CMakeFiles/rlc_id.dir/flags.make
-CMakeFiles/rlc_id.dir/src/fit_engine_a.cpp.o: /home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/cppversion/src/fit_engine_a.cpp
+CMakeFiles/rlc_id.dir/src/fit_engine_a.cpp.o: /home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try1-Completely\ unknown\ single\ port\ fitting/cppversion/src/fit_engine_a.cpp
 CMakeFiles/rlc_id.dir/src/fit_engine_a.cpp.o: CMakeFiles/rlc_id.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/cppversion/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_4) "Building CXX object CMakeFiles/rlc_id.dir/src/fit_engine_a.cpp.o"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/rlc_id.dir/src/fit_engine_a.cpp.o -MF CMakeFiles/rlc_id.dir/src/fit_engine_a.cpp.o.d -o CMakeFiles/rlc_id.dir/src/fit_engine_a.cpp.o -c /home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/cppversion/src/fit_engine_a.cpp
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir="/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try1-Completely unknown single port fitting/cppversion/build/CMakeFiles" --progress-num=$(CMAKE_PROGRESS_6) "Building CXX object CMakeFiles/rlc_id.dir/src/fit_engine_a.cpp.o"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/rlc_id.dir/src/fit_engine_a.cpp.o -MF CMakeFiles/rlc_id.dir/src/fit_engine_a.cpp.o.d -o CMakeFiles/rlc_id.dir/src/fit_engine_a.cpp.o -c "/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try1-Completely unknown single port fitting/cppversion/src/fit_engine_a.cpp"
 
 CMakeFiles/rlc_id.dir/src/fit_engine_a.cpp.i: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/rlc_id.dir/src/fit_engine_a.cpp.i"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/cppversion/src/fit_engine_a.cpp > CMakeFiles/rlc_id.dir/src/fit_engine_a.cpp.i
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E "/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try1-Completely unknown single port fitting/cppversion/src/fit_engine_a.cpp" > CMakeFiles/rlc_id.dir/src/fit_engine_a.cpp.i
 
 CMakeFiles/rlc_id.dir/src/fit_engine_a.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/rlc_id.dir/src/fit_engine_a.cpp.s"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/cppversion/src/fit_engine_a.cpp -o CMakeFiles/rlc_id.dir/src/fit_engine_a.cpp.s
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S "/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try1-Completely unknown single port fitting/cppversion/src/fit_engine_a.cpp" -o CMakeFiles/rlc_id.dir/src/fit_engine_a.cpp.s
 
 CMakeFiles/rlc_id.dir/src/fit_engine_b.cpp.o: CMakeFiles/rlc_id.dir/flags.make
-CMakeFiles/rlc_id.dir/src/fit_engine_b.cpp.o: /home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/cppversion/src/fit_engine_b.cpp
+CMakeFiles/rlc_id.dir/src/fit_engine_b.cpp.o: /home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try1-Completely\ unknown\ single\ port\ fitting/cppversion/src/fit_engine_b.cpp
 CMakeFiles/rlc_id.dir/src/fit_engine_b.cpp.o: CMakeFiles/rlc_id.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/cppversion/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_5) "Building CXX object CMakeFiles/rlc_id.dir/src/fit_engine_b.cpp.o"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/rlc_id.dir/src/fit_engine_b.cpp.o -MF CMakeFiles/rlc_id.dir/src/fit_engine_b.cpp.o.d -o CMakeFiles/rlc_id.dir/src/fit_engine_b.cpp.o -c /home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/cppversion/src/fit_engine_b.cpp
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir="/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try1-Completely unknown single port fitting/cppversion/build/CMakeFiles" --progress-num=$(CMAKE_PROGRESS_7) "Building CXX object CMakeFiles/rlc_id.dir/src/fit_engine_b.cpp.o"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/rlc_id.dir/src/fit_engine_b.cpp.o -MF CMakeFiles/rlc_id.dir/src/fit_engine_b.cpp.o.d -o CMakeFiles/rlc_id.dir/src/fit_engine_b.cpp.o -c "/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try1-Completely unknown single port fitting/cppversion/src/fit_engine_b.cpp"
 
 CMakeFiles/rlc_id.dir/src/fit_engine_b.cpp.i: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/rlc_id.dir/src/fit_engine_b.cpp.i"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/cppversion/src/fit_engine_b.cpp > CMakeFiles/rlc_id.dir/src/fit_engine_b.cpp.i
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E "/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try1-Completely unknown single port fitting/cppversion/src/fit_engine_b.cpp" > CMakeFiles/rlc_id.dir/src/fit_engine_b.cpp.i
 
 CMakeFiles/rlc_id.dir/src/fit_engine_b.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/rlc_id.dir/src/fit_engine_b.cpp.s"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/cppversion/src/fit_engine_b.cpp -o CMakeFiles/rlc_id.dir/src/fit_engine_b.cpp.s
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S "/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try1-Completely unknown single port fitting/cppversion/src/fit_engine_b.cpp" -o CMakeFiles/rlc_id.dir/src/fit_engine_b.cpp.s
 
 CMakeFiles/rlc_id.dir/src/pruning.cpp.o: CMakeFiles/rlc_id.dir/flags.make
-CMakeFiles/rlc_id.dir/src/pruning.cpp.o: /home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/cppversion/src/pruning.cpp
+CMakeFiles/rlc_id.dir/src/pruning.cpp.o: /home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try1-Completely\ unknown\ single\ port\ fitting/cppversion/src/pruning.cpp
 CMakeFiles/rlc_id.dir/src/pruning.cpp.o: CMakeFiles/rlc_id.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/cppversion/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_6) "Building CXX object CMakeFiles/rlc_id.dir/src/pruning.cpp.o"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/rlc_id.dir/src/pruning.cpp.o -MF CMakeFiles/rlc_id.dir/src/pruning.cpp.o.d -o CMakeFiles/rlc_id.dir/src/pruning.cpp.o -c /home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/cppversion/src/pruning.cpp
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir="/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try1-Completely unknown single port fitting/cppversion/build/CMakeFiles" --progress-num=$(CMAKE_PROGRESS_8) "Building CXX object CMakeFiles/rlc_id.dir/src/pruning.cpp.o"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/rlc_id.dir/src/pruning.cpp.o -MF CMakeFiles/rlc_id.dir/src/pruning.cpp.o.d -o CMakeFiles/rlc_id.dir/src/pruning.cpp.o -c "/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try1-Completely unknown single port fitting/cppversion/src/pruning.cpp"
 
 CMakeFiles/rlc_id.dir/src/pruning.cpp.i: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/rlc_id.dir/src/pruning.cpp.i"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/cppversion/src/pruning.cpp > CMakeFiles/rlc_id.dir/src/pruning.cpp.i
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E "/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try1-Completely unknown single port fitting/cppversion/src/pruning.cpp" > CMakeFiles/rlc_id.dir/src/pruning.cpp.i
 
 CMakeFiles/rlc_id.dir/src/pruning.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/rlc_id.dir/src/pruning.cpp.s"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/cppversion/src/pruning.cpp -o CMakeFiles/rlc_id.dir/src/pruning.cpp.s
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S "/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try1-Completely unknown single port fitting/cppversion/src/pruning.cpp" -o CMakeFiles/rlc_id.dir/src/pruning.cpp.s
 
 CMakeFiles/rlc_id.dir/src/selector.cpp.o: CMakeFiles/rlc_id.dir/flags.make
-CMakeFiles/rlc_id.dir/src/selector.cpp.o: /home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/cppversion/src/selector.cpp
+CMakeFiles/rlc_id.dir/src/selector.cpp.o: /home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try1-Completely\ unknown\ single\ port\ fitting/cppversion/src/selector.cpp
 CMakeFiles/rlc_id.dir/src/selector.cpp.o: CMakeFiles/rlc_id.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/cppversion/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_7) "Building CXX object CMakeFiles/rlc_id.dir/src/selector.cpp.o"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/rlc_id.dir/src/selector.cpp.o -MF CMakeFiles/rlc_id.dir/src/selector.cpp.o.d -o CMakeFiles/rlc_id.dir/src/selector.cpp.o -c /home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/cppversion/src/selector.cpp
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir="/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try1-Completely unknown single port fitting/cppversion/build/CMakeFiles" --progress-num=$(CMAKE_PROGRESS_9) "Building CXX object CMakeFiles/rlc_id.dir/src/selector.cpp.o"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/rlc_id.dir/src/selector.cpp.o -MF CMakeFiles/rlc_id.dir/src/selector.cpp.o.d -o CMakeFiles/rlc_id.dir/src/selector.cpp.o -c "/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try1-Completely unknown single port fitting/cppversion/src/selector.cpp"
 
 CMakeFiles/rlc_id.dir/src/selector.cpp.i: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/rlc_id.dir/src/selector.cpp.i"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/cppversion/src/selector.cpp > CMakeFiles/rlc_id.dir/src/selector.cpp.i
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E "/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try1-Completely unknown single port fitting/cppversion/src/selector.cpp" > CMakeFiles/rlc_id.dir/src/selector.cpp.i
 
 CMakeFiles/rlc_id.dir/src/selector.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/rlc_id.dir/src/selector.cpp.s"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/cppversion/src/selector.cpp -o CMakeFiles/rlc_id.dir/src/selector.cpp.s
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S "/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try1-Completely unknown single port fitting/cppversion/src/selector.cpp" -o CMakeFiles/rlc_id.dir/src/selector.cpp.s
 
 CMakeFiles/rlc_id.dir/src/synthetic.cpp.o: CMakeFiles/rlc_id.dir/flags.make
-CMakeFiles/rlc_id.dir/src/synthetic.cpp.o: /home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/cppversion/src/synthetic.cpp
+CMakeFiles/rlc_id.dir/src/synthetic.cpp.o: /home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try1-Completely\ unknown\ single\ port\ fitting/cppversion/src/synthetic.cpp
 CMakeFiles/rlc_id.dir/src/synthetic.cpp.o: CMakeFiles/rlc_id.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/cppversion/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_8) "Building CXX object CMakeFiles/rlc_id.dir/src/synthetic.cpp.o"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/rlc_id.dir/src/synthetic.cpp.o -MF CMakeFiles/rlc_id.dir/src/synthetic.cpp.o.d -o CMakeFiles/rlc_id.dir/src/synthetic.cpp.o -c /home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/cppversion/src/synthetic.cpp
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir="/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try1-Completely unknown single port fitting/cppversion/build/CMakeFiles" --progress-num=$(CMAKE_PROGRESS_10) "Building CXX object CMakeFiles/rlc_id.dir/src/synthetic.cpp.o"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/rlc_id.dir/src/synthetic.cpp.o -MF CMakeFiles/rlc_id.dir/src/synthetic.cpp.o.d -o CMakeFiles/rlc_id.dir/src/synthetic.cpp.o -c "/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try1-Completely unknown single port fitting/cppversion/src/synthetic.cpp"
 
 CMakeFiles/rlc_id.dir/src/synthetic.cpp.i: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/rlc_id.dir/src/synthetic.cpp.i"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/cppversion/src/synthetic.cpp > CMakeFiles/rlc_id.dir/src/synthetic.cpp.i
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E "/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try1-Completely unknown single port fitting/cppversion/src/synthetic.cpp" > CMakeFiles/rlc_id.dir/src/synthetic.cpp.i
 
 CMakeFiles/rlc_id.dir/src/synthetic.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/rlc_id.dir/src/synthetic.cpp.s"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/cppversion/src/synthetic.cpp -o CMakeFiles/rlc_id.dir/src/synthetic.cpp.s
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S "/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try1-Completely unknown single port fitting/cppversion/src/synthetic.cpp" -o CMakeFiles/rlc_id.dir/src/synthetic.cpp.s
 
 CMakeFiles/rlc_id.dir/src/report.cpp.o: CMakeFiles/rlc_id.dir/flags.make
-CMakeFiles/rlc_id.dir/src/report.cpp.o: /home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/cppversion/src/report.cpp
+CMakeFiles/rlc_id.dir/src/report.cpp.o: /home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try1-Completely\ unknown\ single\ port\ fitting/cppversion/src/report.cpp
 CMakeFiles/rlc_id.dir/src/report.cpp.o: CMakeFiles/rlc_id.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/cppversion/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_9) "Building CXX object CMakeFiles/rlc_id.dir/src/report.cpp.o"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/rlc_id.dir/src/report.cpp.o -MF CMakeFiles/rlc_id.dir/src/report.cpp.o.d -o CMakeFiles/rlc_id.dir/src/report.cpp.o -c /home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/cppversion/src/report.cpp
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir="/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try1-Completely unknown single port fitting/cppversion/build/CMakeFiles" --progress-num=$(CMAKE_PROGRESS_11) "Building CXX object CMakeFiles/rlc_id.dir/src/report.cpp.o"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/rlc_id.dir/src/report.cpp.o -MF CMakeFiles/rlc_id.dir/src/report.cpp.o.d -o CMakeFiles/rlc_id.dir/src/report.cpp.o -c "/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try1-Completely unknown single port fitting/cppversion/src/report.cpp"
 
 CMakeFiles/rlc_id.dir/src/report.cpp.i: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/rlc_id.dir/src/report.cpp.i"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/cppversion/src/report.cpp > CMakeFiles/rlc_id.dir/src/report.cpp.i
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E "/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try1-Completely unknown single port fitting/cppversion/src/report.cpp" > CMakeFiles/rlc_id.dir/src/report.cpp.i
 
 CMakeFiles/rlc_id.dir/src/report.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/rlc_id.dir/src/report.cpp.s"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/cppversion/src/report.cpp -o CMakeFiles/rlc_id.dir/src/report.cpp.s
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S "/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try1-Completely unknown single port fitting/cppversion/src/report.cpp" -o CMakeFiles/rlc_id.dir/src/report.cpp.s
 
 CMakeFiles/rlc_id.dir/src/identify.cpp.o: CMakeFiles/rlc_id.dir/flags.make
-CMakeFiles/rlc_id.dir/src/identify.cpp.o: /home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/cppversion/src/identify.cpp
+CMakeFiles/rlc_id.dir/src/identify.cpp.o: /home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try1-Completely\ unknown\ single\ port\ fitting/cppversion/src/identify.cpp
 CMakeFiles/rlc_id.dir/src/identify.cpp.o: CMakeFiles/rlc_id.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/cppversion/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_10) "Building CXX object CMakeFiles/rlc_id.dir/src/identify.cpp.o"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/rlc_id.dir/src/identify.cpp.o -MF CMakeFiles/rlc_id.dir/src/identify.cpp.o.d -o CMakeFiles/rlc_id.dir/src/identify.cpp.o -c /home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/cppversion/src/identify.cpp
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir="/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try1-Completely unknown single port fitting/cppversion/build/CMakeFiles" --progress-num=$(CMAKE_PROGRESS_12) "Building CXX object CMakeFiles/rlc_id.dir/src/identify.cpp.o"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/rlc_id.dir/src/identify.cpp.o -MF CMakeFiles/rlc_id.dir/src/identify.cpp.o.d -o CMakeFiles/rlc_id.dir/src/identify.cpp.o -c "/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try1-Completely unknown single port fitting/cppversion/src/identify.cpp"
 
 CMakeFiles/rlc_id.dir/src/identify.cpp.i: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/rlc_id.dir/src/identify.cpp.i"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/cppversion/src/identify.cpp > CMakeFiles/rlc_id.dir/src/identify.cpp.i
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E "/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try1-Completely unknown single port fitting/cppversion/src/identify.cpp" > CMakeFiles/rlc_id.dir/src/identify.cpp.i
 
 CMakeFiles/rlc_id.dir/src/identify.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/rlc_id.dir/src/identify.cpp.s"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/cppversion/src/identify.cpp -o CMakeFiles/rlc_id.dir/src/identify.cpp.s
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S "/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try1-Completely unknown single port fitting/cppversion/src/identify.cpp" -o CMakeFiles/rlc_id.dir/src/identify.cpp.s
 
 # Object files for target rlc_id
 rlc_id_OBJECTS = \
+"CMakeFiles/rlc_id.dir/src/adjacency.cpp.o" \
 "CMakeFiles/rlc_id.dir/src/circuits.cpp.o" \
+"CMakeFiles/rlc_id.dir/src/iofmt.cpp.o" \
 "CMakeFiles/rlc_id.dir/src/linalg.cpp.o" \
 "CMakeFiles/rlc_id.dir/src/library.cpp.o" \
 "CMakeFiles/rlc_id.dir/src/fit_engine_a.cpp.o" \
@@ -228,7 +258,9 @@ rlc_id_OBJECTS = \
 # External object files for target rlc_id
 rlc_id_EXTERNAL_OBJECTS =
 
+librlc_id.a: CMakeFiles/rlc_id.dir/src/adjacency.cpp.o
 librlc_id.a: CMakeFiles/rlc_id.dir/src/circuits.cpp.o
+librlc_id.a: CMakeFiles/rlc_id.dir/src/iofmt.cpp.o
 librlc_id.a: CMakeFiles/rlc_id.dir/src/linalg.cpp.o
 librlc_id.a: CMakeFiles/rlc_id.dir/src/library.cpp.o
 librlc_id.a: CMakeFiles/rlc_id.dir/src/fit_engine_a.cpp.o
@@ -240,7 +272,7 @@ librlc_id.a: CMakeFiles/rlc_id.dir/src/report.cpp.o
 librlc_id.a: CMakeFiles/rlc_id.dir/src/identify.cpp.o
 librlc_id.a: CMakeFiles/rlc_id.dir/build.make
 librlc_id.a: CMakeFiles/rlc_id.dir/link.txt
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --bold --progress-dir=/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/cppversion/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_11) "Linking CXX static library librlc_id.a"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --bold --progress-dir="/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try1-Completely unknown single port fitting/cppversion/build/CMakeFiles" --progress-num=$(CMAKE_PROGRESS_13) "Linking CXX static library librlc_id.a"
 	$(CMAKE_COMMAND) -P CMakeFiles/rlc_id.dir/cmake_clean_target.cmake
 	$(CMAKE_COMMAND) -E cmake_link_script CMakeFiles/rlc_id.dir/link.txt --verbose=$(VERBOSE)
 
@@ -253,6 +285,6 @@ CMakeFiles/rlc_id.dir/clean:
 .PHONY : CMakeFiles/rlc_id.dir/clean
 
 CMakeFiles/rlc_id.dir/depend:
-	cd /home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/cppversion/build && $(CMAKE_COMMAND) -E cmake_depends "Unix Makefiles" /home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/cppversion /home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/cppversion /home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/cppversion/build /home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/cppversion/build /home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/cppversion/build/CMakeFiles/rlc_id.dir/DependInfo.cmake "--color=$(COLOR)" rlc_id
+	cd "/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try1-Completely unknown single port fitting/cppversion/build" && $(CMAKE_COMMAND) -E cmake_depends "Unix Makefiles" "/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try1-Completely unknown single port fitting/cppversion" "/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try1-Completely unknown single port fitting/cppversion" "/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try1-Completely unknown single port fitting/cppversion/build" "/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try1-Completely unknown single port fitting/cppversion/build" "/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try1-Completely unknown single port fitting/cppversion/build/CMakeFiles/rlc_id.dir/DependInfo.cmake" "--color=$(COLOR)" rlc_id
 .PHONY : CMakeFiles/rlc_id.dir/depend
 

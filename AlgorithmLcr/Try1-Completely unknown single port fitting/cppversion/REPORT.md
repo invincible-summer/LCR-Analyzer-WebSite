@@ -260,3 +260,54 @@ PYTHONDONTWRITEBYTECODE=1 ~/miniconda3/envs/lcr/bin/python -B tools/direct_fit_c
 - **替代实现必须与被替代库对账到根值级**：Durand-Kerner"一般也够用"的直觉在跨 8 个数量级的系数上完全失效。
 - **测试协议本身是代码，也会出错**：7 处协议修正（§3）中有 3 处（MNA 容差、FD 步长、筛查位置）会把正确实现误判为错误，4 处（判定器、Q 上限、规范名、断言 off-by-one）会把算法固有行为误判为回归。对抗性套件的判定器必须带归因输出（truth reachable / 不可辨识 / 电气歧义），否则数字无法解释。
 - **交叉验证要区分"引擎不等价"与"算法不确定"**：逐位一致（良态案例）证明移植正确；分布一致而个案不同（退化案例）证明的是算法本质多峰。§6.3 的直接拟合实验是区分这两者的关键。
+
+---
+
+## 11. v2 追记（2026-09-04）：实电感模型 + exact-N 先验的同步移植
+
+Python 侧 v2 重构（commit 96c9ca2，DESIGN.md §11）在 C++ 侧逐模块镜像：
+
+### 11.1 移植内容
+
+- `circuits.*`：L 器件双参数 [log10 L, log10 Rd]（`DCR` 域 'D' ∈ [1e-6, 1e7] Ω）；
+  `nParams`/`paramKinds`；求值 `Z_L = Rd + sL`；前向 AD 双行 Jacobian（行偏移
+  改用 nParams）；规范化 R2'（并联多 L 保留）/R4（串联 R 吸收进 DCR）；
+  `toString` 打印 `L(x, Rd y)`。
+- `library.*`：`childrenOk`（PAR 允许多 L、SER 禁 R+L 共存）；计数
+  depth2 = 3/6/22/45/87/162（depth3 n=4 = 99）；新增 `TopologyLibrary::ofSize`
+  单层访问器（exact-N 先验用）。
+- `fit_engine_b.cpp`：Foster Z 侧 d+e·s 合并为单 L 器件（R4）；Y 实极点 →
+  单 L 器件 [L, Rd]；Y 共轭对 → SER(L(Rd), C)；**Z 共轭对新增有损槽路族**
+  （c = 2αρr ⟹ (Rd+sL)‖C，闭式 C=1/(2ρr)、L=2ρr/ω²、Rd=4αρr/ω²），
+  D8 只在两族都不匹配时跳过。
+- `fit_engine_a.cpp`/`selector.cpp`：参数级起点（Rd 取域中点）与二级判据
+  penalty（Rd 中心 0.0）。
+- `identify.*`：`Config::exactN`（单层库 + 器件数不符的引擎 B 候选剔除）。
+- `synthetic.*`：14-DUT v2 套件（全实电感 + 并联双电感类）；
+  `maxParamError` 置换感知（canonical 同串兄弟组内取最优排列）。
+- **新增模块**：`iofmt.{hpp,cpp}`（measurements.txt + count.txt，
+  %.17g 逐位回写，INPUT_FORMAT.md §1/§2.1）；`adjacency.{hpp,cpp}`
+  （`Edge{type, parameter, dcr}`、上三角 `vector<vector<vector<Edge>>>`、
+  锁定编号发射、formatBlock，OUTPUT_FORMAT.md）。
+- `apps/demo.cpp`：镜像 `--exact-n/--count/--measurements/--dut` CLI。
+- 测试：`framework.hpp` 的独立 MNA 改为 `Rd + sL` 边导纳、可辨识性筛查改用
+  参数级计数；新增 `suites_io.cpp`（adjacency 7 例 / iofmt 4 例 /
+  exact_n 3 例，全部带独立 MNA 交叉验证与逐位回写断言）。
+
+### 11.2 验证结果
+
+- 确定性套件（circuits/library/engine_a/engine_b/pruning/selector/
+  end_to_end/adjacency/iofmt/exact_n/extremes_bands 共 992 例）：
+  **0 失败、494 项 check 0 失败**。
+- 对抗性 sweep（sweep_n1_5/sweep_n6/noisy_sweep 共 2002 例）：142 失败，
+  与 v1 基线（95/1023 ≈ 9.3%）同性质：29 例 "truth reachable, start
+  coverage"（多峰起点覆盖限制），其余为不可辨识抽签/电气歧义，判定器逐例
+  归因输出（§10 方法论沿用）。v2 失败率上升与拓扑空间扩大（并联多 L 类）
+  及每器件参数增多一致，Python 参考同分布（随机槽路实验 4/200 边际）。
+- demo：0.5% 噪声与无噪均 **14/14 恢复**（12 EXACT + 2 EQUIV），全套
+  ~1.6 s（Python ~95 s，≈60×）。
+- 跨语言对拍：同一份无噪 measurements.txt 分别喂 `identify()`（py）与
+  `demo --measurements`（C++），14/14 拓扑一致；抽查 dut1b/dut8/dut9
+  参数逐值一致（dut9 仅可互换叶显示顺序不同，置换等价）。
+- 已知信息边界（与 Python 侧一致，DESIGN.md §11.7）：dut8 损耗拆分 ~5%、
+  dut10 全局 1 维退化族（跳过参数断言）、随机槽路 Foster 1e-5 边际尾巴。

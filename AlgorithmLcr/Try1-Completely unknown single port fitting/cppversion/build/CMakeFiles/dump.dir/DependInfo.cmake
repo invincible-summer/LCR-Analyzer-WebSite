@@ -8,7 +8,7 @@ set(CMAKE_DEPENDS_LANGUAGES
 
 # The set of dependency files which are needed:
 set(CMAKE_DEPENDS_DEPENDENCY_FILES
-  "/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/cppversion/apps/dump.cpp" "CMakeFiles/dump.dir/apps/dump.cpp.o" "gcc" "CMakeFiles/dump.dir/apps/dump.cpp.o.d"
+  "/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try1-Completely unknown single port fitting/cppversion/apps/dump.cpp" "CMakeFiles/dump.dir/apps/dump.cpp.o" "gcc" "CMakeFiles/dump.dir/apps/dump.cpp.o.d"
   "" "dump" "gcc" "CMakeFiles/dump.dir/link.d"
   )
 

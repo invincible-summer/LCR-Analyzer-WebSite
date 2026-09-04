@@ -1,8 +1,8 @@
 CMakeFiles/rlc_id.dir/src/synthetic.cpp.o: \
- /home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/cppversion/src/synthetic.cpp \
+ /home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try1-Completely\ unknown\ single\ port\ fitting/cppversion/src/synthetic.cpp \
  /usr/include/stdc-predef.h \
- /home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/cppversion/src/synthetic.hpp \
- /home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/cppversion/src/circuits.hpp \
+ /home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try1-Completely\ unknown\ single\ port\ fitting/cppversion/src/synthetic.hpp \
+ /home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try1-Completely\ unknown\ single\ port\ fitting/cppversion/src/circuits.hpp \
  /usr/include/c++/15/complex \
  /usr/include/x86_64-linux-gnu/c++/15/bits/c++config.h \
  /usr/include/x86_64-linux-gnu/c++/15/bits/os_defines.h \
@@ -215,7 +215,7 @@ CMakeFiles/rlc_id.dir/src/synthetic.cpp.o: \
  /usr/include/c++/15/bits/stl_vector.h \
  /usr/include/c++/15/bits/stl_bvector.h \
  /usr/include/c++/15/bits/vector.tcc \
- /home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/cppversion/src/linalg.hpp \
+ /home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try1-Completely\ unknown\ single\ port\ fitting/cppversion/src/linalg.hpp \
  /usr/include/c++/15/cstdint \
  /usr/lib/gcc/x86_64-linux-gnu/15/include/stdint.h /usr/include/stdint.h \
  /usr/include/x86_64-linux-gnu/bits/stdint-uintn.h \
@@ -225,4 +225,17 @@ CMakeFiles/rlc_id.dir/src/synthetic.cpp.o: \
  /usr/include/x86_64-linux-gnu/c++/15/bits/opt_random.h \
  /usr/include/c++/15/bits/random.tcc /usr/include/c++/15/numeric \
  /usr/include/c++/15/bits/stl_numeric.h \
- /usr/include/c++/15/pstl/glue_numeric_defs.h
+ /usr/include/c++/15/pstl/glue_numeric_defs.h \
+ /usr/include/c++/15/algorithm /usr/include/c++/15/bits/stl_algo.h \
+ /usr/include/c++/15/bits/algorithmfwd.h \
+ /usr/include/c++/15/bits/stl_heap.h \
+ /usr/include/c++/15/pstl/glue_algorithm_defs.h \
+ /usr/include/c++/15/functional /usr/include/c++/15/bits/std_function.h \
+ /usr/include/c++/15/unordered_map \
+ /usr/include/c++/15/bits/unordered_map.h \
+ /usr/include/c++/15/bits/hashtable.h \
+ /usr/include/c++/15/bits/hashtable_policy.h \
+ /usr/include/c++/15/bits/enable_special_members.h \
+ /usr/include/c++/15/bits/node_handle.h \
+ /usr/include/c++/15/bits/erase_if.h /usr/include/c++/15/array \
+ /usr/include/c++/15/compare

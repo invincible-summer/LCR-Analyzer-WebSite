@@ -75,7 +75,7 @@ def make_duts() -> list[DUT]:
     # 2. series two-device
     t, v = _ser((Leaf("R"), [1e3]), (Leaf("C"), [1e-10]))
     specs.append(("dut2a_ser_RC", "2_series2", t, v))
-    t, v = _ser(_L(1e-5, 0.5), (Leaf("C"), [1e-9]))  # series resonance ~1.6 MHz
+    t, v = _ser(_L(1e-5, 5.0), (Leaf("C"), [1e-9]))  # series res ~1.6 MHz, Q~20
     specs.append(("dut2b_ser_LC", "2_series2", t, v))
 
     # 3. parallel two-device

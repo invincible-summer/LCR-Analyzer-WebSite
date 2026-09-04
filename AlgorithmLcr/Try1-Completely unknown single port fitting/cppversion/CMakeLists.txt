@@ -11,7 +11,9 @@ set(CMAKE_CXX_FLAGS_RELEASE "-O2")
 add_compile_options(-Wall -Wextra)
 
 add_library(rlc_id STATIC
+    src/adjacency.cpp
     src/circuits.cpp
+    src/iofmt.cpp
     src/linalg.cpp
     src/library.cpp
     src/fit_engine_a.cpp
@@ -29,6 +31,7 @@ target_link_libraries(rlc_id PUBLIC Threads::Threads)
 add_executable(rlc_tests
     tests/test_main.cpp
     tests/suites_core.cpp
+    tests/suites_io.cpp
     tests/suites_sweep.cpp
 )
 target_link_libraries(rlc_tests PRIVATE rlc_id)

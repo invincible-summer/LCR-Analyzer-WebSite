@@ -57,10 +57,10 @@ RM = /usr/bin/cmake -E rm -f
 EQUALS = =
 
 # The top-level source directory on which CMake was run.
-CMAKE_SOURCE_DIR = /home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/cppversion
+CMAKE_SOURCE_DIR = "/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try1-Completely unknown single port fitting/cppversion"
 
 # The top-level build directory on which CMake was run.
-CMAKE_BINARY_DIR = /home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/cppversion/build
+CMAKE_BINARY_DIR = "/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try1-Completely unknown single port fitting/cppversion/build"
 
 #=============================================================================
 # Targets provided globally by CMake.
@@ -87,9 +87,9 @@ rebuild_cache/fast: rebuild_cache
 
 # The main all target
 all: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/cppversion/build/CMakeFiles /home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/cppversion/build//CMakeFiles/progress.marks
+	$(CMAKE_COMMAND) -E cmake_progress_start "/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try1-Completely unknown single port fitting/cppversion/build/CMakeFiles" "/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try1-Completely unknown single port fitting/cppversion/build//CMakeFiles/progress.marks"
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 all
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/cppversion/build/CMakeFiles 0
+	$(CMAKE_COMMAND) -E cmake_progress_start "/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try1-Completely unknown single port fitting/cppversion/build/CMakeFiles" 0
 .PHONY : all
 
 # The main clean target
@@ -290,6 +290,30 @@ apps/dump.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/dump.dir/build.make CMakeFiles/dump.dir/apps/dump.cpp.s
 .PHONY : apps/dump.cpp.s
 
+src/adjacency.o: src/adjacency.cpp.o
+.PHONY : src/adjacency.o
+
+# target to build an object file
+src/adjacency.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/rlc_id.dir/build.make CMakeFiles/rlc_id.dir/src/adjacency.cpp.o
+.PHONY : src/adjacency.cpp.o
+
+src/adjacency.i: src/adjacency.cpp.i
+.PHONY : src/adjacency.i
+
+# target to preprocess a source file
+src/adjacency.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/rlc_id.dir/build.make CMakeFiles/rlc_id.dir/src/adjacency.cpp.i
+.PHONY : src/adjacency.cpp.i
+
+src/adjacency.s: src/adjacency.cpp.s
+.PHONY : src/adjacency.s
+
+# target to generate assembly for a file
+src/adjacency.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/rlc_id.dir/build.make CMakeFiles/rlc_id.dir/src/adjacency.cpp.s
+.PHONY : src/adjacency.cpp.s
+
 src/circuits.o: src/circuits.cpp.o
 .PHONY : src/circuits.o
 
@@ -385,6 +409,30 @@ src/identify.s: src/identify.cpp.s
 src/identify.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/rlc_id.dir/build.make CMakeFiles/rlc_id.dir/src/identify.cpp.s
 .PHONY : src/identify.cpp.s
+
+src/iofmt.o: src/iofmt.cpp.o
+.PHONY : src/iofmt.o
+
+# target to build an object file
+src/iofmt.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/rlc_id.dir/build.make CMakeFiles/rlc_id.dir/src/iofmt.cpp.o
+.PHONY : src/iofmt.cpp.o
+
+src/iofmt.i: src/iofmt.cpp.i
+.PHONY : src/iofmt.i
+
+# target to preprocess a source file
+src/iofmt.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/rlc_id.dir/build.make CMakeFiles/rlc_id.dir/src/iofmt.cpp.i
+.PHONY : src/iofmt.cpp.i
+
+src/iofmt.s: src/iofmt.cpp.s
+.PHONY : src/iofmt.s
+
+# target to generate assembly for a file
+src/iofmt.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/rlc_id.dir/build.make CMakeFiles/rlc_id.dir/src/iofmt.cpp.s
+.PHONY : src/iofmt.cpp.s
 
 src/library.o: src/library.cpp.o
 .PHONY : src/library.o
@@ -554,6 +602,30 @@ tests/suites_core.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/rlc_tests.dir/build.make CMakeFiles/rlc_tests.dir/tests/suites_core.cpp.s
 .PHONY : tests/suites_core.cpp.s
 
+tests/suites_io.o: tests/suites_io.cpp.o
+.PHONY : tests/suites_io.o
+
+# target to build an object file
+tests/suites_io.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/rlc_tests.dir/build.make CMakeFiles/rlc_tests.dir/tests/suites_io.cpp.o
+.PHONY : tests/suites_io.cpp.o
+
+tests/suites_io.i: tests/suites_io.cpp.i
+.PHONY : tests/suites_io.i
+
+# target to preprocess a source file
+tests/suites_io.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/rlc_tests.dir/build.make CMakeFiles/rlc_tests.dir/tests/suites_io.cpp.i
+.PHONY : tests/suites_io.cpp.i
+
+tests/suites_io.s: tests/suites_io.cpp.s
+.PHONY : tests/suites_io.s
+
+# target to generate assembly for a file
+tests/suites_io.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/rlc_tests.dir/build.make CMakeFiles/rlc_tests.dir/tests/suites_io.cpp.s
+.PHONY : tests/suites_io.cpp.s
+
 tests/suites_sweep.o: tests/suites_sweep.cpp.o
 .PHONY : tests/suites_sweep.o
 
@@ -628,6 +700,9 @@ help:
 	@echo "... apps/dump.o"
 	@echo "... apps/dump.i"
 	@echo "... apps/dump.s"
+	@echo "... src/adjacency.o"
+	@echo "... src/adjacency.i"
+	@echo "... src/adjacency.s"
 	@echo "... src/circuits.o"
 	@echo "... src/circuits.i"
 	@echo "... src/circuits.s"
@@ -640,6 +715,9 @@ help:
 	@echo "... src/identify.o"
 	@echo "... src/identify.i"
 	@echo "... src/identify.s"
+	@echo "... src/iofmt.o"
+	@echo "... src/iofmt.i"
+	@echo "... src/iofmt.s"
 	@echo "... src/library.o"
 	@echo "... src/library.i"
 	@echo "... src/library.s"
@@ -661,6 +739,9 @@ help:
 	@echo "... tests/suites_core.o"
 	@echo "... tests/suites_core.i"
 	@echo "... tests/suites_core.s"
+	@echo "... tests/suites_io.o"
+	@echo "... tests/suites_io.i"
+	@echo "... tests/suites_io.s"
 	@echo "... tests/suites_sweep.o"
 	@echo "... tests/suites_sweep.i"
 	@echo "... tests/suites_sweep.s"

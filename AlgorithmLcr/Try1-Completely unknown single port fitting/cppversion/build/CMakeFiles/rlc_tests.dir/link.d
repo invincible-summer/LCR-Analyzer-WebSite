@@ -4,6 +4,7 @@ rlc_tests: \
   /usr/lib/gcc/x86_64-linux-gnu/15/crtbeginS.o \
   CMakeFiles/rlc_tests.dir/tests/test_main.cpp.o \
   CMakeFiles/rlc_tests.dir/tests/suites_core.cpp.o \
+  CMakeFiles/rlc_tests.dir/tests/suites_io.cpp.o \
   CMakeFiles/rlc_tests.dir/tests/suites_sweep.cpp.o \
   librlc_id.a \
   /usr/lib/gcc/x86_64-linux-gnu/15/libstdc++.so \
@@ -43,6 +44,8 @@ rlc_tests: \
 CMakeFiles/rlc_tests.dir/tests/test_main.cpp.o:
 
 CMakeFiles/rlc_tests.dir/tests/suites_core.cpp.o:
+
+CMakeFiles/rlc_tests.dir/tests/suites_io.cpp.o:
 
 CMakeFiles/rlc_tests.dir/tests/suites_sweep.cpp.o:
 

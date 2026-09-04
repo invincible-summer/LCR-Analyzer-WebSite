@@ -1,8 +1,8 @@
 CMakeFiles/rlc_id.dir/src/selector.cpp.o: \
- /home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/cppversion/src/selector.cpp \
+ /home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try1-Completely\ unknown\ single\ port\ fitting/cppversion/src/selector.cpp \
  /usr/include/stdc-predef.h \
- /home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/cppversion/src/selector.hpp \
- /home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/cppversion/src/circuits.hpp \
+ /home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try1-Completely\ unknown\ single\ port\ fitting/cppversion/src/selector.hpp \
+ /home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try1-Completely\ unknown\ single\ port\ fitting/cppversion/src/circuits.hpp \
  /usr/include/c++/15/complex \
  /usr/include/x86_64-linux-gnu/c++/15/bits/c++config.h \
  /usr/include/x86_64-linux-gnu/c++/15/bits/os_defines.h \
@@ -215,8 +215,8 @@ CMakeFiles/rlc_id.dir/src/selector.cpp.o: \
  /usr/include/c++/15/bits/stl_vector.h \
  /usr/include/c++/15/bits/stl_bvector.h \
  /usr/include/c++/15/bits/vector.tcc \
- /home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/cppversion/src/fit_engine_a.hpp \
- /home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/cppversion/src/linalg.hpp \
+ /home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try1-Completely\ unknown\ single\ port\ fitting/cppversion/src/fit_engine_a.hpp \
+ /home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try1-Completely\ unknown\ single\ port\ fitting/cppversion/src/linalg.hpp \
  /usr/include/c++/15/cstdint \
  /usr/lib/gcc/x86_64-linux-gnu/15/include/stdint.h /usr/include/stdint.h \
  /usr/include/x86_64-linux-gnu/bits/stdint-uintn.h \

@@ -27,14 +27,22 @@ const std::vector<TreePtr>& theLeaves() {
     return v;
 }
 
-// R2: at most one leaf of each kind among direct children
-bool r2Ok(const std::vector<TreePtr>& children) {
-    int mask = 0;
+// Leaf admissibility among the direct children of a node (R2' + R4):
+//  - PAR: at most one leaf per kind EXCEPT L (parallel (L + Rd) devices are
+//    second-order tanks, not mergeable);
+//  - SER: all leaf kinds unique, and R must not coexist with L (R4: the
+//    series R folds into the inductor's DC resistance).
+bool childrenOk(NK kind, const std::vector<TreePtr>& children) {
+    int mask = 0;  // bits: 0=R, 1=L, 2=C
     for (const auto& c : children) {
         if (!c->isLeaf) continue;
         int bit = 1 << (c->elem == 'R' ? 0 : c->elem == 'L' ? 1 : 2);
+        if (kind == NK::Par && c->elem == 'L') continue;  // multi-L allowed
         if (mask & bit) return false;
         mask |= bit;
+    }
+    if (kind == NK::Ser) {
+        return !((mask & 1) && (mask & 2));  // R4: no R together with L
     }
     return true;
 }
@@ -80,7 +88,7 @@ std::vector<TreePtr> rootedTrees(int n, NK kind, int max_idepth) {
 
     std::function<void(int)> dfs = [&](int remaining) {
         if (remaining == 0) {
-            if (chosen.size() >= 2 && r2Ok(chosen)) {
+            if (chosen.size() >= 2 && childrenOk(kind, chosen)) {
                 results.push_back(Tree::makeNode(kind, chosen));
             }
             return;
@@ -155,6 +163,13 @@ int TopologyLibrary::countOfSize(int n, int max_idepth) {
     auto& c = cache();
     std::lock_guard<std::mutex> lock(c.mu);
     return (int)treesOfSizeLocked(n, max_idepth).size();
+}
+
+std::vector<TreePtr> TopologyLibrary::ofSize(int n, int max_idepth) {
+    if (n < 1) throw std::invalid_argument("device count must be >= 1");
+    auto& c = cache();
+    std::lock_guard<std::mutex> lock(c.mu);
+    return treesOfSizeLocked(n, max_idepth);
 }
 
 void TopologyLibrary::clearCache() {

@@ -190,13 +190,12 @@ void suiteNoisySweep(TestCtx& t) {
     t.suite = "noisy_sweep";
     warmLibraryCache(6, 2);
     const std::vector<TreePtr>& libAll = TopologyLibrary::get(6, 2);
-    // a dozen structures spanning 2..6 elements and both root kinds
-    // (verified canonical names: children are stored sorted)
+    // a dozen structures spanning 2..6 elements and both root kinds, incl.
+    // the v2 parallel-multi-L classes (children are stored sorted)
     const std::vector<std::string> want = {
-        "S(L,R)",          "P(C,R)",          "S(P(C,R),R)",      "P(R,S(L,R))",
-        "S(C,L,R)",        "P(C,L,R)",        "S(P(C,R),P(L,R))",
-        "P(L,S(C,R))",     "S(C,L,P(C,R),R)", "P(S(C,R),S(L,R))",
-        "S(P(C,L),P(C,L,R))", "P(C,L,S(C,L),S(C,L))",
+        "S(C,L)",          "P(C,R)",          "S(P(C,R),R)",      "P(L,S(C,R))",
+        "P(C,L,L)",        "S(P(L,L),R)",     "S(C,P(C,L))",      "P(C,L,R)",
+        "S(P(C,L),P(C,L))", "P(L,L,S(C,R))",  "S(C,P(L,L),R)",    "P(C,S(C,L),S(C,L))",
     };
     std::vector<TreePtr> picked;
     for (const auto& cs : want) {
@@ -223,26 +222,26 @@ void suiteNoisySweep(TestCtx& t) {
         const TreePtr& truth = picked[ti];
         // elements must be identifiable ON THE MEASUREMENT BAND well above
         // the 0.5% noise floor (band-external visibility is not recoverable)
-        auto kinds = leafKinds(truth);
         std::vector<double> lb, ub;
         thetaBounds(truth, lb, ub);
+        const size_t p = lb.size();  // parameters (two per L device)
         const size_t mBand = freqs.size();
         std::vector<Complex> sb(mBand);
         for (size_t k = 0; k < mBand; ++k)
             sb[k] = Complex(0.0, 2.0 * M_PI * freqs[k]);
         Rng rngS(500000 + 137 * (uint64_t)ti);
-        std::vector<double> theta(kinds.size(), 0.0);
+        std::vector<double> theta(p, 0.0);
         double minSens = -1.0;
         for (int attempt = 0; attempt < 300; ++attempt) {
-            std::vector<double> cand(kinds.size());
-            for (size_t j = 0; j < kinds.size(); ++j) {
+            std::vector<double> cand(p);
+            for (size_t j = 0; j < p; ++j) {
                 double u = rngS.uniform01();
                 cand[j] = (lb[j] + 0.5) + u * ((ub[j] - 1.0) - (lb[j] + 0.5));
             }
-            std::vector<Complex> Z(mBand), J(kinds.size() * mBand);
+            std::vector<Complex> Z(mBand), J(p * mBand);
             evalJac(truth, cand, sb.data(), mBand, Z.data(), J.data());
             double minS = std::numeric_limits<double>::infinity();
-            for (size_t ip = 0; ip < kinds.size(); ++ip) {
+            for (size_t ip = 0; ip < p; ++ip) {
                 double mx = 0.0;
                 for (size_t k = 0; k < mBand; ++k)
                     mx = std::max(mx, std::abs(J[ip * mBand + k]) /
@@ -333,7 +332,7 @@ void suiteExtremesBands(TestCtx& t) {
     // ---- extreme values near the search-domain bounds ----------------------
     {
         const std::vector<std::string> extremes = {
-            "S(L,R)", "S(C,R)", "P(L,R)", "P(C,R)", "S(P(C,R),R)",
+            "S(C,L)", "S(C,R)", "P(L,R)", "P(C,R)", "S(P(C,R),R)",
         };
         int total = (int)extremes.size() * 4;
         auto freqs = defaultFrequencies();
@@ -349,12 +348,11 @@ void suiteExtremesBands(TestCtx& t) {
                 return r;
             }
             // clamp draws toward the domain corners
-            auto kinds = leafKinds(truth);
             Rng rng(31337 + i);
             std::vector<double> lb, ub;
             thetaBounds(truth, lb, ub);
-            std::vector<double> theta(kinds.size());
-            for (size_t j = 0; j < kinds.size(); ++j) {
+            std::vector<double> theta(lb.size());
+            for (size_t j = 0; j < theta.size(); ++j) {
                 double u = rng.uniform01();
                 double lo = lb[j] + (variant % 2 == 0 ? 0.2 : 1.0);
                 double hi = ub[j] - (variant < 2 ? 0.2 : 1.0);
@@ -408,26 +406,26 @@ void suiteExtremesBands(TestCtx& t) {
             // equivalence expected (band-limited identifiability, T2b)
             {"S(P(C,R),R)", 1e3, 1e5, 30, 3e-2},
             {"P(C,L,R)", 1e2, 1e4, 30, 3e-2},
-            {"P(R,S(L,R))", 1e5, 1e7, 30, 3e-2},
+            {"P(L,S(C,R))", 1e5, 1e7, 30, 3e-2},
             {"S(P(C,R),R)", 1e4, 1e6, 30, 3e-2},
             {"P(C,L,R)", 1e6, 1e8, 30, 3e-2},
             // wide 8-decade bands: everything identifiable -> exact expected
             {"S(P(C,R),R)", 1.0, 1e8, 41, 1e-3},
             {"P(C,L,R)", 1.0, 1e8, 41, 1e-3},
-            {"P(R,S(L,R))", 1.0, 1e8, 41, 1e-3},
-            {"S(L,R)", 1.0, 1e8, 41, 1e-3},
+            {"P(L,S(C,R))", 1.0, 1e8, 41, 1e-3},
+            {"S(C,L)", 1.0, 1e8, 41, 1e-3},
             {"P(C,R)", 1.0, 1e8, 41, 1e-3},
-            {"S(C,L,R)", 1.0, 1e8, 41, 1e-3},
+            {"P(C,L,L)", 1.0, 1e8, 41, 1e-3},
             {"P(L,S(C,R))", 1.0, 1e8, 41, 1e-3},
             {"S(P(C,R),P(L,R))", 1.0, 1e8, 41, 1e-3},
-            {"S(C,L,P(C,R),R)", 1.0, 1e8, 41, 1e-3},
+            {"S(C,P(C,L),R)", 1.0, 1e8, 41, 1e-3},
             // point-count sensitivity on the default band
             {"S(P(C,R),R)", 10.0, 1e7, 20, 1e-3},
             {"P(C,L,R)", 10.0, 1e7, 20, 1e-3},
-            {"P(R,S(L,R))", 10.0, 1e7, 50, 1e-3},
-            {"S(L,R)", 10.0, 1e7, 20, 1e-3},
+            {"P(L,S(C,R))", 10.0, 1e7, 50, 1e-3},
+            {"S(C,L)", 10.0, 1e7, 20, 1e-3},
             {"P(C,R)", 10.0, 1e7, 50, 1e-3},
-            {"S(C,L,R)", 10.0, 1e7, 20, 1e-3},
+            {"P(C,L,L)", 10.0, 1e7, 20, 1e-3},
         };
         int idx = 0;
         for (const auto& bc : cases) {

@@ -31,6 +31,8 @@ int main(int argc, char** argv) {
         {"end_to_end", suiteEndToEnd}, {"sweep_n1_5", suiteSweepN5},
         {"sweep_n6", suiteSweepN6},    {"noisy_sweep", suiteNoisySweep},
         {"extremes_bands", suiteExtremesBands},
+        {"adjacency", suiteAdjacency}, {"iofmt", suiteIofmt},
+        {"exact_n", suiteExactN},
     };
 
     long totalCases = 0, totalCaseFails = 0, totalChecks = 0, totalCheckFails = 0;

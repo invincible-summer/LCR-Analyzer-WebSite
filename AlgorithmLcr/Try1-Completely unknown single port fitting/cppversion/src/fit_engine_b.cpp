@@ -583,25 +583,35 @@ FosterSections fosterSections(const RationalModel& model, const ComplexV& /*sDat
     }
     FosterSections out;
 
-    if (model.e != 0.0) {
-        if (model.e > 0) {
+    double e = model.e, d = model.d;
+    if (!admittance && e != 0.0 && d != 0.0 && e > 0.0 && d > 0.0) {
+        // Z = d + e*s is ONE real inductor device: the constant term is the
+        // winding DC resistance (v2 R4 series absorption), not a separate
+        // series resistor
+        out.sections.push_back(Assembled{Tree::makeLeaf('L'), {e, std::max(d, kDcrMin)}});
+        e = 0.0;
+        d = 0.0;
+    }
+
+    if (e != 0.0) {
+        if (e > 0) {
             if (admittance)
-                out.sections.push_back(Assembled{Tree::makeLeaf('C'), {model.e}});
-            else
-                out.sections.push_back(Assembled{Tree::makeLeaf('L'), {model.e}});
+                out.sections.push_back(Assembled{Tree::makeLeaf('C'), {e}});
+            else  // e*s in Z -> series L (ideal: DCR at floor)
+                out.sections.push_back(Assembled{Tree::makeLeaf('L'), {e, kDcrMin}});
         } else {
             out.ok = false;
             char buf[160];
             std::snprintf(buf, sizeof(buf), "e=%s term negative (%.3g), skipped (D8)",
-                          admittance ? "admittance" : "impedance", model.e);
+                          admittance ? "admittance" : "impedance", e);
             out.notes.push_back(buf);
             return out;
         }
     }
     if (model.k0 != 0.0) {
         if (model.k0 > 0) {
-            if (admittance)
-                out.sections.push_back(Assembled{Tree::makeLeaf('L'), {1.0 / model.k0}});
+            if (admittance)  // k0'/s in Y -> parallel L (ideal: DCR at floor)
+                out.sections.push_back(Assembled{Tree::makeLeaf('L'), {1.0 / model.k0, kDcrMin}});
             else
                 out.sections.push_back(Assembled{Tree::makeLeaf('C'), {1.0 / model.k0}});
         } else {
@@ -612,16 +622,16 @@ FosterSections fosterSections(const RationalModel& model, const ComplexV& /*sDat
             return out;
         }
     }
-    if (model.d != 0.0) {
-        if (model.d > 0) {
+    if (d != 0.0) {
+        if (d > 0) {
             if (admittance)
-                out.sections.push_back(Assembled{Tree::makeLeaf('R'), {1.0 / model.d}});
+                out.sections.push_back(Assembled{Tree::makeLeaf('R'), {1.0 / d}});
             else
-                out.sections.push_back(Assembled{Tree::makeLeaf('R'), {model.d}});
+                out.sections.push_back(Assembled{Tree::makeLeaf('R'), {d}});
         } else {
             out.ok = false;
             char buf[96];
-            std::snprintf(buf, sizeof(buf), "d term negative (%.3g), skipped (D8)", model.d);
+            std::snprintf(buf, sizeof(buf), "d term negative (%.3g), skipped (D8)", d);
             out.notes.push_back(buf);
             return out;
         }
@@ -640,7 +650,8 @@ FosterSections fosterSections(const RationalModel& model, const ComplexV& /*sDat
             return out;
         }
         if (admittance) {
-            // rho'/(s+a') in Y -> series R-L branch: L = 1/rho', R = a'/rho'
+            // rho'/(s+a') in Y -> series (L + Rd) branch: L = 1/rho',
+            // Rd = a'/rho'  (v2: ONE device, two parameters)
             if (rho <= 0) {
                 out.ok = false;
                 char buf[96];
@@ -649,15 +660,10 @@ FosterSections fosterSections(const RationalModel& model, const ComplexV& /*sDat
                 out.notes.push_back(buf);
                 return out;
             }
-            double lv = 1.0 / rho, rv = a / rho;
-            if (rv < kBranchRShortRel * zmin) {
-                out.notes.push_back("branch R below band floor, dropped (short)");
-                out.sections.push_back(Assembled{Tree::makeLeaf('L'), {lv}});
-            } else {
-                out.sections.push_back(assemble(
-                    NK::Ser, {Assembled{Tree::makeLeaf('R'), {rv}},
-                              Assembled{Tree::makeLeaf('L'), {lv}}}));
-            }
+            double lv = 1.0 / rho, rv = std::max(a / rho, kDcrMin);
+            if (rv < kBranchRShortRel * zmin)
+                out.notes.push_back("branch DCR below band floor (negligible loss)");
+            out.sections.push_back(Assembled{Tree::makeLeaf('L'), {lv, rv}});
         } else {
             // rho/(s+a) in Z -> series R||C section: C = 1/rho, R = rho/a
             if (rho <= 0) {
@@ -689,7 +695,6 @@ FosterSections fosterSections(const RationalModel& model, const ComplexV& /*sDat
         }
         alpha = -alpha;  // damping >= 0 after flipping
         double rhoR = rho.real(), rhoI = rho.imag();
-        double cConst = rhoR * alpha - rhoI * beta;
         double om = std::hypot(alpha, beta);
         if (rhoR <= 0) {
             out.ok = false;
@@ -698,49 +703,73 @@ FosterSections fosterSections(const RationalModel& model, const ComplexV& /*sDat
             out.notes.push_back(buf);
             return out;
         }
-        // D8: c is treated as zero when within the estimated noise floor
+        // D8: two realizable section families exist for a conjugate pair:
+        //   (i)  lossless-tank family, c == 0:
+        //          Z side: R || L || C          (parallel R carries damping)
+        //          Y side: series (Rd + sL) + C (branch Rd carries damping)
+        //   (ii) lossy-tank family, c == 2*alpha*rho_r (Z side only):
+        //          (Rd + sL) || C -- the v2 signature of a REAL inductor in
+        //          the tank; two devices, closed form C = 1/(2 rho_r),
+        //          L = 2 rho_r/om^2, Rd = 4*alpha*rho_r/om^2.
+        // Anything else needs Bott-Duffin / bridge synthesis (skip).  Each
+        // family matches when the mismatch is within the noise-aware cTol.
+        double cConst = rhoR * alpha - rhoI * beta;
+        double cLossy = 2.0 * alpha * rhoR;
         double cTol = std::max(kCPairTol, 3.0 * sigmaHat) * std::abs(rhoR) * om;
-        if (std::abs(cConst) > cTol) {
-            out.ok = false;
-            char buf[128];
-            std::snprintf(buf, sizeof(buf),
-                          "complex pair with c=%.3g != 0 (needs Bott-Duffin/bridge), skipped (D8)",
-                          cConst);
-            out.notes.push_back(buf);
-            return out;
-        }
         if (admittance) {
-            // series R-L-C branch
+            if (std::abs(cConst) > cTol) {
+                out.ok = false;
+                char buf[128];
+                std::snprintf(buf, sizeof(buf),
+                              "Y complex pair c=%.3g != 0 (needs Bott-Duffin/bridge), skipped (D8)",
+                              cConst);
+                out.notes.push_back(buf);
+                return out;
+            }
+            // series (L + Rd) + C branch (v2: R folds into the L device's DCR)
             double lv = 1.0 / (2.0 * rhoR);
             double cv = 2.0 * rhoR / (om * om);
-            double rv = alpha / rhoR;
-            if (rv < kBranchRShortRel * zmin) {
-                out.notes.push_back("branch R below band floor, dropped (short)");
-                out.sections.push_back(assemble(
-                    NK::Ser, {Assembled{Tree::makeLeaf('L'), {lv}},
-                              Assembled{Tree::makeLeaf('C'), {cv}}}));
-            } else {
-                out.sections.push_back(assemble(
-                    NK::Ser, {Assembled{Tree::makeLeaf('R'), {rv}},
-                              Assembled{Tree::makeLeaf('L'), {lv}},
-                              Assembled{Tree::makeLeaf('C'), {cv}}}));
-            }
+            double rv = std::max(alpha / rhoR, kDcrMin);
+            if (rv < kBranchRShortRel * zmin)
+                out.notes.push_back("branch DCR below band floor (negligible loss)");
+            out.sections.push_back(assemble(
+                NK::Ser, {Assembled{Tree::makeLeaf('L'), {lv, rv}},
+                          Assembled{Tree::makeLeaf('C'), {cv}}}));
         } else {
-            // parallel R||L||C tank
+            // impedance side: pick whichever family c is closer to
             double cv = 1.0 / (2.0 * rhoR);
             double lv = 2.0 * rhoR / (om * om);
+            if (std::abs(cConst - cLossy) < std::abs(cConst) &&
+                std::abs(cConst - cLossy) <= cTol) {
+                // family (ii): lossy parallel tank (Rd + sL) || C
+                double rd = std::max(4.0 * alpha * rhoR / (om * om), kDcrMin);
+                out.sections.push_back(assemble(
+                    NK::Par, {Assembled{Tree::makeLeaf('L'), {lv, rd}},
+                              Assembled{Tree::makeLeaf('C'), {cv}}}));
+                continue;
+            }
+            if (std::abs(cConst) > cTol) {
+                out.ok = false;
+                char buf[128];
+                std::snprintf(buf, sizeof(buf),
+                              "Z complex pair c=%.3g not realizable (needs Bott-Duffin/bridge), skipped (D8)",
+                              cConst);
+                out.notes.push_back(buf);
+                return out;
+            }
+            // family (i): parallel R||L||C tank (L branch is ideal: DCR at floor)
             double rv = (alpha == 0.0) ? std::numeric_limits<double>::infinity()
                                        : rhoR / alpha;
             if (rv > kTankROpenRel * zmax) {
                 out.notes.push_back("tank parallel R above band ceiling, dropped "
                                     "(lossless section)");
                 out.sections.push_back(assemble(
-                    NK::Par, {Assembled{Tree::makeLeaf('L'), {lv}},
+                    NK::Par, {Assembled{Tree::makeLeaf('L'), {lv, kDcrMin}},
                               Assembled{Tree::makeLeaf('C'), {cv}}}));
             } else {
                 out.sections.push_back(assemble(
                     NK::Par, {Assembled{Tree::makeLeaf('R'), {rv}},
-                              Assembled{Tree::makeLeaf('L'), {lv}},
+                              Assembled{Tree::makeLeaf('L'), {lv, kDcrMin}},
                               Assembled{Tree::makeLeaf('C'), {cv}}}));
             }
         }

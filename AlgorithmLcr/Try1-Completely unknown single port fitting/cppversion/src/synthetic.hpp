@@ -19,7 +19,8 @@ struct DUT {
     std::string name;
     std::string group;
     TreePtr tree;
-    std::vector<double> values;  // linear element values in canonical leaf order
+    std::vector<double> values;  // linear parameter values in canonical order
+                                 // (an L device contributes [L, Rd])
 
     std::vector<double> theta() const {
         std::vector<double> t(values.size());
@@ -38,7 +39,7 @@ struct DUT {
     }
 };
 
-// the 12 synthetic DUTs of section 8.2
+// the 14 synthetic DUTs of the v2 suite (section 11.6: real inductors)
 std::vector<DUT> makeDuts();
 
 // 30 log-spaced frequencies from 10 Hz to 10 MHz
@@ -54,7 +55,8 @@ struct Measurement {
 Measurement measure(const DUT& dut, const std::vector<double>* f, double sigmaRel,
                     uint64_t seed);
 
-// Max relative element-value error; requires the same canonical topology.
+// Max relative parameter error, minimized over interchangeable-sibling
+// permutations; requires the same canonical topology.
 double maxParamError(const std::vector<double>& thetaFit, const DUT& dut);
 
 }  // namespace rlc

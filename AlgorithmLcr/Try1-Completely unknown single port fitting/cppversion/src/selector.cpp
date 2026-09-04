@@ -31,9 +31,10 @@ bool areEquivalent(const Candidate& c1, const Candidate& c2,
 
 std::pair<int, double> secondarySortKey(const Candidate& cand) {
     // center deviation penalty: sum of (log10(v) - mid)^2
-    // typical nominal centers: R = 1k (3), L = 1 mH (-3), C = 10 nF (-8)
-    std::map<char, double> center{{'R', 3.0}, {'L', -3.0}, {'C', -8.0}};
-    auto kinds = leafKinds(cand.tree);
+    // typical nominal centers: R = 1k (3), L = 1 mH (-3), Rd = 1 ohm (0),
+    // C = 10 nF (-8); iterated over PARAMETER kinds (two per L device)
+    std::map<char, double> center{{'R', 3.0}, {'L', -3.0}, {'D', 0.0}, {'C', -8.0}};
+    auto kinds = paramKinds(cand.tree);
     double penalty = 0.0;
     for (size_t i = 0; i < kinds.size(); ++i) {
         double c = 0.0;

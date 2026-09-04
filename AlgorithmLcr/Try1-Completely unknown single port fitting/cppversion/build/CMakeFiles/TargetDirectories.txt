@@ -1,8 +1,8 @@
-/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/cppversion/build/CMakeFiles/rlc_id.dir
-/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/cppversion/build/CMakeFiles/rlc_tests.dir
-/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/cppversion/build/CMakeFiles/demo.dir
-/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/cppversion/build/CMakeFiles/benchmark.dir
-/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/cppversion/build/CMakeFiles/dump.dir
-/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/cppversion/build/CMakeFiles/bench_dump.dir
-/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/cppversion/build/CMakeFiles/edit_cache.dir
-/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/cppversion/build/CMakeFiles/rebuild_cache.dir
+/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try1-Completely unknown single port fitting/cppversion/build/CMakeFiles/rlc_id.dir
+/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try1-Completely unknown single port fitting/cppversion/build/CMakeFiles/rlc_tests.dir
+/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try1-Completely unknown single port fitting/cppversion/build/CMakeFiles/demo.dir
+/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try1-Completely unknown single port fitting/cppversion/build/CMakeFiles/benchmark.dir
+/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try1-Completely unknown single port fitting/cppversion/build/CMakeFiles/dump.dir
+/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try1-Completely unknown single port fitting/cppversion/build/CMakeFiles/bench_dump.dir
+/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try1-Completely unknown single port fitting/cppversion/build/CMakeFiles/edit_cache.dir
+/home/invincible/daily/program/ESP32/LCR/AlgorithmLcr/Try1-Completely unknown single port fitting/cppversion/build/CMakeFiles/rebuild_cache.dir
