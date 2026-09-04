@@ -3,6 +3,7 @@
 Structure assertions plus the Z cross-validation required by the root spec
 (sec.6): rebuild the graph from the matrix and re-evaluate Z(f) with an
 independent nodal solver; it must match ``circuits.evaluate`` exactly.
+An L edge carries its fitted series DC resistance (v2 model).
 """
 
 import numpy as np
@@ -79,12 +80,19 @@ class TestStructure:
         assert adj.slot(0, 1) == [Edge("R", 100.0, 0.0)]
         assert adj.n_edges == 1
 
+    def test_bare_inductor_carries_dcr(self):
+        # L device consumes two theta entries -> Edge("L", L, Rd)
+        # (values chosen to roundtrip exactly through log10)
+        adj = tree_to_adjacency(Leaf("L"),
+                                np.log10([1e-3, 0.5]))  # 1 mH, 0.5 ohm
+        assert adj.slot(0, 1) == [Edge("L", 1e-3, 0.5)]
+
     def test_series_rl_canonical_order(self):
         # make_node sorts children by canonical string: L before R
         t = make_node(SER, [Leaf("R"), Leaf("L")])
-        adj = tree_to_adjacency(t, np.log10([1e-3, 1e2]))  # powers of 10
+        adj = tree_to_adjacency(t, np.log10([1e-3, 0.5, 1e2]))
         assert adj.V == 3
-        assert adj.slot(0, 2) == [Edge("L", 1e-3, 0.0)]
+        assert adj.slot(0, 2) == [Edge("L", 1e-3, 0.5)]
         assert adj.slot(1, 2) == [Edge("R", 1e2, 0.0)]
 
     def test_parallel_rc_multiedge(self):
@@ -93,15 +101,32 @@ class TestStructure:
         assert adj.V == 2
         assert adj.slot(0, 1) == [Edge("C", 1e-8, 0.0), Edge("R", 1e3, 0.0)]
 
+    def test_parallel_ll_multiedge_with_dcr(self):
+        # two real inductors in parallel: a legal multi-edge, each with dcr
+        t = make_node(PAR, [Leaf("L"), Leaf("L")])
+        theta = np.log10([1e-3, 0.5, 1e-5, 1e1])
+        adj = tree_to_adjacency(t, theta)
+        assert adj.V == 2
+        assert adj.slot(0, 1) == [Edge("L", 1e-3, 0.5),
+                                  Edge("L", 1e-5, 1e1)]
+        # graph Z must equal tree Z (independent MNA)
+        f = np.logspace(2.0, 6.0, 25)
+        np.testing.assert_allclose(
+            z_from_adjacency(adj, f),
+            evaluate_f(t, theta, f),
+            rtol=1e-9, atol=1e-12)
+
     def test_nested_ser_par(self):
         # SER(PAR(L, C), R): PAR first, chain 0-2-1, PAR children C then L
         t = make_node(SER, [make_node(PAR, [Leaf("L"), Leaf("C")]), Leaf("R")])
-        adj = tree_to_adjacency(t, np.log10([1e-9, 1e-3, 10.0]))
+        adj = tree_to_adjacency(t, np.log10([1e-9, 1e-3, 1e1, 1e1]))
         assert adj.V == 3
-        assert adj.slot(0, 2) == [Edge("C", 1e-9, 0.0), Edge("L", 1e-3, 0.0)]
+        assert adj.slot(0, 2) == [Edge("C", 1e-9, 0.0),
+                                  Edge("L", 1e-3, 10.0)]
         assert adj.slot(1, 2) == [Edge("R", 10.0, 0.0)]
 
     def test_theta_length_validated(self):
+        # SER(R, L) needs 3 parameters (L carries two): 1 must raise
         with pytest.raises(ValueError):
             tree_to_adjacency(make_node(SER, [Leaf("R"), Leaf("L")]),
                               np.array([1.0]))
@@ -115,7 +140,7 @@ class TestStructure:
 
 
 class TestInvariantsOverDuts:
-    """Spec sec.6: shape + conservation + connectivity on all 12 DUTs."""
+    """Spec sec.6: shape + conservation + connectivity on all DUTs."""
 
     @pytest.mark.parametrize("dut", make_duts(), ids=lambda d: d.name)
     def test_shape_and_connectivity(self, dut):
@@ -145,10 +170,10 @@ class TestFormat:
 
     def test_format_block(self):
         t = make_node(SER, [Leaf("R"), Leaf("L")])
-        adj = tree_to_adjacency(t, np.log10([1e-3, 1e2]))
+        adj = tree_to_adjacency(t, np.log10([1e-3, 1e1, 1e2]))
         text = adj.format_block(label=1)
         assert text.splitlines()[0] == "adjacency[1] V=3 (ports 0,1):"
-        assert "(0,2): L 1.000e-03" in text
+        assert "(0,2): L 1.000e-03 dcr 1.000e+01" in text
         assert "(1,2): R 1.000e+02" in text
 
     def test_dcr_omitted_when_zero(self):

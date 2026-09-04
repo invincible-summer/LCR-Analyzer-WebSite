@@ -32,10 +32,11 @@ def _fit_true_topology(dut, sigma_rel, seed=0):
 
 
 class TestNoiselessRecovery:
-    """Noiseless data: parameters must come back to ~machine precision."""
+    """Noiseless data: parameters (incl. Rd) must come back ~machine exact."""
 
-    @pytest.mark.parametrize("name", ["dut2a_ser_RL", "dut3a_par_RC",
-                                      "dut4_ind_parasitic", "dut6_relaxation"])
+    @pytest.mark.parametrize("name", ["dut1b_L", "dut2b_ser_LC",
+                                      "dut4_ind_parasitic", "dut6_relaxation",
+                                      "dut9_par_LL"])
     def test_param_error(self, name):
         dut = DUTS[name]
         cand = _fit_true_topology(dut, sigma_rel=0.0)
@@ -46,7 +47,7 @@ class TestNoiselessRecovery:
 class TestNoisyRecovery:
     """0.5% noise: parameter error must stay well below the noise level."""
 
-    @pytest.mark.parametrize("name", ["dut2a_ser_RL", "dut3a_par_RC",
+    @pytest.mark.parametrize("name", ["dut1b_L", "dut3a_par_RC",
                                       "dut4_ind_parasitic"])
     def test_param_error(self, name):
         dut = DUTS[name]

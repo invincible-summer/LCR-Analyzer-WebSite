@@ -14,8 +14,8 @@
 - 字段以空白（空格/Tab）分隔；行内 `#` 起至行尾为注释，整行空行忽略。
 - 数值为十进制 ASCII（允许科学计数法），由 `float()` / `int()` 解析。
 - 写出方（dump）浮点数一律用 `%.17g`，保证 读回 == 写出（逐位一致）。
-- 建议文件名：`measurements.txt`（三种通用）、`components.txt`（Try2）、
-  `topology.txt`（Try3）。
+- 建议文件名：`measurements.txt`（三种通用）、`count.txt`（Try1，可选）、
+  `components.txt`（Try2）、`topology.txt`（Try3）。
 
 ## 1. 测量数据格式（三种完全相同）
 
@@ -53,17 +53,36 @@ f_n  Rz_n  Iz_n
 
 | Try | 先验 | 输入文件 |
 |---|---|---|
-| Try1 | 无（元件类型/数量/参数/拓扑全未知） | `measurements.txt` 一个文件 |
+| Try1 | 元件类型/参数/拓扑全未知；可选：器件总数恰为 n | `measurements.txt` + 可选 `count.txt` |
 | Try2 | 元件多重集已知（类型+参数），拓扑未知 | `measurements.txt` + `components.txt` |
 | Try3 | 拓扑与每条边的元件类型已知，参数未知 | `measurements.txt` + `topology.txt` |
 
-### 2.1 Try1：仅测量数据
+### 2.1 Try1：测量数据 + 可选器件数约束（count.txt）
 
 ```
 measurements.txt := <测量数据，§1 格式>
+count.txt        := <单个正整数 n>        # 可选
 ```
 
-进入管线：`identify(f, z)`（`rlc_id/iofmt.py::load_measurements`）。
+`count.txt` 是可选的先验约束文件：去掉注释与空行后**恰好一行**，内容为一个
+正整数 `n`，含义是"被测电路的器件总数恰好为 n"。器件计数规则与
+[OUTPUT_FORMAT.md](OUTPUT_FORMAT.md) 的边一致：R、C 各算 1 个器件；
+**一个电感（L 与其串联直流电阻 DCR 绑定）算 1 个器件**（实验室电感的绕线
+电阻不可忽略，模型上 L 与 DCR 串联绑定、一起拟合）。
+
+提供该文件时，拓扑搜索被限制在"恰好 n 器件"的规范树层（引擎 B 中器件数
+不符的候选也不参与排序）；缺省（不提供）= 自由搜索 1..max_n 器件。
+
+完整示例（电路恰有 3 个器件）：
+
+```
+# count.txt
+3
+```
+
+进入管线：`identify(f, z, config=Config(exact_n=n))`
+（`rlc_id/iofmt.py::load_count`；CLI 侧为 `demo.py --count count.txt`
+或 `--exact-n 3`）。
 
 ### 2.2 Try2：测量数据 + 元件队列（Edge 结构体，不带拓扑）
 
@@ -157,17 +176,22 @@ L
    `dcr ≥ 0`；至少 1 行。
 3. 拓扑：`V ≥ 2`；第 i 矩阵行恰有 V−1−i 个非负整数；队列长度恰为 E；
    每个类型 ∈ {R, L, C}。
-4. 违反任何一条 → `ValueError`，消息指明第几行/哪个字段。
+4. 器件数约束（Try1 count.txt）：去注释/空行后恰 1 行；可解析为正整数
+   （≥ 1）。
+5. 违反任何一条 → `ValueError`，消息指明第几行/哪个字段。
 
 连通性与"死枝"检查不在加载器做（那是各引擎/减支的职责：Try2 枚举时
 过滤，Try3 `reduce_graph` 删除）。
 
 ## 4. 与输出格式的关系（跨语言要点）
 
+- Try1 的器件数约束 = 一个整数（无图结构），直接映射 C++ 侧
+  `Config::exactN`（`std::optional<int>`，缺省空 = 自由搜索）；
 - Try2 的元件输入 = 输出 `Edge` 的文本形式去掉节点坐标；
 - Try3 的拓扑输入 = 输出邻接矩阵的文本形式，其中每槽 `vector<Edge>`
   退化为"边数"，边参数退化为队列中的类型字母；
-- 测量文件与拓扑/元件文件完全解耦，可任意组合重跑；
+- 测量文件与拓扑/元件/约束文件完全解耦，可任意组合重跑；
 - C++ 侧对应：`struct Edge`（见 OUTPUT_FORMAT.md §1）+
   `vector<vector<int>> mult`（上三角边数）+ `vector<EdgeType> queue` +
-  `vector<tuple<double, double, double>> points`（f, Rz, Iz）。
+  `vector<tuple<double, double, double>> points`（f, Rz, Iz）+
+  `optional<int> exactN`（Try1 count.txt）。

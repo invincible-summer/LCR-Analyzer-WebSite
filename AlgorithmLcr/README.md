@@ -8,7 +8,7 @@
 
 | 子目录 | 课题 | 设定 | 状态 |
 |---|---|---|---|
-| [Try1-Completely unknown single port fitting](Try1-Completely unknown single port fitting/) | 完全未知单端口拟合 | 元件类型/数量/参数全未知，仅有 z(f) 测量点 → 双引擎（串并联规范树枚举 + SK 有理拟合/Foster 综合）+ AICc 选择 | P1 完成，56 测试全绿；附 C++ 版 `cppversion/` |
+| [Try1-Completely unknown single port fitting](Try1-Completely unknown single port fitting/) | 完全未知单端口拟合 | 元件类型/参数全未知，仅有 z(f) 测量点 → 双引擎（串并联规范树枚举 + SK 有理拟合/Foster 综合）+ AICc 选择；电感为 L+DCR 绑定器件（v2），可选「器件数恰为 n」约束（count.txt） | P1 完成；v2（实电感 + exact_n）重构中，测试更新 |
 | [Try2-Known component types, quantities and parameters](Try2-Known component types, quantities and parameters/) | 已知元件的拓扑枚举识别 | 元件多重集完全已知（电感含 DCR 双参数）→ 多重图无同构完备枚举 + 批量节点分析 + Try1 误差度量 | P1 完成，50 测试全绿 |
 
 ## 两个课题的关系
@@ -33,5 +33,5 @@ cd "Try2-Known component types, quantities and parameters" && conda run -n lcr p
 参考文献）；`explain.md`（Try1）为面向使用者的算法讲解。三个课题的搜索/拟合
 结果统一以「上三角邻接矩阵 + `vector<Edge>`」形式输出，约束见
 [OUTPUT_FORMAT.md](OUTPUT_FORMAT.md)；输入侧（统一测量数据 `n / f Rz Iz`，
-Try2 元件队列、Try3 拓扑矩阵+边类型队列）约束见
-[INPUT_FORMAT.md](INPUT_FORMAT.md)。
+Try1 可选器件数约束 `count.txt`、Try2 元件队列、Try3 拓扑矩阵+边类型队列）
+约束见 [INPUT_FORMAT.md](INPUT_FORMAT.md)。

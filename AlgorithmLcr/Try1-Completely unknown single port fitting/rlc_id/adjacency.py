@@ -5,8 +5,9 @@ upper-triangle adjacency matrix: ``rows[i][j]`` (i < j) is the vector of all
 edges directly connecting nodes i and j.  Nodes 0 and 1 are the one-port
 terminals; internal chain nodes are numbered from 2 in emitter order.
 
-Edge follows the root spec: (type, parameter, dcr).  Try1 inductors are
-ideal (no series resistance), so dcr is always 0.0 here.
+Edge follows the root spec: (type, parameter, dcr).  An L device consumes
+two theta entries [log10 L, log10 Rd] and emits its fitted DC resistance;
+R and C edges always carry dcr = 0.
 """
 
 from __future__ import annotations
@@ -15,7 +16,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from .circuits import SER, Leaf, Tree, n_leaves
+from .circuits import SER, Leaf, Tree, n_params
 from .fit_engine_a import Candidate
 
 
@@ -101,20 +102,26 @@ def tree_to_adjacency(tree: Tree, theta) -> Adjacency:
     visited in stored canonical order; each SER node chains its children from
     the port-0 side, allocating k-1 fresh internal nodes (counter from 2);
     PAR children share the same terminal pair, forming multi-edges.  Values
-    are consumed in ``leaves(tree)`` order, i.e. the theta convention.
+    are consumed in ``leaves(tree)`` order (the theta convention): an L
+    device takes two entries [L, Rd] and emits Edge("L", L, Rd).
     """
     values = np.power(10.0, np.asarray(theta, dtype=float))
-    if len(values) != n_leaves(tree):
+    if len(values) != n_params(tree):
         raise ValueError(f"theta has {len(values)} entries, "
-                         f"tree has {n_leaves(tree)} leaves")
+                         f"tree needs {n_params(tree)} parameters")
     adj = Adjacency(2 + _n_chain_nodes(tree))
     idx = [0]
     counter = [2]
 
     def emit(t: Tree, a: int, b: int) -> None:
         if isinstance(t, Leaf):
-            adj.add(a, b, Edge(t.kind, float(values[idx[0]])))
-            idx[0] += 1
+            if t.kind == "L":
+                adj.add(a, b, Edge("L", float(values[idx[0]]),
+                                   float(values[idx[0] + 1])))
+                idx[0] += 2
+            else:
+                adj.add(a, b, Edge(t.kind, float(values[idx[0]])))
+                idx[0] += 1
             return
         if t.kind == SER:
             chain = [a]

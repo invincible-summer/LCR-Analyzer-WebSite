@@ -27,7 +27,7 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
-from .circuits import SER, PAR, Leaf, Tree, assemble, evaluate
+from .circuits import (SER, PAR, DCR_MIN, Leaf, Tree, assemble, evaluate)
 from .fit_engine_a import Candidate, aicc, fit_metrics, rss_of, residual_vector
 
 # significance threshold for dropping numerically irrelevant model terms
@@ -512,31 +512,40 @@ def _foster_sections(model: RationalModel, s_data: np.ndarray,
     notes: list[str] = []
     sections: list[tuple[Tree, list[float]]] = []
 
-    if model.e != 0.0:
-        if model.e > 0:
+    e, d = model.e, model.d
+    if not admittance and e != 0.0 and d != 0.0 and e > 0.0 and d > 0.0:
+        # Z = d + e*s is ONE real inductor device: the constant term is the
+        # winding DC resistance (v2 R4 series absorption), not a separate
+        # series resistor
+        sections.append((Leaf("L"), [e, max(d, DCR_MIN)]))
+        e = 0.0
+        d = 0.0
+
+    if e != 0.0:
+        if e > 0:
             if admittance:  # e'*s in Y -> parallel C
-                sections.append((Leaf("C"), [model.e]))
-            else:           # e*s in Z -> series L
-                sections.append((Leaf("L"), [model.e]))
+                sections.append((Leaf("C"), [e]))
+            else:           # e*s in Z -> series L (ideal: DCR at floor)
+                sections.append((Leaf("L"), [e, DCR_MIN]))
         else:
             return None, [f"e={'admittance' if admittance else 'impedance'} "
-                          f"term negative ({model.e:.3g}), skipped (D8)"]
+                          f"term negative ({e:.3g}), skipped (D8)"]
     if model.k0 != 0.0:
         if model.k0 > 0:
-            if admittance:  # k0'/s in Y -> parallel L
-                sections.append((Leaf("L"), [1.0 / model.k0]))
+            if admittance:  # k0'/s in Y -> parallel L (ideal: DCR at floor)
+                sections.append((Leaf("L"), [1.0 / model.k0, DCR_MIN]))
             else:           # k0/s in Z -> series C
                 sections.append((Leaf("C"), [1.0 / model.k0]))
         else:
             return None, [f"k0 term negative ({model.k0:.3g}), skipped (D8)"]
-    if model.d != 0.0:
-        if model.d > 0:
+    if d != 0.0:
+        if d > 0:
             if admittance:  # d' in Y -> parallel R = 1/d'
-                sections.append((Leaf("R"), [1.0 / model.d]))
+                sections.append((Leaf("R"), [1.0 / d]))
             else:
-                sections.append((Leaf("R"), [model.d]))
+                sections.append((Leaf("R"), [d]))
         else:
-            return None, [f"d term negative ({model.d:.3g}), skipped (D8)"]
+            return None, [f"d term negative ({d:.3g}), skipped (D8)"]
 
     reals_with_r, pairs_with_r = _split_poles(model.poles, model.residues)
 
@@ -546,16 +555,15 @@ def _foster_sections(model: RationalModel, s_data: np.ndarray,
         if a <= 0:
             return None, [f"real pole at +|a| (a={a:.3g}), skipped (D8)"]
         if admittance:
-            # rho'/(s+a') in Y -> series R-L branch: L = 1/rho', R = a'/rho'
+            # rho'/(s+a') in Y -> series (L + Rd) branch: L = 1/rho',
+            # Rd = a'/rho'  (v2: ONE device, two parameters)
             if rho <= 0:
                 return None, [f"Y real-pole residue {rho:.3g} <= 0, skipped (D8)"]
             lv, rv = 1.0 / rho, a / rho
+            rv = max(rv, DCR_MIN)
             if rv < BRANCH_R_SHORT_REL * zmin:
-                notes.append("branch R below band floor, dropped (short)")
-                sections.append((Leaf("L"), [lv]))
-            else:
-                sections.append(assemble(SER, [(Leaf("R"), [rv]),
-                                               (Leaf("L"), [lv])]))
+                notes.append("branch DCR below band floor (negligible loss)")
+            sections.append((Leaf("L"), [lv, rv]))
         else:
             # rho/(s+a) in Z -> series R||C section: C = 1/rho, R = rho/a
             if rho <= 0:
@@ -570,50 +578,61 @@ def _foster_sections(model: RationalModel, s_data: np.ndarray,
             return None, [f"unstable pole pair (alpha={alpha:.3g}), skipped (D8)"]
         alpha = -alpha  # damping >= 0 after flipping
         rho_r, rho_i = float(rho.real), float(rho.imag)
-        c_const = rho_r * alpha - rho_i * beta
         om = float(np.hypot(alpha, beta))
         if rho_r <= 0:
             return None, [f"pair residue rho_r={rho_r:.3g} <= 0, skipped (D8)"]
-        # D8: a realizable Foster section needs c == 0 exactly; the final
-        # reconstruction check in foster_candidates() rejects the candidate
-        # when the c != 0 mismatch is significant (needs Bott-Duffin/bridge).
-        # D8: a realizable Foster section needs c == 0; significant mismatch
-        # means the pair needs Bott-Duffin / bridge synthesis.  The c value
-        # is compared against the noise-aware tolerance: c is treated as zero
-        # when it is within the estimated noise floor of zero.
+        # D8: two realizable section families exist for a conjugate pair:
+        #   (i)  lossless-tank family, c == 0:
+        #          Z side: R || L || C          (parallel R carries damping)
+        #          Y side: series (Rd + sL) + C (branch Rd carries damping)
+        #   (ii) lossy-tank family, c == 2*alpha*rho_r (Z side only):
+        #          (Rd + sL) || C -- the v2 signature of a REAL inductor in
+        #          the tank; two devices, closed form C = 1/(2 rho_r),
+        #          L = 2 rho_r/om^2, Rd = 4*alpha*rho_r/om^2.
+        # Anything else needs Bott-Duffin / bridge synthesis (skip).  Each
+        # family matches when the mismatch is within the noise-aware c_tol.
+        c_const = rho_r * alpha - rho_i * beta
+        c_lossy = 2.0 * alpha * rho_r
         c_tol = max(C_PAIR_TOL, 3.0 * sigma_hat) * abs(rho_r) * om
-        if abs(c_const) > c_tol:
-            return None, [f"complex pair with c={c_const:.3g} != 0 "
-                          "(needs Bott-Duffin/bridge), skipped (D8)"]
         if admittance:
-            # series R-L-C branch: L = 1/(2 rho_r'), C = 2 rho_r'/(a^2+b^2),
-            # R = alpha'/rho_r'
+            if abs(c_const) > c_tol:
+                return None, [f"Y complex pair c={c_const:.3g} != 0 "
+                              "(needs Bott-Duffin/bridge), skipped (D8)"]
+            # series (L + Rd) + C branch: L = 1/(2 rho_r'), C = 2 rho_r'/(a^2+b^2),
+            # Rd = alpha'/rho_r'  (v2: R folds into the L device's DCR)
             lv = 1.0 / (2.0 * rho_r)
             cv = 2.0 * rho_r / om**2
-            rv = alpha / rho_r
+            rv = max(alpha / rho_r, DCR_MIN)
             if rv < BRANCH_R_SHORT_REL * zmin:
-                notes.append("branch R below band floor, dropped (short)")
-                sections.append(assemble(SER, [(Leaf("L"), [lv]),
-                                               (Leaf("C"), [cv])]))
-            else:
-                sections.append(assemble(SER, [(Leaf("R"), [rv]),
-                                               (Leaf("L"), [lv]),
-                                               (Leaf("C"), [cv])]))
+                notes.append("branch DCR below band floor (negligible loss)")
+            sections.append(assemble(SER, [(Leaf("L"), [lv, rv]),
+                                           (Leaf("C"), [cv])]))
+            continue
+        # impedance side: pick whichever family c is closer to
+        cv = 1.0 / (2.0 * rho_r)
+        lv = 2.0 * rho_r / om**2
+        if abs(c_const - c_lossy) < abs(c_const) and \
+                abs(c_const - c_lossy) <= c_tol:
+            # family (ii): lossy parallel tank (Rd + sL) || C
+            rd = max(4.0 * alpha * rho_r / om**2, DCR_MIN)
+            sections.append(assemble(PAR, [(Leaf("L"), [lv, rd]),
+                                           (Leaf("C"), [cv])]))
+            continue
+        if abs(c_const) > c_tol:
+            return None, [f"Z complex pair c={c_const:.3g} not realizable "
+                          "(needs Bott-Duffin/bridge), skipped (D8)"]
+        # family (i): parallel R||L||C tank, C = 1/(2 rho_r), L = 2 rho_r/(a^2+b^2),
+        # R = rho_r/alpha  (L branch is ideal: DCR at floor)
+        rv = np.inf if alpha == 0 else rho_r / alpha
+        if rv > TANK_R_OPEN_REL * zmax:
+            notes.append("tank parallel R above band ceiling, dropped "
+                         "(lossless section)")
+            sections.append(assemble(PAR, [(Leaf("L"), [lv, DCR_MIN]),
+                                           (Leaf("C"), [cv])]))
         else:
-            # parallel R||L||C tank: C = 1/(2 rho_r), L = 2 rho_r/(a^2+b^2),
-            # R = rho_r/alpha
-            cv = 1.0 / (2.0 * rho_r)
-            lv = 2.0 * rho_r / om**2
-            rv = np.inf if alpha == 0 else rho_r / alpha
-            if rv > TANK_R_OPEN_REL * zmax:
-                notes.append("tank parallel R above band ceiling, dropped "
-                             "(lossless section)")
-                sections.append(assemble(PAR, [(Leaf("L"), [lv]),
-                                               (Leaf("C"), [cv])]))
-            else:
-                sections.append(assemble(PAR, [(Leaf("R"), [rv]),
-                                               (Leaf("L"), [lv]),
-                                               (Leaf("C"), [cv])]))
+            sections.append(assemble(PAR, [(Leaf("R"), [rv]),
+                                           (Leaf("L"), [lv, DCR_MIN]),
+                                           (Leaf("C"), [cv])]))
     return sections, notes
 
 

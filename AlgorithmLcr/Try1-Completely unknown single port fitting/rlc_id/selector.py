@@ -19,7 +19,7 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
-from .circuits import evaluate_f, leaf_kinds
+from .circuits import evaluate_f, param_kinds
 from .fit_engine_a import Candidate
 
 EQUIV_BAND_EXPAND = 10.0
@@ -73,12 +73,13 @@ def are_equivalent(c1: Candidate, c2: Candidate, f_grid: np.ndarray,
 
 
 def secondary_sort_key(cand: Candidate) -> tuple[int, float]:
-    """Secondary criterion: fewer elements first, then parameter plausibility."""
+    """Secondary criterion: fewer parameters first, then parameter plausibility."""
     # center deviation penalty: sum of (log10(v) - mid)^2
-    # Typical nominal centers: R=1k (3.0), L=1mH (-3.0), C=10nF (-8.0)
-    center_map = {"R": 3.0, "L": -3.0, "C": -8.0}
+    # Typical nominal centers: R=1k (3.0), L=1mH (-3.0), Rd=1ohm (0.0),
+    # C=10nF (-8.0); iterated over PARAMETER kinds (two per L device).
+    center_map = {"R": 3.0, "L": -3.0, "Rd": 0.0, "C": -8.0}
     penalty = sum((cand.theta[i] - center_map.get(k, 0.0)) ** 2
-                  for i, k in enumerate(leaf_kinds(cand.tree)))
+                  for i, k in enumerate(param_kinds(cand.tree)))
     return (cand.n_params, penalty)
 
 

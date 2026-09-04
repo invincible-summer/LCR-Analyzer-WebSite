@@ -1,9 +1,13 @@
-"""Unified measurement input (../../INPUT_FORMAT.md section 1).
+"""Unified measurement input (../../INPUT_FORMAT.md section 1) plus the
+Try1 optional device-count constraint (section 2.1, count.txt).
 
 Text form: first line n, then exactly n lines ``f Rz Iz`` (frequency [Hz],
 Re(Z) [ohm], Im(Z) [ohm]).  ``#`` starts a comment (whole line or trailing),
 blank lines are ignored, fields are whitespace separated.  Dump uses %.17g
 so load(dump(x)) == x bit-for-bit.
+
+count.txt (optional): a single positive integer -- the exact device count
+of the circuit (an L with its series DCR counts as one device).
 """
 
 from __future__ import annotations
@@ -77,3 +81,37 @@ def load_measurements(path) -> tuple[np.ndarray, np.ndarray]:
     """Read the unified measurement file from disk."""
     with open(path, "r", encoding="utf-8") as fh:
         return parse_measurements(fh.read())
+
+
+# ---------------------------------------------------------------------------
+# optional device-count constraint (../../INPUT_FORMAT.md section 2.1)
+# ---------------------------------------------------------------------------
+
+def format_count(n: int) -> str:
+    """Serialize the exact device count to the count.txt text form."""
+    n = int(n)
+    if n < 1:
+        raise ValueError(f"device count must be a positive integer, got {n}")
+    return f"{n}\n"
+
+
+def parse_count(text: str) -> int:
+    """Parse count.txt: a single content line holding one positive integer
+    (the circuit's exact device count; an L + series DCR pair is ONE
+    device).  Validation per INPUT_FORMAT.md section 3."""
+    rows = _content_lines(text)
+    if len(rows) != 1:
+        raise ValueError(f"count input must be exactly 1 line, got {len(rows)}")
+    try:
+        n = int(rows[0])
+    except ValueError:
+        raise ValueError(f"count line must be an integer, got {rows[0]!r}") from None
+    if n < 1:
+        raise ValueError(f"device count must be a positive integer, got {n}")
+    return n
+
+
+def load_count(path) -> int:
+    """Read the optional device-count constraint file from disk."""
+    with open(path, "r", encoding="utf-8") as fh:
+        return parse_count(fh.read())

@@ -19,7 +19,8 @@ from dataclasses import dataclass, field
 import numpy as np
 
 from . import fit_engine_a, fit_engine_b, library, pruning, selector, synthetic
-from .circuits import KIND_BOUNDS, Leaf, Node, Tree, canonical, evaluate, to_string
+from .circuits import (KIND_BOUNDS, Leaf, Node, Tree, canonical, evaluate,
+                       n_leaves, to_string)
 from .fit_engine_a import Candidate, EngineAConfig, default_weights
 from .fit_engine_b import RationalModel
 from .pruning import AsymptoticFeatures
@@ -41,10 +42,18 @@ class Config:
 
     max_n:      engine-A library size limit (DESIGN.md A1 default is 4;
                 DUT8-class problems need 5).
+    exact_n:    optional prior "the circuit has exactly n devices" (an L
+                with its series DCR counts as ONE device).  When given, the
+                search is restricted to the single n-device topology layer
+                (max_n is ignored) and engine-B candidates with a different
+                device count are excluded from ranking.  None = free search
+                over 1..max_n devices.  Mirrors the optional count.txt
+                input (../../INPUT_FORMAT.md section 2.1).
     max_order:  engine-B rational order scan limit (pole pairs need 2 each).
     """
 
     max_n: int = 4
+    exact_n: int | None = None
     max_order: int = 4
     sk_iters: int = 15
     enable_f2: bool = True
@@ -54,6 +63,10 @@ class Config:
     refine_fraction: float = 0.2
     max_idepth: int = library.DEFAULT_MAX_IDEPTH
     seed: int = 0
+
+    def __post_init__(self):
+        if self.exact_n is not None and self.exact_n < 1:
+            raise ValueError(f"exact_n must be a positive integer, got {self.exact_n}")
 
     def engine_a_config(self) -> EngineAConfig:
         return EngineAConfig(n_starts_coarse=self.n_starts_coarse,
@@ -109,8 +122,12 @@ def identify(f, z, weights=None, config: Config | None = None) -> IdentifyResult
     foster, z_model, y_model = fit_engine_b.foster_candidates(
         w, z, wts, max_order=cfg.max_order, n_iters=cfg.sk_iters)
 
-    # 2. prune library (F2 asymptotics + F3 conservative energy bound)
-    lib = list(library.get_library(cfg.max_n, cfg.max_idepth))
+    # 2. prune library (F2 asymptotics + F3 conservative energy bound).
+    #    With the exact_n prior the library is the single n-device layer.
+    if cfg.exact_n is not None:
+        lib = list(library.trees_of_size(cfg.exact_n, cfg.max_idepth))
+    else:
+        lib = list(library.get_library(cfg.max_n, cfg.max_idepth))
     min_energy = fit_engine_b.conservative_energy_bound(z_model, s)
     kept = pruning.prune(lib, features, min_energy,
                          enable_f2=cfg.enable_f2, enable_f3=cfg.enable_f3)
@@ -125,8 +142,13 @@ def identify(f, z, weights=None, config: Config | None = None) -> IdentifyResult
                                       hints=hints, extra_starts=extra_starts)
 
     # 4. selector: merge engines, cluster equivalents, noise-consistent
-    #    parsimony ranking (D6 + discrepancy principle)
-    pool = fits_a + [c for c in foster if not c.skipped]
+    #    parsimony ranking (D6 + discrepancy principle).  The exact_n prior
+    #    drops engine-B candidates whose device count differs.
+    foster_pool = [c for c in foster if not c.skipped]
+    if cfg.exact_n is not None:
+        foster_pool = [c for c in foster_pool
+                       if n_leaves(c.tree) == cfg.exact_n]
+    pool = fits_a + foster_pool
     classes = selector.rank_and_cluster_equivalent(pool, f, n_obs=2 * len(z))
 
     return IdentifyResult(classes=classes, features=features,

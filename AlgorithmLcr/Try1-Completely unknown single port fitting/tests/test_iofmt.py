@@ -1,9 +1,11 @@
-"""Tests for iofmt.py: unified measurement input (../../INPUT_FORMAT.md)."""
+"""Tests for iofmt.py: unified measurement input + count.txt
+(../../INPUT_FORMAT.md sections 1 and 2.1)."""
 
 import numpy as np
 import pytest
 
-from rlc_id.iofmt import format_measurements, parse_measurements
+from rlc_id.iofmt import (format_count, format_measurements, parse_count,
+                          parse_measurements)
 
 SPEC_EXAMPLE = """\
 # measurements.txt
@@ -49,3 +51,33 @@ class TestMeasurements:
     def test_dump_validates_too(self):
         with pytest.raises(ValueError):
             format_measurements([-1.0], [1.0 + 2.0j])
+
+
+class TestCountConstraint:
+    """count.txt: optional exact device-count prior (INPUT_FORMAT.md sec 2.1)."""
+
+    def test_spec_example(self):
+        assert parse_count("# count.txt\n3\n") == 3
+
+    def test_round_trip(self):
+        assert format_count(5) == "5\n"
+        assert parse_count(format_count(5)) == 5
+
+    def test_comments_and_blank_lines_ignored(self):
+        assert parse_count("\n# prior: two devices\n2\n") == 2
+
+    @pytest.mark.parametrize("text,why", [
+        ("", "empty input"),
+        ("3\n4\n", "more than one line"),
+        ("three\n", "not an integer"),
+        ("0\n", "must be positive"),
+        ("-2\n", "must be positive"),
+        ("2.5\n", "not an integer"),
+    ])
+    def test_validation_errors(self, text, why):
+        with pytest.raises(ValueError):
+            parse_count(text)
+
+    def test_dump_validates_too(self):
+        with pytest.raises(ValueError):
+            format_count(0)

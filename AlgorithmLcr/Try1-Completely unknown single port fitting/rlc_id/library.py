@@ -1,20 +1,21 @@
 """Canonical series-parallel topology enumerator (DESIGN.md section 4.2).
 
 Recursive generation following appendix B.1: split the leaf budget into
-integer partitions, recurse with alternating node kinds (R1), enforce at most
-one leaf per kind per node (R2) and store children in canonical order (R3),
-so deduplication reduces to a canonical-string lookup.
+integer partitions, recurse with alternating node kinds (R1), enforce the
+per-node leaf admissibility rules (R2' + R4, see ``_children_ok``) and store
+children in canonical order (R3), so deduplication reduces to a
+canonical-string lookup.
 
 Depth limit (deviation note): the generator defaults to ``max_idepth=2``,
-i.e. non-root internal nodes have leaf-only children.  This reproduces the
-locked counts 3/6/20/36 for n=1..4 and covers every DUT of the section 8.2
-suite (all Foster I/II outputs also have internal depth <= 2).  A full-depth
-R1-R3 enumeration would give 90 trees at n=4; the difference are trees like
-S(R, P(R, S(R, C))) which are excluded here.  Pass ``max_idepth>=3`` to
-``library``/``get_library`` to enumerate deeper trees.
+i.e. non-root internal nodes have leaf-only children.  Pass
+``max_idepth>=3`` to ``library``/``get_library`` to enumerate deeper trees.
 
 Measured counts at the default depth (locked by tests):
-  n = 1..6  ->  3, 6, 20, 36, 54, 78
+  n = 1..6  ->  3, 6, 22, 45, 87, 162   (depth 3 at n=4: 99)
+(v2 model: parallel (L + Rd) tanks are distinct devices, so PAR nodes may
+hold several L leaves; series R + L collapses to one L device via R4.)
+Compare v1 (ideal L): 3, 6, 20, 36, 54, 78 -- the delta are the new
+parallel-multi-L topologies, minus the absorbed series R+L forms.
 """
 
 from __future__ import annotations
@@ -28,11 +29,25 @@ DEFAULT_MAX_IDEPTH = 2
 _LEAVES = (Leaf("R"), Leaf("L"), Leaf("C"))
 
 
-def _leaf_combos(k: int) -> list[tuple[Leaf, ...]]:
-    """All k-element subsets of distinct-kind leaves (R2)."""
-    from itertools import combinations
+def _children_ok(kind: str, children: list[Tree]) -> bool:
+    """Leaf admissibility among the direct children of a ``kind`` node.
 
-    return list(combinations(_LEAVES, k))
+    R2': at most one leaf of each kind -- except that a PAR node may hold
+         several L leaves (two parallel (L + Rd) devices are a second-order
+         tank, not mergeable; series L leaves DO merge, so SER keeps at
+         most one L leaf).
+    R4:  a SER node never holds both an R leaf and an L leaf (the series R
+         folds into the inductor's DC resistance -- one device).
+    """
+    leaf_kinds = [c.kind for c in children if isinstance(c, Leaf)]
+    if kind == PAR:
+        non_l = [k for k in leaf_kinds if k != "L"]
+        return len(non_l) == len(set(non_l))
+    # SER: all leaf kinds unique ...
+    if len(leaf_kinds) != len(set(leaf_kinds)):
+        return False
+    # ... and R must not coexist with L (R4 series absorption)
+    return not ("R" in leaf_kinds and "L" in leaf_kinds)
 
 
 @lru_cache(maxsize=None)
@@ -61,7 +76,7 @@ def _rooted_trees(n: int, kind: str, max_idepth: int) -> list[Tree]:
 
     def dfs(remaining: int, chosen: list[Tree]) -> None:
         if remaining == 0:
-            if len(chosen) >= 2 and _r2_ok(chosen):
+            if len(chosen) >= 2 and _children_ok(kind, chosen):
                 results.append(make_node(kind, chosen))
             return
         # candidate next child: canonical order >= previous (multiset order)
@@ -86,15 +101,9 @@ def _rooted_trees(n: int, kind: str, max_idepth: int) -> list[Tree]:
     return uniq
 
 
-def _r2_ok(children: list[Tree]) -> bool:
-    """R2: at most one leaf of each kind among the direct children."""
-    kinds = [c.kind for c in children if isinstance(c, Leaf)]
-    return len(kinds) == len(set(kinds))
-
-
 @lru_cache(maxsize=None)
 def _trees_of_size(n: int, max_idepth: int) -> tuple[Tree, ...]:
-    """All canonical topologies with exactly n elements."""
+    """All canonical topologies with exactly n devices."""
     if n == 1:
         return _LEAVES
     out: list[Tree] = []
@@ -103,9 +112,17 @@ def _trees_of_size(n: int, max_idepth: int) -> tuple[Tree, ...]:
     return tuple(sorted(out, key=canonical))
 
 
+def trees_of_size(n: int, max_idepth: int = DEFAULT_MAX_IDEPTH) -> tuple[Tree, ...]:
+    """Public single-layer view: all canonical topologies with exactly ``n``
+    devices (the layer used by the optional exact-count constraint)."""
+    if n < 1:
+        raise ValueError(f"device count must be a positive integer, got {n}")
+    return _trees_of_size(n, max_idepth)
+
+
 @lru_cache(maxsize=None)
 def get_library(max_n: int = 4, max_idepth: int = DEFAULT_MAX_IDEPTH) -> tuple[Tree, ...]:
-    """All canonical topologies with 1..max_n elements (cached)."""
+    """All canonical topologies with 1..max_n devices (cached)."""
     out: list[Tree] = []
     for n in range(1, max_n + 1):
         out.extend(_trees_of_size(n, max_idepth))
@@ -113,7 +130,7 @@ def get_library(max_n: int = 4, max_idepth: int = DEFAULT_MAX_IDEPTH) -> tuple[T
 
 
 def counts(max_n: int = 6, max_idepth: int = DEFAULT_MAX_IDEPTH) -> dict[int, int]:
-    """Number of canonical topologies for each element count 1..max_n."""
+    """Number of canonical topologies for each device count 1..max_n."""
     return {n: len(_trees_of_size(n, max_idepth)) for n in range(1, max_n + 1)}
 
 
@@ -134,4 +151,5 @@ def stats(max_n: int = 6, max_idepth: int = DEFAULT_MAX_IDEPTH) -> str:
     return text
 
 
-__all__ = ["get_library", "counts", "stats", "DEFAULT_MAX_IDEPTH", "n_leaves"]
+__all__ = ["get_library", "trees_of_size", "counts", "stats",
+           "DEFAULT_MAX_IDEPTH", "n_leaves"]

@@ -71,7 +71,7 @@ adjacency[1] V=4 (ports 0,1):
 
 | | 源结构 | 映射 | 边值来源 | dcr |
 |---|---|---|---|---|
-| Try1 | `Candidate.tree`（SER/PAR 规范树）+ `theta` | §5.1 树→图展开 | `10**theta`（规范叶序） | 恒 0（理想 L） |
+| Try1 | `Candidate.tree`（SER/PAR 规范树）+ `theta` | §5.1 树→图展开 | `10**theta`（规范参数序） | L 器件第 2 个参数（拟合 DCR） |
 | Try2 | `Network(structure, assign)` + `ComponentSet` | §5.2 槽位展开 | `Component.value` | `Component.dcr` |
 | Try3 | `FitResult.groups`（`GroupReport`） | §5.3 群放置 | 聚合物理值元组 | L 群 `value[2]` |
 
@@ -79,14 +79,20 @@ adjacency[1] V=4 (ports 0,1):
 
 递归 emitter，从端子对 (0, 1) 出发，内部节点计数器从 2 起：
 
-- `Leaf` 在当前端子对 (a, b) 放一条 `Edge(kind, value, 0)`；
+- `Leaf("R")`/`Leaf("C")` 在当前端子对 (a, b) 放一条 `Edge(kind, v, 0)`，
+  消耗 `theta` 的 1 个参数；
+- `Leaf("L")` 是**实电感器件**（L 与串联 DCR 绑定，一个器件两个参数），
+  消耗 `theta` 的 2 个参数 [log10 L, log10 Rd]，放出
+  `Edge("L", L, Rd)`；
 - `SER(c1..ck)` 在 (a, b) 间新分配 k−1 个内部节点，沿链**从端口 0 侧起**
   依次连接：`emit(c1, a, n1), emit(c2, n1, n2), …, emit(ck, n_{k-1}, b)`；
 - `PAR(c1..ck)` 的每个子树在同一 (a, b) 上递归 ⟹ 重边落进同一 vector。
 
 确定性：子女按树内规范序（`make_node` 已按 canonical 串排序）遍历，节点编号
 按 emitter 分配序；同一棵规范树永远得到逐位相同的矩阵（C++ 移植锁定此规则）。
-Try1 的规范规则 R2（同节点同型叶合并）保证同槽重边必然异型。
+规范规则（v2）：R2' 保证同槽同型 R/C 重边已合并，但**同槽多条 L 边合法**
+（两个 (L+DCR) 并联是二阶系统，不可合并为单电感）；R4 保证 SER 节点不会
+同时含 R 叶与 L 叶（串联 R 折入 L 的 DCR，算一个器件）。
 
 ### 5.2 Try2：多重图槽位展开
 

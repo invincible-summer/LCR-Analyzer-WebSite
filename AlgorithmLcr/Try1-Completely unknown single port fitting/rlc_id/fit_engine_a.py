@@ -20,7 +20,8 @@ import numpy as np
 from scipy.optimize import least_squares
 from scipy.stats import qmc
 
-from .circuits import KIND_BOUNDS, Tree, bounds, canonical, evaluate, evaluate_jac, leaf_kinds, n_leaves
+from .circuits import (KIND_BOUNDS, DCR_BOUNDS, Tree, bounds, canonical,
+                       evaluate, evaluate_jac, param_kinds, n_params)
 
 COMPLEX_STEP_H = 1e-20
 
@@ -134,39 +135,44 @@ def heuristic_starts(tree: Tree, hints: StartHints | None) -> list[np.ndarray]:
     """Asymptotic heuristic starts for this topology (section 5.4).
 
     start 0: plain asymptotic magnitudes (R from the flat level, L from the
-             high-frequency slope, C from the low-frequency slope);
+             high-frequency slope, C from the low-frequency slope; the DCR
+             parameter of an L device starts at the geometric middle of its
+             search box -- no data-driven estimate is robust enough);
     start 1: resonance-informed (only when the data show an interior |Z|
              extremum and the topology contains both L and C): L*C = 1/w0^2.
     """
-    kinds = leaf_kinds(tree)
+    pks = param_kinds(tree)
     lb, ub = bounds(tree)
     mid = 0.5 * (lb + ub)
+    rd_mid = 0.5 * (DCR_BOUNDS[0] + DCR_BOUNDS[1])
 
-    def base_estimate(kind: str, i: int) -> float:
+    def base_estimate(pk: str, i: int) -> float:
         if hints is None:
-            return mid[i]
-        if kind == "R":
+            return rd_mid if pk == "Rd" else mid[i]
+        if pk == "R":
             return np.log10(_clip_kind("R", hints.r_level))
-        if kind == "L":
+        if pk == "L":
             return np.log10(_clip_kind("L", hints.l_est))
+        if pk == "Rd":
+            return rd_mid
         return np.log10(_clip_kind("C", hints.c_est))
 
-    starts = [np.array([base_estimate(k, i) for i, k in enumerate(kinds)])]
+    starts = [np.array([base_estimate(pk, i) for i, pk in enumerate(pks)])]
 
-    if hints is not None and hints.w_res is not None and "L" in kinds and "C" in kinds:
+    if hints is not None and hints.w_res is not None and "L" in pks and "C" in pks:
         th = starts[0].copy()
         l_first = np.log10(_clip_kind("L", hints.l_est))
-        for i, k in enumerate(kinds):
-            if k == "L":
+        for i, pk in enumerate(pks):
+            if pk == "L":
                 th[i] = l_first
-        for i, k in enumerate(kinds):
-            if k == "C":
+        for i, pk in enumerate(pks):
+            if pk == "C":
                 lc = 1.0 / hints.w_res**2
                 th[i] = np.log10(_clip_kind("C", lc / 10.0**l_first))
         # parallel resonance: R is at the peak of |Z|, not the band median
         if hints.r_peak is not None:
-            for i, k in enumerate(kinds):
-                if k == "R":
+            for i, pk in enumerate(pks):
+                if pk == "R":
                     th[i] = np.log10(_clip_kind("R", hints.r_peak))
         starts.append(np.clip(th, lb, ub))
     return [np.clip(st, lb, ub) for st in starts]
