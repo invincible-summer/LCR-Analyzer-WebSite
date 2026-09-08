@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(lcr_v4 VERSION 4.0.0 LANGUAGES CXX)
+project(lcr_v4 VERSION 4.1.0 LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 if(NOT CMAKE_BUILD_TYPE)
@@ -31,6 +31,6 @@ if(EMSCRIPTEN)
     --no-entry -fexceptions
     "-sMODULARIZE=1" "-sEXPORT_ES6=1" "-sENVIRONMENT=web,worker,node"
     "-sALLOW_MEMORY_GROWTH=1" "-sSTACK_SIZE=2097152"
-    "-sEXPORTED_FUNCTIONS=['_malloc','_free','_lcr_free','_lcr_version','_lcr_configure','_lcr_try1','_lcr_try2','_lcr_try3']"
+    "-sEXPORTED_FUNCTIONS=['_malloc','_free','_lcr_free','_lcr_version','_lcr_configure','_lcr_configure_search','_lcr_configure_bounds','_lcr_set_covariance','_lcr_try1','_lcr_try2','_lcr_try3']"
     "-sEXPORTED_RUNTIME_METHODS=['UTF8ToString','HEAPF64','HEAP32']")
 endif()

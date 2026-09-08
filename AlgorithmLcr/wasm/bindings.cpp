@@ -49,7 +49,12 @@ std::string output(const lcr::SearchResult &r, const lcr::Data &d,
 } // namespace
 extern "C" {
 void lcr_free(char *p) { std::free(p); }
-const char *lcr_version() { return "lcr.native.v4 / wasm 4.0.0"; }
+const char *lcr_version() {
+  return "lcr.native.v4 revision 2 / wasm 4.1.0";
+}
+// Reset + common options. Extended settings go through the dedicated
+// setters below; nothing in the binding layer silently rewrites other
+// configuration fields (maxDepth in particular follows maxN nowhere).
 void lcr_configure(int fast, int budget, double seconds, double tolerance,
                    double dcr, int robust) {
   config = lcr::Config{};
@@ -60,13 +65,52 @@ void lcr_configure(int fast, int budget, double seconds, double tolerance,
   config.dcrAbsoluteTolerance = dcr;
   config.robust = robust != 0;
 }
+void lcr_configure_search(int fast, int budget, double seconds, int starts,
+                          int iterations, unsigned seed,
+                          double equivalenceTolerance) {
+  config.mode = fast ? lcr::Config::Fast : lcr::Config::Strict;
+  config.candidateBudget = budget > 0 ? budget : 0;
+  config.seconds = seconds;
+  config.starts = starts;
+  config.iterations = iterations;
+  config.seed = seed;
+  config.equivalenceTolerance = equivalenceTolerance;
+}
+void lcr_configure_bounds(double rMin, double rMax, double lMin, double lMax,
+                          double cMin, double cMax, double dcrMax,
+                          double relativeFloor) {
+  config.rMin = rMin;
+  config.rMax = rMax;
+  config.lMin = lMin;
+  config.lMax = lMax;
+  config.cMin = cMin;
+  config.cMax = cMax;
+  config.dcrMax = dcrMax;
+  config.relativeFloor = relativeFloor;
+}
+// All-or-nothing per-point Cartesian covariance; null clears it back to the
+// relative fallback. SPD is authoritatively validated with the data.
+void lcr_set_covariance(const double *rr, const double *ri, const double *ii,
+                        int n) {
+  if (!rr || !ri || !ii || n <= 0) {
+    config.covariance.clear();
+    return;
+  }
+  config.covariance.assign(n, Eigen::Matrix2d{});
+  for (int i = 0; i < n; ++i) {
+    Eigen::Matrix2d m;
+    m << rr[i], ri[i], ri[i], ii[i];
+    config.covariance[i] = m;
+  }
+}
 char *lcr_try1(const double *f, const double *re, const double *im, int n,
-               int exactN, int maxN, int topK) {
+               int exactN, int maxN, int maxDepth, int topK) {
   return guard([&] {
     auto d = data(f, re, im, n);
     auto c = config;
     c.topK = topK;
-    if (exactN < 0 || exactN > 12 || maxN < 0 || maxN > 12)
+    if (exactN < 0 || exactN > 12 || maxN < 0 || maxN > 12 ||
+        maxDepth < 0 || maxDepth > 12)
       throw std::invalid_argument("device count must be 1..12");
     if (exactN)
       c.exactN = exactN;
@@ -74,7 +118,8 @@ char *lcr_try1(const double *f, const double *re, const double *im, int n,
       c.maxN = maxN;
     else if (exactN)
       c.maxN = exactN;
-    c.maxDepth = c.maxN;
+    if (maxDepth)
+      c.maxDepth = maxDepth;
     return output(lcr::try1(d, c), d, c);
   });
 }
