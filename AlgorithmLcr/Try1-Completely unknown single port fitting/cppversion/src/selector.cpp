@@ -199,9 +199,16 @@ std::vector<EquivalenceClass> rankAndClusterEquivalent(std::vector<Candidate> ca
     bool hasChampion = championIdx >= 0;
 
     // ---- ordering: champion, adequate-set members by (nParams, aicc), rest by aicc
-    double adequateThreshold =
-        sysRegime ? std::max(kNoiseMult * sigmaRelData, kRelMult * wrmseBest)
-                  : std::numeric_limits<double>::infinity();
+    // R11: the adequacy band bounds the ordering prefix in BOTH regimes.  The
+    // pre-R11 code left it infinite in the noise regime, which ranked EVERY
+    // candidate by parameter count — putting 1-device underfit models
+    // (wRMSE 20-100x the champion) at ranks 2-4 on the real datasets.  A
+    // candidate is "adequate" iff it is statistically indistinguishable from
+    // the champion at the noise level (<= max(kNoiseMult*sigma,
+    // kRelMult*wrmseBest)); anything worse falls to the AICc tail where it
+    // belongs.  Champion selection is untouched.
+    double adequateThreshold = std::max(kNoiseMult * sigmaRelData,
+                                        kRelMult * wrmseBest);
     std::vector<int> adequate, rest;
     for (int i = 0; i < (int)valid.size(); ++i) {
         if (hasChampion && i == championIdx) continue;
@@ -260,6 +267,20 @@ std::vector<EquivalenceClass> rankAndClusterEquivalent(std::vector<Candidate> ca
                          [](const Candidate& a, const Candidate& b) {
                              return secondarySortKey(a) < secondarySortKey(b);
                          });
+        // R11 (Occam representative): every member of a class is behaviorally
+        // indistinguishable from the others within effTol, so the class is
+        // FACELESS — the parsimonious face is the fewest-parameter member
+        // (ties by the secondary center-deviation key).  Before R11 the face
+        // was whichever candidate happened to arrive first (usually the
+        // champion, which extra mimic parameters can win), so a user holding
+        // a 2-device circuit saw a 3-device equivalent at rank 1 while the
+        // truth hid inside the class member list the UI never shows.
+        // (R12 tried gating the swap by a class-level adequacy band; it
+        // blocked good swaps whenever smooth systematics pushed the honest
+        // model's wRMSE beyond 2x the mimic's — realfam 83% -> 81% — and was
+        // reverted.  Any face of a behaviorally-indistinguishable class is
+        // defensible; the fewest-parameter one is the most defensible.)
+        eq.representative = eq.members.front();
     }
     return classes;
 }

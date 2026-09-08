@@ -91,76 +91,93 @@ bool robustRefitCandidate(Candidate& c, const std::vector<Complex>& s,
                           const std::vector<double>& w) {
     const size_t m = z.size();
     if (m < 8) return false;
-    // model at the current parameters
-    std::vector<Complex> zfit(m);
-    evalTheta(c.tree, c.theta, s.data(), m, zfit.data());
-    std::vector<double> magRe(m), magIm(m), mag(m);
-    for (size_t k = 0; k < m; ++k) {
-        Complex rr = (z[k] - zfit[k]) / z[k];
-        magRe[k] = std::fabs(rr.real());
-        magIm[k] = std::fabs(rr.imag());
-        mag[k] = std::abs(rr);
-    }
-    auto medOf = [](std::vector<double> v) {
-        std::sort(v.begin(), v.end());
-        return v[v.size() / 2];
-    };
-    double sigAxis = std::max(1.4826 * std::max(medOf(magRe), medOf(magIm)), 1e-9);
     const double kCut = 5.0, kIn = 2.5;
-    std::vector<double> wR = w;
-    bool anyOut = false;
-    int nInlier = 0, nOut = 0;
-    for (size_t k = 0; k < m; ++k) {
-        double r = mag[k] / sigAxis;
-        if (r > kCut) {
-            double f = kCut / r;
-            wR[k] *= f * f;
-            anyOut = true;
-            ++nOut;
-        } else if (r < kIn) {
-            ++nInlier;
-        }
-    }
-    if (!anyOut || nOut > (int)m / 3 || nInlier * 2 < (int)m) return false;
-
-    // acceptance is judged on the ROBUST objective: the honest (inlier)
-    // parameters necessarily have a HIGHER plain-weighted rss than the bent
-    // least-squares solution, because the plain optimum minimises exactly
-    // that.  Comparing plain rss would always reject the rescue.
-    auto robustRss = [&](const std::vector<double>& theta) {
-        std::vector<Complex> zf(m);
-        evalTheta(c.tree, theta, s.data(), m, zf.data());
-        double r = 0.0;
-        for (size_t k = 0; k < m; ++k) {
-            Complex e = wR[k] * (z[k] - zf[k]);
-            r += e.real() * e.real() + e.imag() * e.imag();
-        }
-        return r;
-    };
-    double rssInc = robustRss(c.theta);
 
     std::vector<double> lb, ub;
     thetaBounds(c.tree, lb, ub);
     LMOpts opts;
     opts.maxNfev = 3000;
     opts.ftol = opts.xtol = opts.gtol = 1e-12;
-    auto residual = [&](const std::vector<double>& th, std::vector<double>& out) {
-        out = residualVector(c.tree, th, s, z, wR);
-    };
-    auto jac = [&](const std::vector<double>& th, std::vector<double>& out) {
-        out = jacobianCs(c.tree, th, s, wR);
-    };
-    LMOut res = lmFit(residual, jac, c.theta, lb, ub, opts);
-    double rssR = rssOf(res.residual);
-    if (!std::isfinite(rssR) || rssR >= rssInc) return false;
+    std::vector<double> thetaCur = c.theta;  // working point of the IRLS
+    bool changed = false;
+
+    // R14: iterate the reweight-refit cycle toward its fixed point (max 2
+    // passes).  A single pass starts from the outlier-bent least-squares
+    // solution, so the reweighted fit still carries part of the bend — the
+    // weights were computed AT the bent parameters.  Huber-style IRLS
+    // converges to the robust fixed point; two warm-started LM passes
+    // capture nearly all of the gain at negligible cost.  The guards
+    // (degenerate-outlier rejection, inlier majority) are re-checked at the
+    // new solution each pass; a converged solution with no outliers left
+    // simply stops the loop.
+    for (int pass = 0; pass < 2; ++pass) {
+        std::vector<Complex> zfit(m);
+        evalTheta(c.tree, thetaCur, s.data(), m, zfit.data());
+        std::vector<double> magRe(m), magIm(m), mag(m);
+        for (size_t k = 0; k < m; ++k) {
+            Complex rr = (z[k] - zfit[k]) / z[k];
+            magRe[k] = std::fabs(rr.real());
+            magIm[k] = std::fabs(rr.imag());
+            mag[k] = std::abs(rr);
+        }
+        auto medOf = [](std::vector<double> v) {
+            std::sort(v.begin(), v.end());
+            return v[v.size() / 2];
+        };
+        double sigAxis = std::max(1.4826 * std::max(medOf(magRe), medOf(magIm)), 1e-9);
+        std::vector<double> wR = w;
+        bool anyOut = false;
+        int nInlier = 0, nOut = 0;
+        for (size_t k = 0; k < m; ++k) {
+            double r = mag[k] / sigAxis;
+            if (r > kCut) {
+                double f = kCut / r;
+                wR[k] *= f * f;
+                anyOut = true;
+                ++nOut;
+            } else if (r < kIn) {
+                ++nInlier;
+            }
+        }
+        if (!anyOut || nOut > (int)m / 3 || nInlier * 2 < (int)m) break;
+
+        // acceptance is judged on the ROBUST objective: the honest (inlier)
+        // parameters necessarily have a HIGHER plain-weighted rss than the
+        // bent least-squares solution, because the plain optimum minimises
+        // exactly that.  Comparing plain rss would always reject the rescue.
+        auto robustRss = [&](const std::vector<double>& theta) {
+            std::vector<Complex> zf(m);
+            evalTheta(c.tree, theta, s.data(), m, zf.data());
+            double r = 0.0;
+            for (size_t k = 0; k < m; ++k) {
+                Complex e = wR[k] * (z[k] - zf[k]);
+                r += e.real() * e.real() + e.imag() * e.imag();
+            }
+            return r;
+        };
+        double rssInc = robustRss(thetaCur);
+
+        auto residual = [&](const std::vector<double>& th, std::vector<double>& out) {
+            out = residualVector(c.tree, th, s, z, wR);
+        };
+        auto jac = [&](const std::vector<double>& th, std::vector<double>& out) {
+            out = jacobianCs(c.tree, th, s, wR);
+        };
+        LMOut res = lmFit(residual, jac, thetaCur, lb, ub, opts);
+        double rssR = rssOf(res.residual);
+        if (!std::isfinite(rssR) || rssR >= rssInc) break;
+        thetaCur = std::move(res.x);
+        changed = true;
+    }
+    if (!changed) return false;
 
     // metrics with the original weights at the robust parameters
-    std::vector<double> resPlain = residualVector(c.tree, res.x, s, z, w);
+    std::vector<double> resPlain = residualVector(c.tree, thetaCur, s, z, w);
     double rss = rssOf(resPlain);
     std::vector<Complex> zfit2(m);
-    evalTheta(c.tree, res.x, s.data(), m, zfit2.data());
+    evalTheta(c.tree, thetaCur, s.data(), m, zfit2.data());
     auto [wrmse, mre] = fitMetrics(z, zfit2);
-    c.theta = std::move(res.x);
+    c.theta = std::move(thetaCur);
     c.rss = rss;
     c.aiccVal = aicc(rss, (int)(2 * m), (int)c.theta.size());
     c.wrmse = wrmse;

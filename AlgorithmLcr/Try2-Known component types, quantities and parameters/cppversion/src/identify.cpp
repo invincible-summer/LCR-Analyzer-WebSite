@@ -43,7 +43,7 @@ IdentifyResult identify(const ComponentSet& compset, const std::vector<double>& 
     auto t2 = std::chrono::steady_clock::now();
 
     std::vector<EquivalenceClass> classes =
-        rankAndCluster(std::move(candidates), compset, f, cfg.clusterTop, cfg.equivTol);
+        rankAndCluster(std::move(candidates), compset, z, f, cfg.clusterTop, cfg.equivTol);
     auto t3 = std::chrono::steady_clock::now();
 
     auto secs = [](std::chrono::steady_clock::time_point a,

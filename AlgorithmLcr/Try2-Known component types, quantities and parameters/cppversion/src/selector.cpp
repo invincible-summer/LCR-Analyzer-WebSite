@@ -153,6 +153,15 @@ std::vector<Candidate> refineTopCandidates(std::vector<Candidate> candidates,
 
         StructureStamps stamps = StructureStamps::build(structure, nominal);
         std::vector<double> vals = stamps.vals, dcrs = stamps.dcrs;
+        // R16: snapshot the (clamped nominal) starting point — when wild
+        // points are present the self-significance gate below must compare
+        // the refinement against this start on the ROBUST objective (the
+        // outlier contributes the same large constant to both plain-rss
+        // values, masking a genuine inlier improvement behind the 1/sqrt(2m)
+        // fluctuation band and dropping the honest clone — measured on the
+        // data2 family: nominal shown at ~+5% value error while the
+        // suppressed refined clone held the truth).
+        const std::vector<double> xStart = x0;
         auto residual = [&](const std::vector<double>& x, std::vector<double>& out) {
             for (int j = 0; j < p; ++j) {
                 double v = std::pow(10.0, x[j]);
@@ -239,6 +248,9 @@ std::vector<Candidate> refineTopCandidates(std::vector<Candidate> candidates,
         // wRMSE), producing clones whose behaviour diverges from the honest
         // fit.  Downweighting the outlier points and re-polishing lets the
         // parameters settle into the inlier-defined minimum.
+        bool robustMode = false;
+        double rssStartR = 0.0;   // robust-objective rss at the nominal start
+        double rssFinalR = 0.0;   // robust-objective rss at the final point
         {
             stamps.vals = vals;
             stamps.dcrs = dcrs;
@@ -273,6 +285,7 @@ std::vector<Candidate> refineTopCandidates(std::vector<Candidate> candidates,
                 }
             }
             if (anyOut && nOut <= (int)Mz / 3 && nInlier * 2 >= (int)Mz) {
+                robustMode = true;
                 auto residualR = [&](const std::vector<double>& xx,
                                      std::vector<double>& out) {
                     for (int j = 0; j < p; ++j) {
@@ -290,6 +303,13 @@ std::vector<Candidate> refineTopCandidates(std::vector<Candidate> candidates,
                     std::vector<double> rInc;
                     residualR(x, rInc);
                     rssInc = rssOf(rInc);
+                }
+                // R16: robust objective at the nominal start, for the
+                // outlier-aware significance gate below
+                {
+                    std::vector<double> rS;
+                    residualR(xStart, rS);
+                    rssStartR = rssOf(rS);
                 }
                 // short damped LM under the robust weights
                 std::vector<double> xr = x, rr2;
@@ -355,6 +375,7 @@ std::vector<Candidate> refineTopCandidates(std::vector<Candidate> candidates,
                     if (!stepped) break;
                 }
                 if (rssR < rssInc * 0.999) x = xr;  // adopt robust parameters
+                rssFinalR = std::min(rssInc, rssR);
             }
         }
 
@@ -375,8 +396,16 @@ std::vector<Candidate> refineTopCandidates(std::vector<Candidate> candidates,
         // R5b self-significance: if the refinement did not improve its OWN
         // candidate beyond the chi-square fluctuation band, the clone carries
         // no information — skip it (this also removes flat-valley wanderers
-        // whose values move wildly while wRMSE stays put)
-        if (!(rss < rssStart / kBand)) continue;
+        // whose values move wildly while wRMSE stays put).
+        // R16: under detected contamination the comparison moves to the
+        // ROBUST objective — the plain one carries the outlier as a common
+        // additive constant in both rss values, which drowns the inlier
+        // improvement the clone actually achieved.
+        {
+            double rssAch = robustMode ? rssFinalR : rss;
+            double rssRef0 = robustMode ? rssStartR : rssStart;
+            if (!(rssAch < rssRef0 / kBand)) continue;
+        }
         for (int j = 0; j < p; ++j) {
             double v = std::pow(10.0, x[j]);
             if (pm.isDcr[j]) comps[pm.compIdx[j]].dcr = v;
@@ -400,8 +429,14 @@ std::vector<Candidate> refineTopCandidates(std::vector<Candidate> candidates,
         // statistically tied with the best untouched candidate -> rank just
         // behind it (order-preserving within the tied group so tied clones do
         // not pile up and sink the truth deep into the list); raw fit quality
-        // stays visible via wrmse / maxRelErr
-        if (cand.rss < bestUnrefinedRss && cand.rss > bestUnrefinedRss / kBand)
+        // stays visible via wrmse / maxRelErr.
+        // R16: a clone whose ROBUST-objective improvement over its own start
+        // already exceeds the band has demonstrated contamination-aware
+        // significance (the plain tie here is an artifact of the outlier's
+        // common contribution) and keeps its earned position.
+        bool robustSignificant = robustMode && rssFinalR < rssStartR / kBand;
+        if (!robustSignificant &&
+            cand.rss < bestUnrefinedRss && cand.rss > bestUnrefinedRss / kBand)
             cand.rss = bestUnrefinedRss + cand.rss * ((kBand - 1.0) / 4.0);
         refinedClones.push_back(std::move(cand));
     }
@@ -567,12 +602,37 @@ SecondaryKey secondaryKey(const Candidate& c, const std::vector<Component>& comp
 
 std::vector<EquivalenceClass> rankAndCluster(std::vector<Candidate> candidates,
                                              const ComponentSet& compset,
+                                             const std::vector<Complex>& z,
                                              const std::vector<double>& f,
                                              int clusterTop, double equivTol) {
     if (candidates.empty()) return {};
     double sigmaHat = candidates[0].wrmse;  // candidates are RSS-sorted; py takes
     for (const auto& c : candidates)        // min(wrmse) -- same set, same min
         sigmaHat = std::min(sigmaHat, c.wrmse);
+    // R16: but min(wrmse) is the PLAIN objective's best — one wild point
+    // inflates it (measured 8.7% where the inlier noise is ~1.5%), which
+    // ballooned tol = 3*sigmaHat to ~26% and merged the refined clone
+    // (values ~1% off truth) into the nominal candidate's class, where the
+    // R5 tie rule keeps the nominal face: the user sees the unrefined
+    // values on exactly the contaminated sweeps where refinement matters.
+    // The axis-median scale (1.4826*median, as in the IRLS rounds) tracks
+    // the inlier noise under contamination and matches the plain scale on
+    // clean data; taking the min never loosens the tolerance.
+    if (candidates[0].zFit.size() == z.size() && !z.empty()) {
+        std::vector<double> mre(z.size()), mim(z.size());
+        for (size_t k = 0; k < z.size(); ++k) {
+            Complex rr = (z[k] - candidates[0].zFit[k]) / z[k];
+            mre[k] = std::fabs(rr.real());
+            mim[k] = std::fabs(rr.imag());
+        }
+        auto medOf = [](std::vector<double> v) {
+            std::sort(v.begin(), v.end());
+            return v[v.size() / 2];
+        };
+        double sAxis = 1.4826 * std::max(medOf(mre), medOf(mim));
+        if (sAxis > 0.0 && std::isfinite(sAxis))
+            sigmaHat = std::min(sigmaHat, sAxis);
+    }
     double tol = std::max(equivTol, 3.0 * sigmaHat);
     std::vector<double> grid = makeValidationGrid(f);
     size_t topN = std::min((size_t)clusterTop, candidates.size());

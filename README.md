@@ -171,7 +171,7 @@ $\sigma_{|Z|}$ 与 $\sigma_{\angle Z}$ 随测量点入库（`z_sigma` / `z_phase
 
 统一约定：**一个电感 = L 与串联 DCR 绑定的 1 个器件（2 参数）**；结果为上三角邻接矩阵（`AlgorithmLcr/OUTPUT_FORMAT.md`），前端规约为串并联树渲染精美原理图，桥式等非 SP 结构自动切换图论视图。完整输入输出格式与约束见网站内「使用文档」与 `AlgorithmLcr/INPUT_FORMAT.md`。
 
-针对实测含噪数据的鲁棒性（2026-09 优化，10 轮论证与基准回归全记录见 [`AlgorithmLcr/OPTIMIZATION_LOG.md`](AlgorithmLcr/OPTIMIZATION_LOG.md)）：Try1 的排序改为"数据驱动噪声底 + ρ 体系制门控 + 足够好集合内最少参数"（抑制实测系统误差导致的过拟合霸榜）；Try2 新增有界数值精调（元件容差不再直接变成拟合误差）；三引擎均含离群点稳健重拟合（IRLS 单遍，5σ 降权）。随机合成套件（n=1000，噪声 0–3% + 野点）：Try1 pass@1 77→83%、Try2 19→86%、Try3 89→95%；四组实测扫频数据全部达到理论可达误差。基准工具：`frontend/wasm/bench/`（real4 验收门 + suite 随机套件 + 探针）。
+针对实测含噪数据的鲁棒性（2026-09 两轮共 17 轮论证与基准回归，全记录见 [`AlgorithmLcr/OPTIMIZATION_LOG.md`](AlgorithmLcr/OPTIMIZATION_LOG.md)）：Try1 的排序改为"数据驱动噪声底 + ρ 体系制门控 + 足够好集合内最少参数"（抑制实测系统误差导致的过拟合霸榜），等价类按 Occam 以最少参数成员作代表（用户拿 2 器件电路不再看到 3 器件等价体挂榜一），带外欠拟合模型不再混入榜单前排；Try2 新增有界数值精调（元件容差不再直接变成拟合误差），且显著性判断与聚类容差在含野点数据上改用稳健目标/稳健尺度；三引擎均含离群点稳健重拟合（IRLS 至不动点，5σ 降权），Try1 的渐近特征（F2 剪枝与起始提示的输入）带污染触发的稳健估计。随机合成套件（n=1000，噪声 0–3% + 野点）：Try1 pass@1 77→83%、Try2 19→86%、Try3 89→95%；含平滑系统性误差的现实主义套件（suite2）：Try2 行为 pass@1 94→98%。四组实测扫频数据全部真结构 rank 1（data2/3 此前为行为等价体占据 #1 且 #2–#4 被单器件垃圾填充）。基准工具：`frontend/wasm/bench/`（real4 验收门 + suite/suite2 随机套件 + realfam 实测家族 + 探针）。
 
 > 后端另有一套旧拟合引擎（矢量拟合 + Foster 综合 + 8 种固定拓扑，`app/dsp/fit_auto.py`，推导见 [docs/algorithms.md](docs/algorithms.md)）——代码与 API 保留，前端已无入口。
 

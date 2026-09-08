@@ -85,6 +85,7 @@ bool areEquivalent(const Network& a, const Network& b, const ComponentSet& comps
 
 std::vector<EquivalenceClass> rankAndCluster(std::vector<Candidate> candidates,
                                              const ComponentSet& compset,
+                                             const std::vector<Complex>& z,
                                              const std::vector<double>& f,
                                              int clusterTop = 50,
                                              double equivTol = 1e-3);

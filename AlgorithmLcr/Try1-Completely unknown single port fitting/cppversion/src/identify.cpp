@@ -56,7 +56,12 @@ IdentifyResult identify(const std::vector<double>& f, const std::vector<Complex>
     // biases its parameters.  The robust pass re-fits from the candidate's
     // own solution with outlier points downweighted (see fit_engine_a.cpp).
     {
-        const size_t kRobustTop = 12;
+        // R14: 12 -> 24.  A wild point inflates every candidate's RSS by
+        // roughly the same additive term, but not exactly — the AICc order of
+        // the pre-robust fits is noisy, and the true structure often sits
+        // just below the old rescue cut.  The rescue is one warm-started LM
+        // per candidate, negligible against the funnel's multi-start fits.
+        const size_t kRobustTop = 24;
         for (size_t i = 0; i < fitsA.size() && i < kRobustTop; ++i)
             robustRefitCandidate(fitsA[i], s, z, wts);
         // the funnel ordered by aicc — re-sort after metric updates

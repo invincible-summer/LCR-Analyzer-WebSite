@@ -66,6 +66,9 @@ node tests/smoke.mjs                            # 同一 C ABI 的 Node 烟测
 # 算法基准与优化（改引擎前必读 AlgorithmLcr/OPTIMIZATION_LOG.md）
 cd frontend/wasm && python3 bench/real4.py      # 四组实测数据验收门（try1 rank1/try2/try3 达标）
 python3 bench/suite.py run --n 400 --seed 1     # 随机合成套件（pass@1/pass@8/耗时）
+python3 bench/suite2.py run --n 300 --seed 11   # 现实主义套件（平滑系统误差+稀疏网格；行为/简约/结构三套指标）
+python3 bench/realfam.py --draws 40 --seed 21   # 四实测结构 × 重采样噪声（champOK/truthTop3/junk/逆序）
+node tests/real4_wasm.mjs                       # WASM（网站同路径）在四组实测上的行为
 ./build-native/probe_try1 ../../examples/data4.csv --exact 4    # Try1 分阶段探针
 ```
 
@@ -138,13 +141,23 @@ deferred — `CalibrateView` is an intentional placeholder.
   烟测、提交新 WASM 产物；`DESIGN.md` §2 契约若变则同步 `fitTypes.ts` 与 glue。
 - **算法改动的验收门**（`AlgorithmLcr/OPTIMIZATION_LOG.md` 记录了每轮论证与结果）：
   ① `frontend/wasm/bench/real4.py`（四组实测数据，try1 真结构必须 rank1）；
-  ② `bench/suite.py`（合成套件，try1≥80 / try2≥83 / try3≥94 的 pass 率不得回退）；
-  ③ 三个引擎各自的 build-test 自测套件 + `glue_test`。三者全过才算改动成立。
-- **Try2 精调语义**（R4-R5）：用户输入数值是 ±20% 可信的标称值；头部结构做有界精调
+  ② `bench/suite.py`（合成套件，try1≥80 / try2≥83 / try3≥94 的 pass 率不得回退）
+  + `bench/suite2.py`（含平滑系统误差；**suite2 跨 seed 方差 ±4 点，必须同 seed
+  A/B 比较不回退**，行为/简约两套指标都要看）+ `bench/realfam.py`（四实测结构
+  重采样，champOK 同 seed 不回退、逆序=0）；
+  ③ 三个引擎各自的 build-test 自测套件（**checks 段必须 0 失败**，不能只数 FAIL 行）
+  + `glue_test` + `node tests/real4_wasm.mjs`。全过才算改动成立。
+- **Try1 排序/代表语义**（R11）：候选表 = [champion, 足够好带内按(参数数,AICc), 带外按
+  AICc]，带 = max(1.7σ̂, 2×wrmse_best) 两种体系统一；等价类代表 = 类内最少参数成员
+  （Occam）。改选择子时两处语义必须同时过 realfam 的 junk/逆序 与 champOK 指标。
+- **Try2 精调语义**（R4-R5 + R16）：用户输入数值是 ±20% 可信的标称值；头部结构做有界精调
   （±0.3 十进位），精调候选以 `refined:true` 克隆追加，显著性不足不输出；
-  平局时名义值候选排前。`n_refined` 在 stats 里。
-- **离群点稳健化**（R7）：三引擎均有 IRLS 单遍（逐轴 1.4826×median|x| 尺度，5σ 降权，
-  内点过半才触发）；采纳以降权目标判断，报告指标用原始权重。
+  平局时名义值候选排前（含野点时显著性/平局/聚类容差改用稳健目标与稳健尺度）。
+  `n_refined` 在 stats 里。
+- **离群点稳健化**（R7 + R14/R15）：三引擎均有 IRLS（≤2 遍至不动点；逐轴
+  1.4826×median|x| 尺度，5σ 降权，内点过半才触发）；采纳以降权目标判断，报告指标用
+  原始权重。Try1 渐近特征（F2/起始提示的输入）带污染触发的稳健估计（R15：残差
+  3×中位数+0.05dex 检测才切换 Theil-Sen/圆中位数，干净数据逐位不变）。
 - **glue JSON ↔ `fitTypes.ts` 镜像**：任一侧字段变化必须两侧同步（注意 Try3 诊断在
   `try3` 子对象，不在 `stats`——踩过的坑）。
 - ESP32 HTTP contract changes start in `docs/api_contract.md` and `app/schemas/upload.py`;
