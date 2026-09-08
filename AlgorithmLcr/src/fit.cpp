@@ -1,4 +1,5 @@
 #include "lcr/lcr.hpp"
+#include "numerics.hpp"
 #include <algorithm>
 #include <chrono>
 #include <numeric>
@@ -87,7 +88,8 @@ Evaluation evaluate(const Model &m, const Eigen::VectorXd &x, const Data &d,
       a.ok = false;
       return a;
     }
-    if (f.backwardError > 1e-10 || f.rcond < 1e-15) {
+    if (f.backwardError > numerics::policy.backwardReject ||
+        f.rcond < numerics::policy.rcondReject) {
       a.ok = false;
       return a;
     }
@@ -220,8 +222,9 @@ Metrics metrics(const Data &d, const std::vector<Complex> &z, int parameters,
   }
   return m;
 }
-Candidate fit(const Graph &graph, const Data &d, const Config &c,
+Candidate fit(const PreparedNetwork &prepared, const Data &d, const Config &c,
               const std::vector<Graph> &initial) {
+  const Graph &graph = prepared.effective;
   validate(graph);
   validate(d, c);
   const auto started = std::chrono::steady_clock::now();
@@ -246,37 +249,21 @@ Candidate fit(const Graph &graph, const Data &d, const Config &c,
   Graph guess = graph;
   for (size_t i = 0; i < graph.edges.size(); ++i) {
     auto e = graph.edges[i].element;
-    double lo = e.type == 'R'   ? c.rMin
-                : e.type == 'L' ? c.lMin
-                                : c.cMin,
-           hi = e.type == 'R'   ? c.rMax
-                : e.type == 'L' ? c.lMax
-                                : c.cMax;
-    if (c.tolerance > 0) {
-      lo = std::max(lo, e.parameter * (1 - c.tolerance));
-      hi = std::min(hi, e.parameter * (1 + c.tolerance));
-    }
-    if (hi < lo)
-      throw std::invalid_argument("nominal tolerance outside physical bounds");
-    model.params.push_back({i, false, std::log10(lo), std::log10(hi), 1});
+    // Bounds come exclusively from the propagated effective-edge domain:
+    // aggregates may legitimately exceed any single-device global bound.
+    const EdgeDomain &dom = prepared.domains.at(i);
+    model.params.push_back(
+        {i, false, std::log10(dom.value.lo), std::log10(dom.value.hi), 1});
     guess.edges[i].element.parameter =
         c.tolerance > 0 ? e.parameter
                         : (e.type == 'R'   ? zscale
                            : e.type == 'L' ? zscale / omega
                                            : 1 / (zscale * omega));
     if (e.type == 'L') {
-      double dlo = 0, dhi = c.dcrMax;
-      if (c.tolerance > 0) {
-        dlo = std::max(0., e.parameterOfCapacitanceDCResistance *
-                                   (1 - c.tolerance) -
-                               c.dcrAbsoluteTolerance);
-        dhi = std::min(dhi, e.parameterOfCapacitanceDCResistance *
-                                    (1 + c.tolerance) +
-                                c.dcrAbsoluteTolerance);
-      }
-      if (dhi < dlo)
-        throw std::invalid_argument("DCR tolerance outside bounds");
-      model.params.push_back({i, true, dlo / zscale, dhi / zscale, zscale});
+      if (!dom.dcr)
+        throw std::invalid_argument("inductor edge missing DCR domain");
+      model.params.push_back(
+          {i, true, dom.dcr->lo / zscale, dom.dcr->hi / zscale, zscale});
       guess.edges[i].element.parameterOfCapacitanceDCResistance =
           c.tolerance > 0 ? e.parameterOfCapacitanceDCResistance : zscale * .1;
     }
@@ -341,9 +328,36 @@ Candidate fit(const Graph &graph, const Data &d, const Config &c,
   diag.starts = usedStarts;
   diag.bestStart = bestIndex;
   diag.convergedStarts = converged;
+  // Explicit id -> edge/quantity/value/domain/state descriptors; the web and
+  // CLI consume these instead of inferring parameter order.
+  auto fillParameters = [&](const Eigen::VectorXd &x) {
+    Graph fitted = model.decode(x);
+    for (size_t j = 0; j < model.params.size(); ++j) {
+      auto p = model.params[j];
+      ParameterDiagnostic pd;
+      pd.id = int(j);
+      pd.edge = int(p.edge);
+      pd.quantity = p.dcr ? ParamQuantity::Dcr : ParamQuantity::Value;
+      pd.kind = graph.edges[p.edge].element.type;
+      const EdgeDomain &dom = prepared.domains.at(p.edge);
+      pd.lower = p.dcr ? dom.dcr->lo : dom.value.lo;
+      pd.upper = p.dcr ? dom.dcr->hi : dom.value.hi;
+      pd.value =
+          p.dcr
+              ? fitted.edges[p.edge].element.parameterOfCapacitanceDCResistance
+              : fitted.edges[p.edge].element.parameter;
+      pd.free = p.hi > p.lo;
+      pd.fixed = !pd.free;
+      diag.parameters.push_back(std::move(pd));
+    }
+  };
   if (!best.eval.ok) {
+    fillParameters(best.x);
     diag.optimizer = "numerical_failure";
+    diag.numericalStatus = "FAIL";
     diag.verdict = "NUMERICALLY_UNSTABLE";
+    result.reduction = prepared.reduction;
+    result.reduction.graph = result.graph;
     return result;
   }
   for (size_t i = 0; i < finalCosts.size(); ++i) {
@@ -392,8 +406,10 @@ Candidate fit(const Graph &graph, const Data &d, const Config &c,
   if (stop())
     best.status = "budget_exhausted";
   diag.optimizer = best.status;
+  diag.fitObjective = best.eval.r.squaredNorm();
   diag.worstBackwardError = raw.backward;
   diag.worstRcond = raw.rcond;
+  fillParameters(best.x);
   // Remove fixed parameters before computing numerical rank/covariance.
   std::vector<int> free;
   for (size_t j = 0; j < model.params.size(); ++j)
@@ -418,8 +434,12 @@ Candidate fit(const Graph &graph, const Data &d, const Config &c,
       diag.rank == int(free.size()) && s.size() ? s[0] / s[s.size() - 1] : inf;
   for (size_t j = 0; j < model.params.size(); ++j) {
     auto p = model.params[j];
-    if (best.x[j] - p.lo < 1e-7 || p.hi - best.x[j] < 1e-7)
+    if (!(p.hi > p.lo))
+      continue; // fixed parameters are an independent state, never at-bound
+    if (best.x[j] - p.lo < 1e-7 || p.hi - best.x[j] < 1e-7) {
       diag.atBound.push_back(int(j));
+      diag.parameters[j].atBound = true;
+    }
     double elasticity = 0;
     for (size_t k = 0; k < d.size(); ++k) {
       auto f = forward(result.graph, d[k].f);
@@ -429,8 +449,10 @@ Candidate fit(const Graph &graph, const Data &d, const Config &c,
       elasticity = std::max(elasticity, std::abs(f.jacobian[j] * q) /
                                             std::max(std::abs(f.z), 1e-15));
     }
-    if (elasticity < .1)
+    if (elasticity < numerics::policy.weakElasticity) {
       diag.weak.push_back(int(j));
+      diag.parameters[j].weak = true;
+    }
   }
   if (diag.rank == int(free.size()) && J.rows() > J.cols() &&
       !diag.robustUsed && diag.atBound.empty()) {
@@ -444,28 +466,53 @@ Candidate fit(const Graph &graph, const Data &d, const Config &c,
       double dq =
           p.dcr ? p.scale
                 : std::log(10.) * result.graph.edges[p.edge].element.parameter;
-      diag.standardErrors.push_back(std::sqrt(std::max(0., cov(j, j))) * dq);
-      const double half =
-          1.959963984540054 * std::sqrt(std::max(0., cov(j, j)));
+      double se = std::sqrt(std::max(0., cov(j, j))) * dq;
+      const double half = 1.959963984540054 * std::sqrt(std::max(0., cov(j, j)));
       const double center = best.x[free[j]];
-      diag.confidenceIntervals95.push_back(
+      std::array<double, 2> ci =
           p.dcr ? std::array<double, 2>{(center - half) * p.scale,
                                         (center + half) * p.scale}
                 : std::array<double, 2>{std::pow(10., center - half),
-                                        std::pow(10., center + half)});
+                                        std::pow(10., center + half)};
+      diag.standardErrors.push_back(se);
+      diag.confidenceIntervals95.push_back(ci);
+      diag.parameters[free[j]].standardError = se;
+      diag.parameters[free[j]].ci95 = ci;
     }
   }
+  if (!std::isfinite(result.metrics.rss) ||
+      !std::isfinite(result.metrics.wrmse) ||
+      !std::isfinite(result.metrics.maxRel))
+    diag.numericalStatus = "FAIL";
+  else if (diag.condition > numerics::policy.identConditionWarn ||
+           diag.worstRcond < numerics::policy.rcondWarn)
+    diag.numericalStatus = "WARN";
+  else
+    diag.numericalStatus = "OK";
+  if (int(2 * d.size()) <= result.nParams)
+    diag.identifiabilityStatus = "DATA_INSUFFICIENT";
+  else if (diag.rank < result.nParams)
+    diag.identifiabilityStatus = "RANK_DEFICIENT";
+  else
+    diag.identifiabilityStatus = "FULL_RANK";
   if (int(2 * d.size()) <= result.nParams)
     diag.verdict = "DATA_INSUFFICIENT";
   else if (diag.rank < result.nParams)
     diag.verdict = "AMBIGUOUS_EQUIVALENCE_CLASS";
-  else if (diag.condition > 1e4 || raw.rcond < 1e-12)
+  else if (diag.condition > numerics::policy.identConditionWarn ||
+           raw.rcond < numerics::policy.rcondWarn)
     diag.verdict = "NUMERICALLY_UNSTABLE";
   else if (best.status.find("converged") != 0 || !diag.atBound.empty() ||
            diag.agreeingStarts < 2)
     diag.verdict = "LOCAL_FIT_UNCONFIRMED";
   else
     diag.verdict = "IDENTIFIABLE_LOCAL";
+  result.reduction = prepared.reduction;
+  result.reduction.graph = result.graph;
   return result;
+}
+Candidate fit(const Graph &graph, const Data &d, const Config &c,
+              const std::vector<Graph> &initial) {
+  return fit(prepareForFit(graph, c, ReductionPolicy::None), d, c, initial);
 }
 } // namespace lcr

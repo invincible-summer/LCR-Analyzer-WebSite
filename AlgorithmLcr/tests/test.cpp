@@ -639,6 +639,54 @@ void fitting() {
   require(tol.candidates[0].refined && tol.candidates[0].metrics.wrmse < 1e-7 &&
               !tol.continuousGlobalCertified,
           "tolerance");
+  // Fixed nominal-zero DCR must report as fixed, never as at-bound.
+  Graph rl{2, {{0, 1, {'L', 1e-3, 0}}, {0, 1, {'R', 100, 0}}}};
+  auto rld = sample(rl);
+  auto tolLr = try2(rld, {{'L', 1e-3, 0}, {'R', 100, 0}}, c);
+  const auto &fc = tolLr.candidates[0];
+  require(fc.refined && fc.metrics.wrmse < 1e-7, "fixed DCR tolerance fit");
+  require(fc.diagnostics.verdict == "IDENTIFIABLE_LOCAL",
+          "fixed DCR is not fit-unconfirmed");
+  require(fc.nParams == 2, "fixed parameter excluded from nParams");
+  require(fc.diagnostics.rank == 2, "rank counts free parameters only");
+  require(fc.diagnostics.atBound.empty(), "no at-bound from fixed parameters");
+  const auto &fparams = fc.diagnostics.parameters;
+  require(fparams.size() == 3, "L value/DCR and R value descriptors");
+  const ParameterDiagnostic *lDcr = nullptr;
+  for (auto &pd : fparams)
+    if (pd.kind == 'L' && pd.quantity == ParamQuantity::Dcr)
+      lDcr = &pd;
+  require(lDcr && lDcr->fixed && !lDcr->free && !lDcr->atBound && !lDcr->weak &&
+              lDcr->value == 0,
+          "nominal zero DCR: fixed state, not at-bound");
+  for (auto &pd : fparams)
+    if (pd.fixed)
+      require(!pd.standardError && !pd.ci95, "fixed parameter has no SE/CI");
+    else
+      require(pd.standardError && pd.ci95, "free parameter carries SE/CI");
+  require(fc.diagnostics.standardErrors.size() == 2 &&
+              fc.diagnostics.confidenceIntervals95.size() == 2,
+          "legacy SE/CI arrays stay free-only");
+  // prepareForFit is the sole model-domain constructor.
+  auto identity = prepareForFit(rl, c, ReductionPolicy::None);
+  require(identity.effective.edges.size() == 2 &&
+              identity.domains.size() == 2 &&
+              identity.reduction.groups.size() == 2 &&
+              identity.reduction.dropped.empty(),
+          "identity prepared network");
+  auto physical = prepareForFit(rl, Config{}, ReductionPolicy::ExactElectrical);
+  require(physical.effective.edges.size() == 2,
+          "parallel L+R stays physically separate");
+  // Aggregate fit must recover equivalents beyond single-device bounds.
+  Graph twoR{3, {{0, 2, {'R', 6e6, 0}}, {2, 1, {'R', 6e6, 0}}}};
+  auto agg = prepareForFit(twoR, Config{}, ReductionPolicy::ExactElectrical);
+  require(agg.effective.edges.size() == 1 && agg.domains[0].value.hi > 1e7,
+          "series R domain exceeds rMax");
+  auto aggFit = fit(agg, sample(twoR), Config{});
+  require(aggFit.metrics.wrmse < 1e-8 && aggFit.nParams == 1,
+          "aggregate recovery beyond single-device bound");
+  close(Complex(aggFit.graph.edges[0].element.parameter, 0),
+        Complex(1.2e7, 0), 1e-9);
   c.tolerance = 0;
   rejects([&] { metrics({}, {}, 0, c); });
   Config correlated = c;

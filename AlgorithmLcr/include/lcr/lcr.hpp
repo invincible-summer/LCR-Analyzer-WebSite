@@ -86,6 +86,20 @@ struct Config {
 };
 enum class SolveStatus { OK, PORT_OPEN, SINGULAR, ILL_CONDITIONED, NONFINITE };
 std::string name(SolveStatus);
+enum class ReductionPolicy {
+  None,           // keep the physical graph, identity groups, leaf domains
+  ExactElectrical // R0 dead zone + exact series/parallel reduction
+};
+struct PreparedNetwork {
+  Graph original;
+  Graph effective;
+  std::vector<EdgeDomain> domains; // aligned 1:1 with effective edges
+  Reduction reduction;
+};
+// Sole constructor of continuous-fit model domains; fit() consumes these
+// domains instead of re-deriving single-device bounds per edge type.
+PreparedNetwork prepareForFit(const Graph &, const Config &,
+                              ReductionPolicy policy);
 struct Forward {
   Complex z = 0;
   std::vector<Complex>
@@ -97,6 +111,17 @@ struct Metrics {
   double rss = inf, wrmse = inf, maxRel = inf;
   std::optional<double> aicc;
 };
+struct ParameterDiagnostic {
+  int id = -1; // stable optimizer parameter id (Model.params index)
+  int edge = -1; // effective graph edge index
+  ParamQuantity quantity = ParamQuantity::Value; // Value / Dcr
+  char kind = 'R';
+  double value = 0;
+  double lower = 0, upper = 0; // physical admissible interval
+  bool free = true, fixed = false, weak = false, atBound = false;
+  std::optional<double> standardError;
+  std::optional<std::array<double, 2>> ci95;
+};
 struct Diagnostics {
   std::string optimizer = "not_run", verdict = "HYPOTHESIS_LIMITED";
   int rank = 0, starts = 0, bestStart = -1, convergedStarts = 0,
@@ -106,6 +131,10 @@ struct Diagnostics {
   std::vector<double> singularValues, standardErrors;
   std::vector<std::array<double, 2>> confidenceIntervals95;
   std::vector<int> weak, atBound;
+  // Independent diagnostic dimensions; verdict stays a derived summary.
+  std::string numericalStatus, identifiabilityStatus; // OK/WARN/FAIL, FULL_RANK/...
+  double fitObjective = inf; // objective of the final optimization round
+  std::vector<ParameterDiagnostic> parameters; // explicit id/edge/quantity map
 };
 struct Candidate {
   Graph graph;
@@ -147,6 +176,9 @@ std::string canonical(const Graph &, bool values = true);
 Forward forward(const Graph &, double frequency, bool jacobian = true);
 Metrics metrics(const Data &, const std::vector<Complex> &, int parameters,
                 const Config &);
+Candidate fit(const PreparedNetwork &, const Data &, const Config &,
+              const std::vector<Graph> &initial = {});
+// Convenience overload; search layers must call the PreparedNetwork version.
 Candidate fit(const Graph &, const Data &, const Config &,
               const std::vector<Graph> &initial = {});
 using GraphVisitor = std::function<bool(const Graph &)>;

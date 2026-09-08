@@ -259,6 +259,33 @@ Reduction reduce(const Graph &g, const Config &c) {
   }
   return r;
 }
+PreparedNetwork prepareForFit(const Graph &g, const Config &c,
+                              ReductionPolicy policy) {
+  PreparedNetwork p;
+  p.original = g;
+  if (policy == ReductionPolicy::ExactElectrical) {
+    p.reduction = reduce(g, c);
+    p.effective = p.reduction.graph;
+    p.domains = p.reduction.domains;
+    return p;
+  }
+  // Identity mapping: physical BOM edges keep their own admissible box.
+  p.effective = g;
+  p.reduction.graph = g;
+  p.reduction.groups.resize(g.edges.size());
+  p.reduction.domains.resize(g.edges.size());
+  for (size_t i = 0; i < g.edges.size(); ++i) {
+    Group &grp = p.reduction.groups[i];
+    grp.members = {int(i)};
+    grp.valueExpr = ReductionExpr{ExprOp::PrimitiveValue, int(i), {}};
+    if (g.edges[i].element.type == 'L')
+      grp.dcrExpr = ReductionExpr{ExprOp::PrimitiveDcr, int(i), {}};
+    grp.mode = "single";
+    p.reduction.domains[i] = edgeDomain(g.edges[i].element, c);
+  }
+  p.domains = p.reduction.domains;
+  return p;
+}
 std::string canonical(const Graph &g, bool values) {
   validate(g);
   std::vector<int> nodes;

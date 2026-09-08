@@ -1,4 +1,5 @@
 #include "lcr/lcr.hpp"
+#include "numerics.hpp"
 #include <algorithm>
 #include <stdexcept>
 namespace lcr {
@@ -76,7 +77,7 @@ Forward forward(const Graph &g, double f, bool derivatives) {
   }
   Eigen::MatrixXcd A = Y / scale;
   Eigen::FullPivLU<Eigen::MatrixXcd> lu(A);
-  lu.setThreshold(1e-15);
+  lu.setThreshold(numerics::policy.luRankThreshold);
   if (!lu.isInvertible()) {
     out.status = SolveStatus::SINGULAR;
     out.rcond = 0;
@@ -93,7 +94,8 @@ Forward forward(const Graph &g, double f, bool derivatives) {
     out.status = SolveStatus::NONFINITE;
     return out;
   }
-  if (out.rcond < 1e-12 || out.backwardError > 1e-10)
+  if (out.rcond < numerics::policy.rcondWarn ||
+      out.backwardError > numerics::policy.backwardReject)
     out.status = SolveStatus::ILL_CONDITIONED;
   if (derivatives)
     for (size_t i = 0; i < g.edges.size(); ++i) {
