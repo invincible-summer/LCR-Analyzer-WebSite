@@ -19,6 +19,7 @@ import GraphEditor from '../components/GraphEditor.vue'
 import StatTile from '../components/StatTile.vue'
 import { parseZCsv, toZCsv } from '../lib/csv'
 import { graphToNetlist } from '../lib/adjacency'
+import { polarToCartesianCov, usablePolarUncertainty, type PolarUncertainty } from '../lib/uncertainty'
 import { runFitJob, cancelFitJob, FIT_AVAILABLE } from '../lib/lcrWasm'
 import { DEMO_CASES, synthPoints } from '../lib/synthData'
 import type {
@@ -44,6 +45,9 @@ const { scans } = storeToRefs(store)
 const points = ref<ZPoint[]>([])
 const dataSource = ref('')
 let dataRevision = 0
+/** 后端扫描携带的极坐标不确定度（显式 opt-in 才转换为协方差） */
+let scanUncertainty: PolarUncertainty | null = null
+const useScanUncertainty = ref(false)
 const parseMsg = reactive({ warnings: [] as string[], errors: [] as string[] })
 const fileInputEl = ref<HTMLInputElement | null>(null)
 
@@ -55,10 +59,33 @@ function loadPoints(list: ZPoint[], source: string) {
   }
   dataRevision++
   cancelFitJob()
+  scanUncertainty = null
+  useScanUncertainty.value = false
   points.value = [...list].sort((a, b) => a.f - b.f)
   dataSource.value = source
   parseMsg.errors = []
   parseMsg.warnings = []
+  clearResults()
+}
+
+/** 显式开关：把扫描极坐标不确定度近似转换为逐点笛卡尔协方差（GLS）。 */
+function toggleScanUncertainty() {
+  if (!scanUncertainty) return
+  if (useScanUncertainty.value) {
+    points.value = points.value.map(({ cov: _cov, ...rest }) => rest)
+    useScanUncertainty.value = false
+    clearResults()
+    return
+  }
+  const converted = polarToCartesianCov(points.value, scanUncertainty)
+  if (!converted) {
+    parseMsg.warnings = [
+      '扫描不确定度无法整组转换为正定协方差（要求 ρ>0 且两个 σ>0），继续使用相对加权回退',
+    ]
+    return
+  }
+  points.value = converted
+  useScanUncertainty.value = true
   clearResults()
 }
 
@@ -90,8 +117,9 @@ function genDemo() {
   loadPoints(synthPoints(c.net, { noise: demoNoise.value / 100 }), `示例 · ${c.label}`)
 }
 
-// 历史扫描导入
+// 历史扫描导入（保留极坐标不确定度，供显式 opt-in 转换）
 const scanSel = ref('')
+const scanHasUncertainty = ref(false)
 async function importScan() {
   if (!scanSel.value) return
   const detail = await api.getScan(scanSel.value)
@@ -104,6 +132,14 @@ async function importScan() {
     detail.measurements.map((m) => ({ f: m.frequency, re: m.z_real, im: m.z_imag })),
     `历史扫描 · ${detail.id}${detail.note ? ` · ${detail.note}` : ''}`,
   )
+  const u: PolarUncertainty = {
+    rho: detail.measurements.map((m) => m.z_sigma),
+    phi: detail.measurements.map((m) => m.z_phase_sigma_deg),
+  }
+  scanUncertainty = usablePolarUncertainty(u) ? u : null
+  scanHasUncertainty.value = !!scanUncertainty
+  if (!scanUncertainty)
+    parseMsg.warnings = ['该扫描的不确定度字段不完整（需要每点 z_sigma、z_phase_sigma_deg > 0），按相对加权回退']
 }
 
 function exportCsv() {
@@ -491,6 +527,14 @@ function errText(v: number): string {
             <span v-if="noiseModel" class="qpill" :class="noiseModel.cls" :title="'噪声模型：' + noiseModel.text">
               噪声模型 · {{ noiseModel.text }}
             </span>
+            <button
+              v-if="scanHasUncertainty"
+              class="btn sm ghost" type="button" :disabled="anyRunning"
+              :title="'把后端扫描的极坐标不确定度 z_sigma/z_phase_sigma_deg 近似传播为逐点笛卡尔协方差（J·diag(σρ²,σφ²)·Jᵀ）。这是误差传播近似，不是完整波形最小二乘协方差；任何点不满足条件则整组回退相对加权。'"
+              @click="toggleScanUncertainty"
+            >
+              {{ useScanUncertainty ? '停用扫描不确定度' : '使用扫描不确定度（近似）' }}
+            </button>
           </div>
           <div v-if="parseMsg.warnings.length" class="qpill warn" style="align-self: flex-start">
             {{ parseMsg.warnings.join('；') }}
