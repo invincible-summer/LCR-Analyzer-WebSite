@@ -34,3 +34,6 @@ frontend/wasm/build-native/
 .zcode/
 frontend/wasm/bench/work/
 AlgorithmLcr/*/cppversion/build-test/
+
+# ---- windows NTFS zone identifier junk ----
+*:Zone.Identifier
