@@ -57,4 +57,30 @@ describe('parseZCsv', () => {
     expect(r.points).toHaveLength(4)
     expect(Math.abs(r.points[0].re - 1.5)).toBeLessThan(1e-6)
   })
+
+  it('parses 6-column covariance CSV and keeps SPD gate', () => {
+    const r = parseZCsv('100,1,2,2,0.5,1\n200,3,4,2,0.5,1\n300,5,6,2,0.5,1\n400,7,8,2,0.5,1\n')
+    expect(r.errors).toEqual([])
+    expect(r.points).toHaveLength(4)
+    expect(r.points[0].cov).toEqual({ rr: 2, ri: 0.5, ii: 1, source: 'csv' })
+    expect(r.warnings.some((w) => w.includes('6 列'))).toBe(true)
+    const bad = parseZCsv('100,1,2,1,2,1\n200,3,4,2,.5,1\n300,5,6,2,.5,1\n400,7,8,2,.5,1\n')
+    expect(bad.errors.join()).toContain('正定')
+  })
+
+  it('rejects mixed 3/6-column rows', () => {
+    const r = parseZCsv('100,1,2\n200,3,4,2,0.5,1\n300,5,6,2,0.5,1\n400,7,8,2,0.5,1\n')
+    expect(r.errors.length).toBeGreaterThan(0)
+  })
+
+  it('exports 6 columns only when every point has covariance', () => {
+    const pts = [
+      { f: 100, re: 1, im: 2, cov: { rr: 2, ri: 0, ii: 1, source: 'csv' as const } },
+      { f: 200, re: 3, im: 4 },
+      { f: 300, re: 5, im: 6 },
+      { f: 400, re: 7, im: 8 },
+    ]
+    expect(toZCsv(pts).split('\n')[1].split(',')).toHaveLength(3)
+    expect(toZCsv(pts.map((p) => ({ ...p, cov: p.cov ?? { rr: 1, ri: 0, ii: 1 } }))).split('\n')[1].split(',')).toHaveLength(6)
+  })
 })

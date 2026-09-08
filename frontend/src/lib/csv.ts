@@ -2,7 +2,11 @@
 //
 // Canonical web format (DESIGN.md): CSV, one point per row,
 //     frequency[Hz], Re(Z)[Ω], Im(Z)[Ω]
-// comma-separated.  The parser is deliberately tolerant:
+// optionally extended with a per-point Cartesian covariance:
+//     f, re, im, cov_rr, cov_ri, cov_ii
+// The whole file must be uniformly 3 or 6 columns; 6-column rows are
+// checked for finiteness and positive definiteness. The parser is
+// deliberately tolerant:
 //   * `#` comments and blank lines are skipped;
 //   * comma / semicolon / whitespace separated fields all parse;
 //   * a leading single-integer line (AlgorithmLcr `measurements.txt`) is
@@ -30,6 +34,7 @@ export function parseZCsv(text: string): ParseResult {
   const warnings: string[] = []
   const errors: string[] = []
   const points: ZPoint[] = []
+  let columns = 0 // 3 or 6, fixed by the first data row
 
   const lines = text.split(/\r?\n/)
   // measurements.txt compatibility: first meaningful line is a lone integer
@@ -48,16 +53,22 @@ export function parseZCsv(text: string): ParseResult {
       }
     }
     const fields = splitFields(line)
-    if (fields.length !== 3) {
-      errors.push(`第 ${points.length + errors.length + 1} 个数据行：需要 3 个字段（f, Re(Z), Im(Z)），实际 ${fields.length} 个`)
+    if (!sawData && !fields.every(isNumeric)) {
+      warnings.push(`已跳过表头行：${line.slice(0, 60)}`)
+      continue
+    }
+    if (columns === 0 && (fields.length === 3 || fields.length === 6)) {
+      columns = fields.length
+      if (columns === 6) warnings.push('检测到 6 列协方差格式，将按 GLS 逐点白化使用')
+    }
+    if (fields.length !== columns) {
+      errors.push(
+        `第 ${points.length + errors.length + 1} 个数据行：整文件须统一 ${columns || 3} 或 6 列，实际 ${fields.length}`,
+      )
       if (errors.length > 8) break
       continue
     }
     if (!fields.every(isNumeric)) {
-      if (!sawData) {
-        warnings.push(`已跳过表头行：${line.slice(0, 60)}`)
-        continue
-      }
       errors.push(`数据行无法解析：${line.slice(0, 60)}`)
       if (errors.length > 8) break
       continue
@@ -69,7 +80,16 @@ export function parseZCsv(text: string): ParseResult {
       errors.push(`第 ${points.length + 1} 点：频率必须 > 0（得到 ${f}）`)
       continue
     }
-    points.push({ f, re, im })
+    if (columns === 6) {
+      const rr = Number(fields[3])
+      const ri = Number(fields[4])
+      const ii = Number(fields[5])
+      if (!(rr > 0) || !(ii > 0) || !(rr * ii - ri * ri > 0)) {
+        errors.push(`第 ${points.length + 1} 点：协方差矩阵不是正定矩阵`)
+        continue
+      }
+      points.push({ f, re, im, cov: { rr, ri, ii, source: 'csv' } })
+    } else points.push({ f, re, im })
     sawData = true
   }
 
@@ -87,8 +107,15 @@ export function parseZCsv(text: string): ParseResult {
   return { points, warnings, errors }
 }
 
-/** Serialise back to the canonical CSV form (for the 导出 button). */
+/** Serialise back to CSV; 6 columns only when every point carries covariance. */
 export function toZCsv(points: ZPoint[]): string {
-  const rows = points.map((p) => `${p.f.toPrecision(10)},${p.re.toPrecision(10)},${p.im.toPrecision(10)}`)
-  return `# f[Hz], Re(Z)[ohm], Im(Z)[ohm]\n${rows.join('\n')}\n`
+  const withCov = points.length > 0 && points.every((p) => p.cov)
+  const n = (x: number) => x.toPrecision(10)
+  const rows = withCov
+    ? points.map((p) => `${n(p.f)},${n(p.re)},${n(p.im)},${n(p.cov!.rr)},${n(p.cov!.ri)},${n(p.cov!.ii)}`)
+    : points.map((p) => `${n(p.f)},${n(p.re)},${n(p.im)}`)
+  const header = withCov
+    ? '# f[Hz], Re(Z)[ohm], Im(Z)[ohm], cov_rr, cov_ri, cov_ii'
+    : '# f[Hz], Re(Z)[ohm], Im(Z)[ohm]'
+  return `${header}\n${rows.join('\n')}\n`
 }

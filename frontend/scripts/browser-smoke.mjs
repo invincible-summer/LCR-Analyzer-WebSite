@@ -4,15 +4,25 @@ const browser=await chromium.launch({headless:true,executablePath:process.env.CH
 try {
 const page=await browser.newPage();const errors=[];page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error'&&!m.text().includes('status of 404')&&!m.text().includes('status of 500'))errors.push(m.text())});
 await page.goto(`${process.env.LCR_WEB_URL ?? 'http://127.0.0.1:4173'}/#/fit`);
-await page.locator('input[type=file]').setInputFiles({name:'r.csv',mimeType:'text/csv',buffer:Buffer.from('f,re,im\n10,1000,0\n100,1000,0\n1000,1000,0\n10000,1000,0\n')});
+const upload=csv=>page.locator('input[type=file]').setInputFiles({name:'m.csv',mimeType:'text/csv',buffer:Buffer.from(csv)});
+await upload('f,re,im\n10,1000,0\n100,1000,0\n1000,1000,0\n10000,1000,0\n');
+await page.getByText('相对加权回退',{exact:false}).first().waitFor();
 await page.getByPlaceholder('不填 = 自由搜索').fill('1');
 await page.getByRole('button',{name:'运行 Try 1',exact:true}).click();
 await page.locator('.cand-table').waitFor({timeout:120000});console.log('Try1 PASS');
+// maxN 与 maxDepth 相互独立：两个输入同时生效
+await page.getByPlaceholder('不填 = 自由搜索').fill('');
+await page.getByRole('spinbutton',{name:'器件数上限 maxN（可选，1–12）'}).fill('3');
+await page.getByRole('spinbutton',{name:'SP 深度 maxDepth（可选，1–12）'}).fill('2');
+await page.getByRole('button',{name:'运行 Try 1',exact:true}).click();
+await page.locator('.cand-table').waitFor({timeout:120000});console.log('maxDepth independent PASS');
+await page.getByRole('spinbutton',{name:'器件数上限 maxN（可选，1–12）'}).fill('');
+await page.getByRole('spinbutton',{name:'SP 深度 maxDepth（可选，1–12）'}).fill('');
 await page.getByText('Try 3 · 已知拓扑',{exact:true}).click();
 await page.locator('textarea').fill('0 2 R\n2 1 R\n0 3 C');
 await page.getByRole('button',{name:'运行 Try 3',exact:true}).click();
 await page.getByText('Try 3 拟合诊断',{exact:true}).waitFor();
-assert.match(await page.locator('body').innerText(),/ser/);console.log('Try3 merged PASS');
+assert.match(await page.locator('body').innerText(),/R1\+R2/);console.log('Try3 merged PASS');
 await page.locator('textarea').fill('0 2 R');
 await page.getByRole('button',{name:'运行 Try 3',exact:true}).click();
 await page.getByText('端口开路：拓扑在 0–1 端口间不导通',{exact:false}).waitFor();console.log('port open PASS');
@@ -20,6 +30,11 @@ await page.getByText('Try 2 · 已知元件',{exact:true}).click();
 await page.getByRole('button',{name:'删除',exact:true}).last().click();await page.getByRole('button',{name:'删除',exact:true}).last().click();
 await page.getByRole('button',{name:'运行 Try 2',exact:true}).click();
 await page.locator('.cand-table').waitFor();assert.match(await page.locator('body').innerText(),/有限候选空间最优已验证/);console.log('Try2 pure R PASS');
+// 单行个数 > 8 在 UI 层直接拒绝
+await page.locator('table.data input[type=number]').first().fill('9');
+await page.getByText('个数须为 1..8',{exact:false}).waitFor();
+assert.ok(!(await page.getByRole('button',{name:'运行 Try 2',exact:true}).isEnabled()));console.log('Try2 count limit PASS');
+await page.locator('table.data input[type=number]').first().fill('1');
 await page.getByText('Try 1 · 未知辨识',{exact:true}).click();
 await page.getByPlaceholder('不填 = 自由搜索').fill('6');
 await page.getByRole('button',{name:'运行 Try 1',exact:true}).click();
@@ -38,6 +53,40 @@ await page.getByPlaceholder('不填 = 自由搜索').fill('6');
 await page.getByRole('button',{name:'运行 Try 1',exact:true}).click();
 await page.getByText('没有数值可靠的候选；可增加预算或检查输入。',{exact:true}).waitFor();
 assert.match(await page.locator('body').innerText(),/部分搜索结果/);console.log('empty partial result PASS');
+await page.getByLabel('时间预算 / 秒（0 不限）').fill('0');
+// 6 列协方差 CSV：噪声模型徽标切换为 GLS 且拟合可运行
+await upload('f,re,im,cov_rr,cov_ri,cov_ii\n10,1000,0,2,0.5,1\n100,1000,0,2,0.5,1\n1000,1000,0,2,0.5,1\n10000,1000,0,2,0.5,1\n');
+await page.getByText('逐点协方差 (GLS)',{exact:false}).first().waitFor();
+await page.getByPlaceholder('不填 = 自由搜索').fill('1');
+await page.getByRole('button',{name:'运行 Try 1',exact:true}).click();
+await page.locator('.cand-table').waitFor({timeout:120000});console.log('covariance GLS PASS');
+// 混合 AICc 候选集：过参数候选不得把整组拖回 RSS
+await upload('f,re,im\n10,1000,0\n100,1000,0\n1000,1000,0\n10000,1000,0\n');
+await page.getByText('相对加权回退',{exact:false}).first().waitFor();
+await page.getByPlaceholder('不填 = 自由搜索').fill('');
+await page.getByRole('spinbutton',{name:'器件数上限 maxN（可选，1–12）'}).fill('3');
+await page.getByRole('button',{name:'运行 Try 1',exact:true}).click();
+await page.locator('.cand-table').waitFor({timeout:120000});
+const bodyText=await page.locator('body').innerText();
+assert.match(bodyText,/AICc（校准模型选择）/);
+assert.match(await page.locator('.cand-table').innerText(),/—/);console.log('mixed AICc PASS');
+// Try2 容差模式：标称零 DCR 显示「固定」而非「触边界」
+await upload('f,re,im\n10,0,0.06283185307179587\n100,0,0.6283185307179586\n1000,0,6.283185307179586\n10000,0,62.83185307179586\n');
+await page.getByText('Try 2 · 已知元件',{exact:true}).click();
+await page.getByLabel('元件容差 ±%（0 = Exact）',{exact:false}).fill('20');
+await page.locator('table.data select').first().selectOption('L');
+await page.locator('table.data input').nth(0).fill('1m');
+await page.locator('table.data input').nth(1).fill('');
+await page.getByRole('button',{name:'运行 Try 2',exact:true}).click();
+await page.locator('.cand-table').waitFor({timeout:120000});
+assert.match(await page.locator('body').innerText(),/固定 ×1/);console.log('fixed zero DCR PASS');
+// Try3 聚合有效域可超出单器件上限（2×6MΩ 串联 → 12 MΩ）
+await upload('f,re,im\n10,12000000,0\n100,12000000,0\n1000,12000000,0\n10000,12000000,0\n');
+await page.getByText('Try 3 · 已知拓扑',{exact:true}).click();
+await page.locator('textarea').fill('0 2 R\n2 1 R');
+await page.getByRole('button',{name:'运行 Try 3',exact:true}).click();
+await page.getByText('Try 3 拟合诊断',{exact:true}).waitFor();
+assert.match(await page.locator('body').innerText(),/12 M\s*Ω/);console.log('Try3 aggregate bounds PASS');
 console.log('errors',errors);assert.equal(errors.length,0);
 if(process.env.LCR_SCREENSHOT)await page.screenshot({path:process.env.LCR_SCREENSHOT,fullPage:true});
 } finally { await browser.close(); }

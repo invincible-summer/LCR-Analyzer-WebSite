@@ -1,12 +1,22 @@
-// Browser v4 JSON contract adapted from the shared native report.
+// Browser v4 JSON contract adapted from the shared native report (rev 2).
 
 export type CompKind = 'R' | 'L' | 'C'
+
+/** Per-point 2x2 Cartesian covariance [rr ri; ri ii] of (Re Z, Im Z). */
+export interface Cov2 {
+  rr: number
+  ri: number
+  ii: number
+  source?: 'csv' | 'scan_polar_approx' | 'instrument'
+}
 
 /** One measurement point: Z = re + j·im at frequency f [Hz]. */
 export interface ZPoint {
   f: number
   re: number
   im: number
+  /** Optional measurement covariance; a job is all-or-none. */
+  cov?: Cov2
 }
 
 /** Edge of the unified upper-triangle adjacency matrix (OUTPUT_FORMAT.md §1). */
@@ -35,6 +45,55 @@ export interface TheoryCurve {
   im: number[]
 }
 
+/** Explicit optimizer parameter descriptor (native report rev 2). */
+export interface ParameterDiagnostic {
+  id: number
+  edge: number
+  quantity: 'value' | 'dcr'
+  kind: CompKind
+  value: number
+  lower: number
+  upper: number
+  free: boolean
+  fixed: boolean
+  weak: boolean
+  at_bound: boolean
+  standard_error: number | null
+  ci95: [number, number] | null
+}
+
+export interface SelectionInfo {
+  eligible: boolean
+  criterion: string
+  score: number | null
+  delta: number | null
+  reasons: string[]
+}
+
+export interface CandidateDiagnostics {
+  verdict: string
+  optimizer: string
+  numerical_status: string
+  identifiability_status: string
+  fit_objective: number | null
+  rank: number
+  condition: number | null
+  singular_values: number[]
+  standard_errors: number[]
+  approximate_ci95: [number, number][]
+  weak: number[]
+  at_bound: number[]
+  starts: number
+  best_start: number
+  converged_starts: number
+  agreeing_starts: number
+  robust_used: boolean
+  outlier_count: number
+  worst_backward_error: number
+  worst_rcond: number
+  parameters: ParameterDiagnostic[]
+}
+
 export interface FitCandidate {
   rank: number
   devices: number
@@ -50,17 +109,28 @@ export interface FitCandidate {
   n_members?: number
   topology?: string // try1 canonical string / try2 structure key
   structure?: string
+  original_topology_key?: string
+  effective_topology_key?: string
+  effective_devices?: number
   adjacency: Adjacency
   theory: TheoryCurve
+  diagnostics?: CandidateDiagnostics
+  selection?: SelectionInfo
 }
 
 // ---- job requests -----------------------------------------------------------
 
 export interface SearchOptions {
- mode?: 'Strict' | 'Fast'
- budget?: number
- seconds?: number
- robust?: boolean
+  mode?: 'Strict' | 'Fast'
+  budget?: number
+  seconds?: number
+  robust?: boolean
+  /** equivalence-class merge tolerance for observed-band curves */
+  equivalenceTolerance?: number
+  /** multi-start / LM budget advanced controls */
+  starts?: number
+  iterations?: number
+  seed?: number
 }
 export interface Try1Job extends SearchOptions {
   try: 1
@@ -68,6 +138,8 @@ export interface Try1Job extends SearchOptions {
   /** exact normalized equivalent-model device count prior (undefined = free search) */
   exactN?: number
   maxN?: number
+  /** SP nesting depth; independent of maxN (native default 4) */
+  maxDepth?: number
   topK?: number
 }
 
@@ -80,8 +152,8 @@ export interface ComponentSpec {
 }
 
 export interface Try2Job extends SearchOptions {
- tolerance?: number
- dcrTolerance?: number
+  tolerance?: number
+  dcrTolerance?: number
   try: 2
   points: ZPoint[]
   components: ComponentSpec[]
@@ -105,17 +177,19 @@ export type FitJob = Try1Job | Try2Job | Try3Job
 // ---- responses --------------------------------------------------------------
 
 export interface Try1Stats {
-  n_library: number
-  n_pruned_kept: number
-  n_classes: number
+  generated: number
+  structures: number
+  evaluated: number
+  classes: number
 }
 
 export interface Try2Stats {
-  n_candidates: number
-  n_structures: number
-  n_funnel_kept: number
-  n_components: number
-  n_refined: number
+  generated: number
+  structures: number
+  evaluated: number
+  classes: number
+  components: number
+  refined: number
   elapsed_engine: number
 }
 
@@ -127,8 +201,14 @@ export interface Try3Group {
   members: number[]
   mode: string // 'single' | 'par' | 'ser'
   value: { v1: number; v2: number }
+  value_bounds: { lo: number; hi: number } | null
+  dcr_bounds: { lo: number; hi: number } | null
+  parameter_ids: number[]
+  /** human-readable aggregate expression summaries, e.g. "R1+R2" */
+  expression: { value: string; dcr: string | null }
   weak: string[]
   at_bound: string[]
+  fixed: string[]
 }
 
 export interface Try3EdgeReport {
@@ -162,7 +242,17 @@ export interface FitOkBase {
   ok: true
   try: 1 | 2 | 3
   elapsed: number
-  search: { mode: string; termination: string; complete: boolean; certified: boolean; family: string; failures: number }
+  search: {
+    mode: string
+    termination: string
+    complete: boolean
+    certified: boolean
+    family: string
+    failures: number
+    equivalence_metric: string
+    equivalence_threshold: number
+    selection: { criterion: string; qualified: boolean }
+  }
   candidates: FitCandidate[]
 }
 
