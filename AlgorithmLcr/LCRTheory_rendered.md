@@ -93,6 +93,13 @@ Try3 在参数化之前执行 R0，并迭代下列精确恒等归约：
 原始边序号映射到聚合群；死区边标记 dropped。保留原输入节点标签和 V。
 输出聚合值不能被解释成各物理成员的唯一值。
 
+归约恒等式同时以表达式树（Sum/HarmonicSum 于原始边叶）传播。每个归约群的
+等效参数允许域按表达式单调传播：串联取区间端点相加，并联取调和组合；
+任何合法物理成员组合的等效值因此总落在传播域内——两个 rMax 串联的等效
+2·rMax、两个 cMax 并联的 2·cMax、DCR 串联合计超过单个 dcrMax 都不会被
+单器件全局箱排除。连续拟合使用这些有效域，不得按等效边类型重新套用
+单器件全局箱。
+
 ## 4. 残差、噪声与 AICc
 
 严格测量文件只有 f/Re/Im。缺省
@@ -124,8 +131,14 @@ J+2k+2k(k+1)/(n-k-1),&\text{给定协方差}.
 
 省略同一数据集候选共有常数。仅 n>k+1 有定义，否则 unavailable/null。
 非线性、有界、秩亏、鲁棒或系统误差场景下 AICc 是诊断性近似，不能宣称校准的
-模型概率。Try1 若所有候选 AICc 有效则统一按它排序；否则全组统一退回 RSS，
-绝不混用不同单位的分数。Try2 Exact/Tolerance 按共同 RSS 排序。
+模型概率。候选分两层：满足正则条件（有限指标、AICc 有效、优化器收敛、
+非 robust、自由参数满秩且无触界）的 primary 候选按 AICc 排名并给出校准
+ΔAICc；其余为 diagnostic-only，排在全部 primary 之后按原始 RSS 内部排序，
+不参与 ΔAICc。单个 AICc 无效的过参数候选不再把整组拖回 RSS。若一个
+primary 都没有（或 robust 运行），所有有限候选按原始 RSS 做 exploratory
+回退，报告 selectionCriterion=RSS_DIAGNOSTIC_FALLBACK、
+selectionQualified=false，不展示校准 ΔAICc。
+Try2 Exact 按共同精确目标排序，Tolerance 按共同 RSS 排序。
 不重用 v3 的经验 regime 阈值；系统误差可能仍使较复杂模型胜出，应查看阶数和诊断。
 
 ## 5. 共享连续优化
@@ -138,6 +151,10 @@ v4 不采用审计稿中这一含混建议。
 默认物理箱：R=[1e-3,1e7] Ω，L=[1e-10,10] H，C=[1e-13,1e-3] F，
 DCR=[0,1e7] Ω。Try2 Tolerance 与标称容差箱求交，交集为空报输入错误。
 标称零 DCR 无绝对容差时固定为零，不计为自由参数。
+连续拟合的模型域由 prepareForFit 唯一构造：Try3 与内部 Try2.5 走
+ExactElectrical 策略（R0 + 精确归约 + 表达式级域传播），Try1 SP 库与
+Try2 Tolerance 保持物理 BOM 身份（None 策略，逐元件标称箱）；fit() 不再
+按边类型自行发明界。
 
 每轮用解析 J 求解增广 LM：
 
@@ -174,7 +191,10 @@ Top-K 尤其是 Top-K 等价类不能直接使用该阈值，因为前 K 个网�
 目标的全局最小值。浮点误差仍受求解诊断限制，且它不是内部物理图唯一性证明。
 
 Tolerance 对每图调用公共局部优化器，不自动作用于 Exact。
-内部 Try2.5 用相同枚举器产生已知类型的图，再在宽物理箱中拟合。
+内部 Try2.5 用相同枚举器产生已知类型的图，再复用 Try3 的 prepared 内层：
+对每图执行同样的 R0 + 精确归约（含域传播）后共享局部拟合，不可分别辨识的
+聚合（如两串联 R）只拟合一个等效参数。候选同时报告原枚举拓扑键与
+有效拓扑键，二者不得混淆；行为等价聚类仍可把它们并入同一 observed-band 类。
 二者必须分开报告 `enumeration_complete` 和 `continuous_global_certified`，后者为 false。
 
 ## 7. Try3 与可辨识性
@@ -184,7 +204,10 @@ Tolerance 对每图调用公共局部优化器，不自动作用于 Exact。
 秩为局部数值诊断。正则内点满列秩支持局部可辨识，单点秩亏不自动证明全局连续参数族。
 
 弹性 max_f |q ∂Z/∂q|/|Z|<0.1 标记 weak；这是经验阈值。
-边界参数独立标记 atBound，不把先验截断值当成可靠估计。
+区间端点重合的参数为 fixed（独立状态，绝不标记 atBound/weak、不计入
+nParams、不参与秩与协方差统计）；标称零 DCR 无绝对容差即此情形。
+atBound 仅对自由参数判定，不把先验截断值当成可靠估计。参数以显式
+id/edge/quantity 描述符输出，消费方不得按隐式顺序推断归属。
 仅在满列秩、自由度为正、非 robust、无边界时输出线性化物理参数标准误差：
 
 \[
@@ -263,6 +286,10 @@ This catches near-cancelling scalar LC admittances whose ordinary matrix conditi
 Full articulation dead-zone removal precedes fitting. Series/parallel R/C identities,
 series L+DCR addition and series R absorption are exact. General parallel physical inductors
 are retained. Reduced groups preserve original edge membership and node labels.
+Reduction identities also propagate admissible domains monotonically through expression
+trees (Sum/HarmonicSum over original-edge leaves), so any legal member combination —
+two rMax in series, two cMax in parallel, DCR sums beyond a single dcrMax — stays
+inside the optimizer domain instead of being re-clamped to single-device bounds.
 
 Relative residuals use max(|Z|,max(1e−15,1e−9 median|Z|)); supplied SPD 2×2 covariances
 instead whiten residuals by Cholesky factors. Robust Huber IRLS is optional, uses an adaptive
@@ -275,8 +302,16 @@ termination. Defaults are 16 starts, 160 iterations and seed 1. It is a local op
 
 AICc uses n=2M, k=p+1 for unknown common variance or k=p for supplied covariance;
 its denominator is n−k−1 and it is unavailable when n≤k+1. It is only an approximate
-model-selection diagnostic for nonlinear, constrained or misspecified problems. Try1 uses
-AICc only when valid for the whole comparison set, otherwise a common RSS ordering.
+model-selection diagnostic for nonlinear, constrained or misspecified problems.
+Candidates are tiered: primary candidates (finite metrics, available AICc, converged
+optimizer, non-robust, full free-parameter rank, no free parameter at a bound) rank
+by AICc with calibrated deltas, while diagnostic-only candidates follow them by raw
+RSS and never carry deltas — a single AICc-invalid over-parameter model can no longer
+demote the whole set. With no primary candidate, or in robust runs, the finite set
+falls back to exploratory RSS ordering reported as unqualified. The web may feed
+supplied covariance through an explicit optional path; scan-derived polar uncertainty
+converted to Cartesian covariance is an approximate propagation, never a full
+waveform least-squares covariance.
 
 ## Engine guarantees
 
@@ -288,11 +323,18 @@ algorithm and is not used. Only complete, numerically reliable exact evaluation 
 a conditional finite-space minimum claim. Hidden dead-zone BOMs are outside this space.
 
 Try2 Tolerance requires explicit fractional bounds, with optional absolute DCR tolerance;
-nominal zero DCR otherwise remains fixed. Try2.5 composes typed graph enumeration and
-wide-box fitting internally. Neither certifies a continuous global optimum.
+nominal zero DCR otherwise remains fixed. Try2.5 composes typed graph enumeration with the
+same Try3 prepared inner fit — exact reduction with domain propagation precedes the shared
+local fit, non-identifiable aggregates collapse to one equivalent parameter, and candidates
+report both original and effective topology keys. Neither certifies a continuous global
+optimum.
 
-Try3 fits reduced groups and reports numerical Jacobian rank, singular values, condition,
-elasticity, boundaries, multistart agreement and conditional linearized standard errors and transformed approximate 95% intervals.
+Try3 fits reduced groups over propagated domains and reports numerical Jacobian rank,
+singular values, condition, elasticity, boundaries, multistart agreement and conditional
+linearized standard errors and transformed approximate 95% intervals. Fixed parameters
+(collapsed interval, e.g. nominal zero DCR without absolute tolerance) are a separate
+state, never marked at-bound and excluded from parameter counts; diagnostics carry
+explicit id/edge/quantity parameter descriptors instead of positional guessing.
 Full rank at a regular interior point supports local identifiability; one singular Jacobian
 does not prove global non-identifiability. Weakness and rank deficiency are distinct.
 

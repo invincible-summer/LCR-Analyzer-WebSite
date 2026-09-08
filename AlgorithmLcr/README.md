@@ -30,17 +30,22 @@ Eigen 头文件随 `vendor/` 固定，离线构建可用。公开 API 在 `inclu
   exactN 是等效模型器件数，不是物理 BOM；默认 maxN=4、maxDepth=4、Top-K=8。
 - **Try2**：默认 Exact，固定已知参数；显式 `--tolerance` 才开启容差局部拟合。
   支持桥式/重边、1..8 元件；大 E 的严格枚举可能昂贵。
-- **Try3**：完整死区和严格归约后拟合，返回群、边界、局部可辨识性。
-- **Try2.5**：内部 C++ `try25` 接口及组合测试，不增加文件格式。
+- **Try3**：完整死区和严格归约（表达式级域传播，聚合等效值可超出单器件箱）
+  后拟合，返回群、有效域、边界、局部可辨识性。
+- **Try2.5**：内部 C++ `try25` 接口及组合测试，不增加文件格式；复用 Try3 的
+  prepared 归约内层。
 
 默认 Strict 无隐式搜索预算。`--mode fast` 默认 1000 候选；可以显式设
 `--budget`、`--seconds`。预算在候选、启动和 LM 步间协作检查，结果会标记未完成。
 `--starts`、`--iterations`、`--seed` 控制多初值；`--robust` 显式开启 IRLS。
 CLI 提供 R/L/C 上下界和 DCR 上界；C++ Config 还支持逐点协方差及取消回调。
 
-原生 JSON `lcr.native.v4` 包含原精度邻接矩阵与独立诊断，不是网页 Worker 协议。
-网页通过 Worker/WASM 调用相同 C++ 核心。模型选择使用声明的 AICc/RSS 规则，
-有限带系统误差下较复杂模型可能排前；不能把低残差或局部满秩当作唯一物理接线证明。
+原生 JSON `lcr.native.v4` revision 2（engine 4.1.0）包含原精度邻接矩阵、显式
+参数描述符（id/edge/quantity/free/fixed/SE/CI）、运行与候选级 selection
+（primary/diagnostic 分层）及归约群有效域/表达式，不是网页 Worker 协议。
+网页通过 Worker/WASM 调用相同 C++ 核心。模型选择按声明的 eligibility 分层
+（校准 ΔAICc 仅限合格 AICc 运行），有限带系统误差下较复杂模型可能排前；
+不能把低残差或局部满秩当作唯一物理接线证明。
 
 验证：`lcr_tests`、`lcr_bench real4 examples`、`lcr_bench random 40 21`。
 随机基准分别报告行为 pass@1/pass@8、结构匹配率与耗时。
@@ -56,4 +61,5 @@ pnpm build
 ```
 
 WASM 与 CLI 共享核心。生成的 `frontend/src/wasm/lcr.js` 和 `lcr.wasm` 随源码保留，
-普通网站启动不需要 SDK；修改 C++ 后须同步重建。当前验证 Emscripten 6.0.9。
+普通网站启动不需要 SDK；修改 C++ 后须同步重建并提交（`pnpm test:wasm` 与
+`pnpm test:parity` 为回归门）。当前验证 Emscripten 6.0.9。
