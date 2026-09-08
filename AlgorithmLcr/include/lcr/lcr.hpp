@@ -146,6 +146,9 @@ struct Candidate {
   size_t members = 1;
   int nParams = 0;
   bool refined = false;
+  // Enumeration identity vs electrically reduced identity (Try2.5/Try3).
+  std::string originalTopologyKey, effectiveTopologyKey;
+  int effectiveDevices = 0;
 };
 struct SearchResult {
   int which = 0;

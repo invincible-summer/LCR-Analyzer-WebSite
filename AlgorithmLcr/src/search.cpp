@@ -321,7 +321,10 @@ SearchResult try2(const Data &d, const std::vector<Edge> &components,
           return false;
         Candidate a;
         if (c.tolerance > 0) {
-          a = fit(g, d, run.fitConfig(), {g});
+          // Physical BOM identity: every known component stays its own
+          // parameter with its nominal tolerance box (plan 5.4).
+          auto p = prepareForFit(g, c, ReductionPolicy::None);
+          a = fit(p, d, run.fitConfig(), {g});
           a.refined = true;
         } else {
           a.graph = g;
@@ -360,11 +363,14 @@ SearchResult try3(const Data &d, const Graph &g, const Config &c) {
   if (c.tolerance > 0)
     throw std::invalid_argument("Try3 has no nominal tolerance input");
   Run run(3, c, "KNOWN_REDUCED_GRAPH");
-  auto reduced = reduce(g);
-  auto a = fit(reduced.graph, d, run.fitConfig());
-  a.reduction = reduced;
-  a.reduction.graph = a.graph;
+  // R0 + exact electrical reduction, then the shared local fit over the
+  // propagated aggregate domains (plan 5.1).
+  auto p = prepareForFit(g, c, ReductionPolicy::ExactElectrical);
+  auto a = fit(p, d, run.fitConfig());
   a.topology = "known_topology";
+  a.originalTopologyKey = canonical(g, false);
+  a.effectiveTopologyKey = canonical(a.graph, false);
+  a.effectiveDevices = int(a.graph.edges.size());
   run.r.generated = run.r.structures = 1;
   run.add(std::move(a));
   finish(run, d, false);
@@ -385,8 +391,14 @@ SearchResult try25(const Data &d, const std::vector<char> &kinds,
         ++run.r.generated;
         if (run.stop())
           return false;
-        auto a = fit(g, d, run.fitConfig());
+        // Same Try3 prepared inner fit: exact reduction collapses
+        // non-identifiable aggregates before the wide-box local fit.
+        auto p = prepareForFit(g, c, ReductionPolicy::ExactElectrical);
+        auto a = fit(p, d, run.fitConfig());
         a.topology = canonical(g, false);
+        a.originalTopologyKey = a.topology;
+        a.effectiveTopologyKey = canonical(a.graph, false);
+        a.effectiveDevices = int(a.graph.edges.size());
         run.add(std::move(a));
         return true;
       },
@@ -405,13 +417,16 @@ SearchResult try1(const Data &d, const Config &c) {
   for (auto &g : aux) {
     if (run.stop())
       break;
-    auto r = reduce(g);
-    if (r.graph.edges.size() > size_t(max) ||
-        (c.exactN && r.graph.edges.size() != size_t(*c.exactN)))
+    auto p = prepareForFit(g, c, ReductionPolicy::ExactElectrical);
+    if (p.effective.edges.size() > size_t(max) ||
+        (c.exactN && p.effective.edges.size() != size_t(*c.exactN)))
       continue;
-    auto a = fit(r.graph, d, run.fitConfig(), {r.graph});
+    auto a = fit(p, d, run.fitConfig(), {p.effective});
     a.engine = "B";
-    a.topology = "foster:" + labeledSignature(r.graph);
+    a.topology = "foster:" + labeledSignature(p.effective);
+    a.originalTopologyKey = labeledSignature(g);
+    a.effectiveTopologyKey = labeledSignature(p.effective);
+    a.effectiveDevices = int(p.effective.edges.size());
     ++run.r.generated;
     run.add(std::move(a));
   }
@@ -424,8 +439,12 @@ SearchResult try1(const Data &d, const Config &c) {
       if (run.stop())
         break;
       ++run.r.generated;
-      auto a = fit(g, d, run.fitConfig());
+      auto p = prepareForFit(g, c, ReductionPolicy::None);
+      auto a = fit(p, d, run.fitConfig());
       a.topology = labeledSignature(g);
+      a.originalTopologyKey = a.topology;
+      a.effectiveTopologyKey = a.topology;
+      a.effectiveDevices = int(g.edges.size());
       run.add(std::move(a));
     }
   }

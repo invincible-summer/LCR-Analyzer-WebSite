@@ -633,6 +633,76 @@ void fitting() {
   require(p.enumerationComplete && !p.continuousGlobalCertified &&
               p.candidates[0].metrics.wrmse < 1e-7,
           "Try2.5 composition");
+  // Try2.5 shares the Try3 prepared inner fit: aggregates collapse.
+  Graph ser2{3, {{0, 2, {'R', 100, 0}}, {2, 1, {'R', 300, 0}}}};
+  auto p25 = try25(sample(ser2), {'R', 'R'}, c);
+  const auto &w25 = p25.candidates[0];
+  require(p25.enumerationComplete && w25.nParams == 1 &&
+              w25.effectiveDevices == 1 && w25.metrics.wrmse < 1e-7,
+          "Try2.5 series R fits one aggregate");
+  require(w25.originalTopologyKey != w25.effectiveTopologyKey,
+          "Try2.5 keeps original vs effective topology keys");
+  Graph serRl{3, {{0, 2, {'R', 47, 0}}, {2, 1, {'L', 1., 2}}}};
+  auto q25 = try25(sample(serRl), {'R', 'L'}, c);
+  const auto &v25 = q25.candidates[0];
+  require(v25.nParams == 2 && v25.effectiveDevices == 1 &&
+              v25.metrics.wrmse < 1e-7,
+          "Try2.5 R+L series: main L plus aggregate DCR");
+  close(Complex(v25.graph.edges[0].element
+                    .parameterOfCapacitanceDCResistance,
+                0),
+        Complex(49., 0), 1e-6);
+  // Try3 recovers aggregate equivalents at the domain boundary without
+  // single-device clamping and never fabricates per-member values.
+  struct Aggregate {
+    std::string name;
+    Graph g;
+    double value, dcr; // expected effective equivalents (dcr<0: none)
+  };
+  std::vector<Aggregate> aggs{
+      {"rMin||rMin",
+       {2, {{0, 1, {'R', 1e-3, 0}}, {0, 1, {'R', 1e-3, 0}}}},
+       5e-4,
+       -1},
+      {"rMax+rMax",
+       {3, {{0, 2, {'R', 1e7, 0}}, {2, 1, {'R', 1e7, 0}}}},
+       2e7,
+       -1},
+      {"cMax||cMax",
+       {2, {{0, 1, {'C', 1e-3, 0}}, {0, 1, {'C', 1e-3, 0}}}},
+       2e-3,
+       -1},
+      {"cMin ser cMin",
+       {3, {{0, 2, {'C', 1e-13, 0}}, {2, 1, {'C', 1e-13, 0}}}},
+       5e-14,
+       -1},
+      {"lMax+lMax",
+       {3, {{0, 2, {'L', 10, 0}}, {2, 1, {'L', 10, 0}}}},
+       20,
+       0},
+      {"dcrMax+dcrMax",
+       {3, {{0, 2, {'L', 1, 1e7}}, {2, 1, {'L', 1, 1e7}}}},
+       2,
+       2e7},
+      {"L(dcrMax)+rMax",
+       {3, {{0, 2, {'R', 1e7, 0}}, {2, 1, {'L', 1, 1e7}}}},
+       1,
+       2e7}};
+  for (auto &agg : aggs) {
+    auto rr = try3(sample(agg.g), agg.g, c);
+    const auto &cand = rr.candidates[0];
+    require(cand.metrics.wrmse < 1e-8,
+            agg.name + ": Try3 aggregate recovery wrmse");
+    const auto &e = cand.graph.edges[0].element;
+    close(Complex(e.parameter, 0), Complex(agg.value, 0), 1e-8);
+    if (agg.dcr >= 0)
+      close(Complex(e.parameterOfCapacitanceDCResistance, 0),
+            Complex(agg.dcr, 0), 1e-8);
+    require(cand.reduction.groups.size() == 1 &&
+                cand.reduction.groups[0].members.size() == 2 &&
+                cand.graph.edges.size() == 1,
+            agg.name + ": aggregate group, no fabricated member values");
+  }
   auto nominal = std::vector<Edge>{{'R', 1100, 0}, {'C', 2.1e-7, 0}};
   c.tolerance = .2;
   auto tol = try2(d, nominal, c);
