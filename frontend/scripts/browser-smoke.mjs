@@ -1,5 +1,6 @@
 import { chromium } from 'playwright';
 import assert from 'node:assert/strict';
+// CHROMIUM_PATH 可显式指定可执行文件；未设置时使用 playwright 默认安装的浏览器。
 const browser=await chromium.launch({headless:true,executablePath:process.env.CHROMIUM_PATH});
 try {
 const page=await browser.newPage();const errors=[];page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error'&&!m.text().includes('status of 404')&&!m.text().includes('status of 500'))errors.push(m.text())});

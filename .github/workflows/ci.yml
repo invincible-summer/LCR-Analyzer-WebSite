@@ -1,0 +1,117 @@
+name: ci
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main, dev]
+
+jobs:
+  native:
+    name: native (ctest + real4)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure
+        run: cmake -S AlgorithmLcr -B build -DCMAKE_BUILD_TYPE=Release
+      - name: Build
+        run: cmake --build build -j2
+      - name: Test
+        run: ctest --test-dir build --output-on-failure
+
+  sanitizer:
+    name: sanitizer (ASan + UBSan)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure
+        run: >
+          cmake -S AlgorithmLcr -B build-san -DCMAKE_BUILD_TYPE=Debug
+          -DCMAKE_CXX_FLAGS="-fsanitize=address,undefined -fno-omit-frame-pointer"
+      - name: Build core tests
+        run: cmake --build build-san -j2 --target lcr_tests
+      - name: Run under sanitizers
+        run: ./build-san/lcr_tests
+
+  wasm-frontend:
+    name: wasm + frontend
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.25.0
+      - name: Emscripten 6.0.9
+        uses: mymindstorm/setup-emsdk@v14
+        with:
+          version: 6.0.9
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Build native CLI (for parity gate)
+        run: |
+          cmake -S ../AlgorithmLcr -B /tmp/lcr-native -DCMAKE_BUILD_TYPE=Release
+          cmake --build /tmp/lcr-native -j2 --target lcr
+      - name: Rebuild wasm from current sources
+        run: pnpm build:wasm
+      - name: Committed artifacts must match the rebuild
+        run: git diff --exit-code -- src/wasm
+      - name: WASM smoke
+        run: pnpm test:wasm
+      - name: Native <-> WASM parity
+        run: pnpm test:parity
+        env:
+          LCR_NATIVE_BIN: /tmp/lcr-native/lcr
+      - name: Vitest
+        run: pnpm test
+      - name: Type-check and build
+        run: pnpm build
+
+  backend:
+    name: backend (pytest)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Test
+        run: python -m pytest
+
+  browser:
+    name: browser smoke
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.25.0
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Install Playwright chromium
+        run: npx playwright install chromium --with-deps
+      - name: Build site
+        run: pnpm build
+      - name: Serve and smoke
+        run: |
+          npx vite preview --port 4173 --strictPort &
+          trap 'kill %1' EXIT
+          for i in $(seq 1 30); do curl -sf http://127.0.0.1:4173/ >/dev/null && break; sleep 1; done
+          node scripts/browser-smoke.mjs
