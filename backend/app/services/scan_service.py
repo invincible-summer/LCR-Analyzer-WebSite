@@ -1,18 +1,15 @@
-"""Scan lifecycle: ingest frequency points, run DSP, persist, fit."""
+"""Scan lifecycle: ingest frequency points, run DSP, persist."""
 from __future__ import annotations
 import uuid
 import numpy as np
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 
-from ..models.db import Scan, Measurement, RawWave, FitResult, CalibSet
+from ..models.db import Scan, Measurement, RawWave
 from ..schemas.upload import PointUpload, ScanStart
 from ..schemas.scan import MeasurementOut, MeasurementDetail, ScanOut, ScanDetail
 from ..dsp.impedance import measure_impedance
 from ..dsp.spectrum import fft_spectrum
-from ..dsp.topology_fit import MODELS as TOPOLOGIES, fit_topology
-from ..dsp.fit_auto import fit_auto
-from ..dsp.calibration import apply_calibration
 
 
 def start_scan(db: Session, payload: ScanStart) -> Scan:
@@ -121,79 +118,6 @@ def get_measurement_detail(db: Session, scan_id: str, measurement_id: int) -> Me
     if not m or m.scan_id != scan_id or not m.raw:
         return None
     return measurement_to_detail(m)
-
-
-def _cx_list(zs) -> list[list[float]]:
-    return [[float(z.real), float(z.imag)] for z in zs]
-
-
-def fit_scan(db: Session, scan_id: str, model: str = "auto",
-             calib_id: int | None = None) -> FitResult:
-    """Fit a scan. ``model`` is "auto" (VF + topology ranking) or a named
-    topology key from ``dsp.topology_fit.MODELS``."""
-    ms = db.query(Measurement).filter(Measurement.scan_id == scan_id)\
-        .order_by(Measurement.frequency).all()
-    if not ms:
-        raise ValueError("scan has no measurements")
-
-    freqs = np.array([m.frequency for m in ms], dtype=float)
-    Z = np.array([complex(m.z_real, m.z_imag) for m in ms], dtype=complex)
-    sigma = np.array([m.z_sigma or 0.0 for m in ms], dtype=float)
-    sigma = sigma if np.any(sigma > 0) else None
-
-    if calib_id:
-        cal = db.get(CalibSet, calib_id)
-        if cal:
-            Z = apply_calibration(freqs, Z, {
-                "short": cal.short, "open": cal.open_,
-                "load": cal.load, "load_true": cal.load_true,
-            })
-
-    if model == "auto":
-        auto = fit_auto(freqs, Z, sigma=sigma)
-        best = auto.best
-        if best.kind == "vf":
-            rfit, syn = best.vf, best.synthesis
-            fr = FitResult(
-                scan_id=scan_id, model="auto", kind="vf",
-                params={"d": rfit.d, "e": rfit.e},
-                rmse=best.rmse, chi2_red=best.chi2_red, aicc=best.aicc,
-                converged=rfit.converged, passive=syn.passive,
-                theory=auto.theory,
-                residuals={"frequency": freqs.tolist(),
-                           "re": (rfit.z_fit - Z).real.tolist(),
-                           "im": (rfit.z_fit - Z).imag.tolist()},
-                netlist=syn.netlist,
-                poles=_cx_list(rfit.poles), zeros=_cx_list(rfit.zeros()),
-                warnings=syn.warnings or None,
-                ranking=auto.to_summary(),
-            )
-        else:
-            topo = best.topo
-            fr = FitResult(
-                scan_id=scan_id, model="auto", kind="topology",
-                params=topo.params, param_ci=topo.param_ci,
-                rmse=topo.rmse, chi2_red=topo.chi2_red, aicc=topo.aicc,
-                converged=topo.converged, passive=None,
-                theory=topo.theory, residuals=topo.residuals,
-                ranking=auto.to_summary(),
-            )
-    elif model in TOPOLOGIES:
-        topo = fit_topology(model, freqs, Z, sigma=sigma)
-        fr = FitResult(
-            scan_id=scan_id, model=model, kind="topology",
-            params=topo.params, param_ci=topo.param_ci,
-            rmse=topo.rmse, chi2_red=topo.chi2_red, aicc=topo.aicc,
-            converged=topo.converged, passive=None,
-            theory=topo.theory, residuals=topo.residuals,
-        )
-    else:
-        raise ValueError(f"unknown model {model!r}; choose 'auto' or {list(TOPOLOGIES)}")
-
-    db.add(fr)
-    db.commit()
-    db.refresh(fr)
-    return fr
 
 
 def delete_scan(db: Session, scan_id: str) -> bool:

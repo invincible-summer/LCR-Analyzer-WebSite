@@ -5,11 +5,11 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .config import CORS_ORIGINS
 from .models.db import init_db
-from .api import upload, results, fit, experiments, ws as ws_api
+from .api import upload, results, experiments, ws as ws_api
 
 app = FastAPI(
     title="ESP32 LCR Analyzer",
-    description="Online LCR impedance analysis platform: ingest -> DSP -> impedance -> fit -> visualize.",
+    description="Online LCR impedance analysis platform: ingest -> DSP -> impedance -> visualize.",
     version="0.1.0",
 )
 
@@ -26,7 +26,6 @@ init_db()
 
 app.include_router(upload.router, prefix="/api")
 app.include_router(results.router, prefix="/api")
-app.include_router(fit.router, prefix="/api")
 app.include_router(experiments.router, prefix="/api")
 app.include_router(ws_api.router, prefix="/api")
 

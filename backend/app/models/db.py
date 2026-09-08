@@ -5,7 +5,6 @@ from typing import Optional
 
 from sqlalchemy import (
     create_engine, String, Float, Integer, ForeignKey, DateTime, Text, JSON,
-    Boolean,
 )
 from sqlalchemy.orm import (
     DeclarativeBase, Mapped, mapped_column, relationship, sessionmaker, Session,
@@ -103,30 +102,6 @@ class RawWave(Base):
     measurement: Mapped["Measurement"] = relationship(back_populates="raw")
 
 
-class FitResult(Base):
-    __tablename__ = "fitresults"
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    scan_id: Mapped[str] = mapped_column(ForeignKey("scans.id"), index=True)
-    model: Mapped[str] = mapped_column(String)     # "auto" | "auto_vf" | topology key
-    kind: Mapped[str] = mapped_column(String)      # "vf" | "topology"
-    params: Mapped[dict] = mapped_column(JSON)     # {name: value}; vf: {d, e}
-    param_ci: Mapped[dict | None] = mapped_column(JSON, nullable=True)
-    rmse: Mapped[float] = mapped_column(Float)
-    chi2_red: Mapped[float] = mapped_column(Float)
-    aicc: Mapped[float] = mapped_column(Float)
-    converged: Mapped[bool] = mapped_column(Boolean, default=True)
-    passive: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
-    theory: Mapped[dict] = mapped_column(JSON)     # dense curve {frequency, z_mag, ...}
-    residuals: Mapped[dict | None] = mapped_column(JSON, nullable=True)
-    netlist: Mapped[dict | None] = mapped_column(JSON, nullable=True)   # Foster tree (vf)
-    poles: Mapped[list | None] = mapped_column(JSON, nullable=True)     # [[re, im], ...]
-    zeros: Mapped[list | None] = mapped_column(JSON, nullable=True)
-    warnings: Mapped[list | None] = mapped_column(JSON, nullable=True)
-    ranking: Mapped[list | None] = mapped_column(JSON, nullable=True)   # auto: candidate rows
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=_now)
-
-
 class CalibSet(Base):
     __tablename__ = "calibsets"
 
@@ -141,22 +116,10 @@ class CalibSet(Base):
 
 
 def init_db() -> None:
-    """Create tables and lightly migrate legacy dev databases.
-
-    The fit-results schema was rebuilt (accuracy/cost -> chi2_red/aicc/CI/
-    netlist/...). All data in existing dev DBs is simulator-generated (the
-    firmware does not exist yet), so the legacy table is simply dropped.
-    New measurement columns are added via ALTER TABLE.
-    """
+    """Create measurement tables; preserve legacy fit tables without migration."""
     from sqlalchemy import inspect, text
     Base.metadata.create_all(engine)
     insp = inspect(engine)
-    if "fitresults" in insp.get_table_names():
-        cols = {c["name"] for c in insp.get_columns("fitresults")}
-        if "aicc" not in cols:
-            with engine.begin() as conn:
-                conn.execute(text("DROP TABLE fitresults"))
-            FitResult.__table__.create(engine)
     if "measurements" in insp.get_table_names():
         cols = {c["name"] for c in insp.get_columns("measurements")}
         with engine.begin() as conn:

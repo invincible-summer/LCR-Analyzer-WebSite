@@ -1,6 +1,4 @@
-// fitTypes.ts — TypeScript mirror of the wasm glue JSON contract
-// (frontend/wasm/src/*_glue.cpp).  Keep both sides in sync; DESIGN.md is the
-// authoritative description.
+// Browser v4 JSON contract adapted from the shared native report.
 
 export type CompKind = 'R' | 'L' | 'C'
 
@@ -43,11 +41,11 @@ export interface FitCandidate {
   n_params: number
   wrmse: number
   max_rel: number
-  aicc: number
+  aicc: number | null
   rss: number
-  engine?: string // try1: 'A' | 'B'
+  engine?: string // SP enumeration / rational auxiliary
   sp?: boolean // try2: series-parallel wiring?
-  /** try2: candidate carries refined component values (R4 value refinement) */
+  /** try2: values refined inside explicit tolerance bounds */
   refined?: boolean
   n_members?: number
   topology?: string // try1 canonical string / try2 structure key
@@ -58,10 +56,16 @@ export interface FitCandidate {
 
 // ---- job requests -----------------------------------------------------------
 
-export interface Try1Job {
+export interface SearchOptions {
+ mode?: 'Strict' | 'Fast'
+ budget?: number
+ seconds?: number
+ robust?: boolean
+}
+export interface Try1Job extends SearchOptions {
   try: 1
   points: ZPoint[]
-  /** exact device count prior (undefined = free search) */
+  /** exact normalized equivalent-model device count prior (undefined = free search) */
   exactN?: number
   maxN?: number
   topK?: number
@@ -75,7 +79,9 @@ export interface ComponentSpec {
   count: number
 }
 
-export interface Try2Job {
+export interface Try2Job extends SearchOptions {
+ tolerance?: number
+ dcrTolerance?: number
   try: 2
   points: ZPoint[]
   components: ComponentSpec[]
@@ -88,7 +94,7 @@ export interface TopoEdge {
   kind: CompKind
 }
 
-export interface Try3Job {
+export interface Try3Job extends SearchOptions {
   try: 3
   points: ZPoint[]
   edges: TopoEdge[]
@@ -143,7 +149,7 @@ export interface Try3Stats {
 export interface Try3Diagnostics extends Try3Stats {
   ok: boolean
   jac_rank: number
-  jac_cond: number
+  jac_cond: number | null
   n_passes: number
   groups: Try3Group[]
   edges: Try3EdgeReport[]
@@ -156,6 +162,7 @@ export interface FitOkBase {
   ok: true
   try: 1 | 2 | 3
   elapsed: number
+  search: { mode: string; termination: string; complete: boolean; certified: boolean; family: string; failures: number }
   candidates: FitCandidate[]
 }
 

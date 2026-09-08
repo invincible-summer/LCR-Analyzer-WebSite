@@ -1,0 +1,36 @@
+cmake_minimum_required(VERSION 3.16)
+project(lcr_v4 VERSION 4.0.0 LANGUAGES CXX)
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+if(NOT CMAKE_BUILD_TYPE)
+  set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
+endif()
+add_library(lcr_core src/io.cpp src/graph.cpp src/nodal.cpp src/fit.cpp src/search.cpp src/rational.cpp src/report.cpp)
+target_include_directories(lcr_core PUBLIC include)
+target_include_directories(lcr_core SYSTEM PUBLIC vendor)
+target_compile_options(lcr_core PRIVATE -Wall -Wextra -Wpedantic)
+add_executable(lcr src/main.cpp)
+target_link_libraries(lcr PRIVATE lcr_core)
+include(CTest)
+if(BUILD_TESTING)
+  add_executable(lcr_tests tests/test.cpp)
+  target_link_libraries(lcr_tests PRIVATE lcr_core)
+  add_test(NAME core COMMAND lcr_tests)
+  add_executable(lcr_bench tests/bench.cpp)
+  target_link_libraries(lcr_bench PRIVATE lcr_core)
+  add_test(NAME real4 COMMAND lcr_bench real4 ${CMAKE_CURRENT_SOURCE_DIR}/../examples)
+endif()
+
+if(EMSCRIPTEN)
+  target_compile_options(lcr_core PRIVATE -fexceptions)
+  add_executable(lcr_wasm wasm/bindings.cpp)
+  target_link_libraries(lcr_wasm PRIVATE lcr_core)
+  target_compile_options(lcr_wasm PRIVATE -fexceptions)
+  set_target_properties(lcr_wasm PROPERTIES OUTPUT_NAME lcr SUFFIX .js)
+  target_link_options(lcr_wasm PRIVATE
+    --no-entry -fexceptions
+    "-sMODULARIZE=1" "-sEXPORT_ES6=1" "-sENVIRONMENT=web,worker,node"
+    "-sALLOW_MEMORY_GROWTH=1" "-sSTACK_SIZE=2097152"
+    "-sEXPORTED_FUNCTIONS=['_malloc','_free','_lcr_free','_lcr_version','_lcr_configure','_lcr_try1','_lcr_try2','_lcr_try3']"
+    "-sEXPORTED_RUNTIME_METHODS=['UTF8ToString','HEAPF64','HEAP32']")
+endif()

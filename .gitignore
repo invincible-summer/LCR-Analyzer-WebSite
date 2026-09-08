@@ -26,14 +26,11 @@ dist-ssr/
 *.log
 .DS_Store
 
-# ---- wasm build trees (artifacts live in frontend/src/wasm, committed) ----
-frontend/wasm/build-wasm/
-frontend/wasm/build-native/
+# ---- native CMake build trees ----
+AlgorithmLcr/build*/
 
 # ---- agent session internals ----
 .zcode/
-frontend/wasm/bench/work/
-AlgorithmLcr/*/cppversion/build-test/
 
 # ---- windows NTFS zone identifier junk ----
 *:Zone.Identifier

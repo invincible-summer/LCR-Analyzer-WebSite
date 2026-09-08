@@ -2,7 +2,7 @@
 
 This lets the whole platform run and be validated without real hardware. The
 generated physics is the time-domain counterpart of the circuit models in
-``app.dsp.topology_fit``:
+``app.services.simulator_models``:
 
     drive  i(t) = I0 * sin(w t)
     DUT    Z(w) = R + jX(w)
@@ -22,18 +22,17 @@ from typing import Sequence
 
 import numpy as np
 
-from ..dsp.topology_fit import MODELS
+from .simulator_models import MODELS
 
 
 def ordered_params(model: str, R: float, L: float, C: float) -> list[float]:
     md = MODELS[model]
-    table = {"R": R, "L": L, "C": C}
+    table = {"R": R, "Rs": R, "Rp": R, "L": L, "C": C}
     return [table[k] for k in md.params]
 
 
 # a deliberately non-trivial DUT: two parallel-RLC sections in series --
-# not expressible by any single library topology; only the vector-fitting
-# engine can recover its structure
+# used to exercise the measurement pipeline over two resonances
 TWO_SECTION = {"R1": 1000.0, "L1": 1e-2, "C1": 1e-6,
                "R2": 50.0, "L2": 1e-5, "C2": 1e-9}
 

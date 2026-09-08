@@ -1,37 +1,59 @@
-# AlgorithmLcr — 单端口 RLC 网络识别算法研究
+# LCR v4 原生算法
 
-本目录是 LCR 分析仪项目的**算法研究沙盒**：两个独立的研究课题各占一个子目录，
-均含完整推导（DESIGN.md）、Python 实现、测试套件与 demo。生产后端使用的 DSP/
-拟合代码在仓库根 `backend/`（见上级 [AGENTS.md](../AGENTS.md)）。
+C++17 / Eigen 3.4.0 的单端口 RLC 辨识库。三个引擎共享节点求值、解析 Jacobian、
+图归约、SVD-LM 优化和诊断。没有 Python 拟合算法或旧 cppversion；原生构建不依赖 WASM 工具链。
 
-## 目录
-
-| 子目录 | 课题 | 设定 | 状态 |
-|---|---|---|---|
-| [Try1-Completely unknown single port fitting](Try1-Completely unknown single port fitting/) | 完全未知单端口拟合 | 元件类型/参数全未知，仅有 z(f) 测量点 → 双引擎（串并联规范树枚举 + SK 有理拟合/Foster 综合）+ AICc 选择；电感为 L+DCR 绑定器件（v2），可选「器件数恰为 n」约束（count.txt） | v2 完成：py 165 测试全绿 + demo 14/14；C++ cppversion 同步（含 iofmt/adjacency），确定性套件全绿 |
-| [Try2-Known component types, quantities and parameters](Try2-Known component types, quantities and parameters/) | 已知元件的拓扑枚举识别 | 元件多重集完全已知（电感含 DCR 双参数）→ 多重图无同构完备枚举 + 批量节点分析 + Try1 误差度量 | P1 完成，50 测试全绿 |
-
-## 两个课题的关系
-
-- Try1 因每拓扑需参数拟合而将搜索空间限制为串并联规范树；Try2 利用"元件值已知
-  ⟹ 免拟合"的先验实现**全多重图穷举**，可识别 Try1 原理上不可达的桥式拓扑与
-  重边结构，二者互补。
-- Try2 的误差度量逐式沿用 Try1 DESIGN §5.1/§8.1（相对加权复残差、wRMSE、
-  等价类聚类），并有数值对拍测试锁定一致性。
-- 共享的测量模型：复高斯相对噪声（σ_k ≈ σ₀|ẑ_k|，σ₀ = 0.5%）、
-  10 Hz–10 MHz、30 对数频点。
-
-## 快速开始
-
-```bash
-# 环境：conda env lcr（Python 3.11 + numpy/scipy），见上级 AGENTS.md
-cd "Try1-Completely unknown single port fitting" && conda run -n lcr python demo.py
-cd "Try2-Known component types, quantities and parameters" && conda run -n lcr python demo.py --stats
+```sh
+cmake -S AlgorithmLcr -B /tmp/lcr-v4-build -DCMAKE_BUILD_TYPE=Release
+cmake --build /tmp/lcr-v4-build -j2
+ctest --test-dir /tmp/lcr-v4-build --output-on-failure
+/tmp/lcr-v4-build/lcr --help
 ```
 
-各子目录的 `DESIGN.md` 是算法的唯一权威文档（推导、决策记录、复杂度论证、
-参考文献）；`explain.md`（Try1）为面向使用者的算法讲解。三个课题的搜索/拟合
-结果统一以「上三角邻接矩阵 + `vector<Edge>`」形式输出，约束见
-[OUTPUT_FORMAT.md](OUTPUT_FORMAT.md)；输入侧（统一测量数据 `n / f Rz Iz`，
-Try1 可选器件数约束 `count.txt`、Try2 元件队列、Try3 拓扑矩阵+边类型队列）
-约束见 [INPUT_FORMAT.md](INPUT_FORMAT.md)。
+Eigen 头文件随 `vendor/` 固定，离线构建可用。公开 API 在 `include/lcr/lcr.hpp`。
+命令行错误退出码、机器输出及格式见 [OUTPUT_FORMAT.md](OUTPUT_FORMAT.md)。
+
+```sh
+# 输入标准测量文件；Try1 可不指定 count，自由搜索 1..4 个规范器件
+/tmp/lcr-v4-build/lcr try1 --measurements measurements.txt --count count.txt --json
+# 本项目实测 CSV，可直接作为便利输入
+/tmp/lcr-v4-build/lcr try1 --csv examples/data1.csv --max-n 4 --json
+# 精确元件集合，接线未知
+/tmp/lcr-v4-build/lcr try2 --measurements measurements.txt --components components.txt
+# 显式容差：值 ±10%，零 DCR 另允许增加至 1 Ω
+/tmp/lcr-v4-build/lcr try2 --measurements measurements.txt --components components.txt --tolerance .1 --dcr-tolerance 1
+# 图与类型已知，参数未知
+/tmp/lcr-v4-build/lcr try3 --measurements measurements.txt --topology topology.txt
+```
+
+- **Try1**：有界规范 SP 枚举 + 可物理综合的有理辅助候选 + 公共局部拟合。
+  exactN 是等效模型器件数，不是物理 BOM；默认 maxN=4、maxDepth=4、Top-K=8。
+- **Try2**：默认 Exact，固定已知参数；显式 `--tolerance` 才开启容差局部拟合。
+  支持桥式/重边、1..8 元件；大 E 的严格枚举可能昂贵。
+- **Try3**：完整死区和严格归约后拟合，返回群、边界、局部可辨识性。
+- **Try2.5**：内部 C++ `try25` 接口及组合测试，不增加文件格式。
+
+默认 Strict 无隐式搜索预算。`--mode fast` 默认 1000 候选；可以显式设
+`--budget`、`--seconds`。预算在候选、启动和 LM 步间协作检查，结果会标记未完成。
+`--starts`、`--iterations`、`--seed` 控制多初值；`--robust` 显式开启 IRLS。
+CLI 提供 R/L/C 上下界和 DCR 上界；C++ Config 还支持逐点协方差及取消回调。
+
+原生 JSON `lcr.native.v4` 包含原精度邻接矩阵与独立诊断，不是网页 Worker 协议。
+网页通过 Worker/WASM 调用相同 C++ 核心。模型选择使用声明的 AICc/RSS 规则，
+有限带系统误差下较复杂模型可能排前；不能把低残差或局部满秩当作唯一物理接线证明。
+
+验证：`lcr_tests`、`lcr_bench real4 examples`、`lcr_bench random 40 21`。
+随机基准分别报告行为 pass@1/pass@8、结构匹配率与耗时。
+`lcr_bench case 7 21` 可单独重放种子 21 的第 7 个案例，打印原电路、测量输入与逐候选误差。
+[理论](LCRTheory_rendered.md) · [输入](INPUT_FORMAT.md) · [验收记录](VALIDATION.md)
+
+## 浏览器构建
+
+```sh
+# frontend/ 下，Emscripten 在 PATH 或 EMSDK/$HOME/emsdk 中
+pnpm build:wasm
+pnpm build
+```
+
+WASM 与 CLI 共享核心。生成的 `frontend/src/wasm/lcr.js` 和 `lcr.wasm` 随源码保留，
+普通网站启动不需要 SDK；修改 C++ 后须同步重建。当前验证 Emscripten 6.0.9。

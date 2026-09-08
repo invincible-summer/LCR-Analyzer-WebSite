@@ -6,6 +6,7 @@ const backend = process.env.LCR_BACKEND || 'http://localhost:8000'
 
 export default defineConfig({
   plugins: [vue()],
+  worker: { format: 'es' },
   server: {
     port: 5173,
     proxy: {

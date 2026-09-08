@@ -2,10 +2,10 @@
 // FitView.vue — 电路辨识拟合（三引擎栏目页）
 //
 // 数据流：CSV 上传 / 示例生成 / 历史扫描导入 → ZPoint[]（本地）→ Web
-// Worker 内的 WASM 引擎（Try1 未知辨识 / Try2 已知元件 / Try3 已知拓扑）
+// Worker 内执行共享 v4 C++ / WASM 核心。
 // → Top-K 候选表 + 电路图（SP 树走 Schematic，非 SP 走 GraphSchematic）
 // + 测量-理论叠加图。完全不经过 Python 后端；ESP32 蓝牙导入为规划项。
-import { computed, reactive, ref } from 'vue'
+import { computed, reactive, ref, onUnmounted } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useScanStore } from '../store/scan'
 import * as api from '../api'
@@ -19,7 +19,7 @@ import GraphEditor from '../components/GraphEditor.vue'
 import StatTile from '../components/StatTile.vue'
 import { parseZCsv, toZCsv } from '../lib/csv'
 import { graphToNetlist } from '../lib/adjacency'
-import { runFitJob, cancelFitJob } from '../lib/lcrWasm'
+import { runFitJob, cancelFitJob, FIT_AVAILABLE } from '../lib/lcrWasm'
 import { DEMO_CASES, synthPoints } from '../lib/synthData'
 import type {
   ComponentSpec, CompKind, FitCandidate, FitJob, FitResponse, TopoEdge, Try1Stats,
@@ -43,6 +43,7 @@ const { scans } = storeToRefs(store)
 
 const points = ref<ZPoint[]>([])
 const dataSource = ref('')
+let dataRevision = 0
 const parseMsg = reactive({ warnings: [] as string[], errors: [] as string[] })
 const fileInputEl = ref<HTMLInputElement | null>(null)
 
@@ -52,6 +53,8 @@ function loadPoints(list: ZPoint[], source: string) {
     parseMsg.warnings = []
     return
   }
+  dataRevision++
+  cancelFitJob()
   points.value = [...list].sort((a, b) => a.f - b.f)
   dataSource.value = source
   parseMsg.errors = []
@@ -160,6 +163,7 @@ const previewNyqOpt = computed(() =>
 
 type TabKey = 'try1' | 'try2' | 'try3'
 const tab = ref<TabKey>('try1')
+onUnmounted(() => cancelFitJob())
 const running = reactive<Record<TabKey, boolean>>({ try1: false, try2: false, try3: false })
 const results = reactive<Record<TabKey, FitResponse | null>>({ try1: null, try2: null, try3: null })
 const selectedRank = reactive<Record<TabKey, number>>({ try1: 1, try2: 1, try3: 1 })
@@ -172,17 +176,22 @@ function clearResults() {
 }
 
 async function execute(job: FitJob) {
+  if (Object.values(running).some(Boolean)) return
+  job = { ...job, mode: searchMode.value, seconds: timeLimit.value, robust: robust.value }
   const key = `try${job.try}` as TabKey
   running[key] = true
   runError[key] = ''
+  results[key] = null
+  const revision = dataRevision
   const t0 = performance.now()
   try {
     const resp = await runFitJob(job)
+    if (revision !== dataRevision) return
     results[key] = resp
     if (!isFitOk(resp)) runError[key] = fitErrorText(resp)
     selectedRank[key] = 1
   } catch (e) {
-    runError[key] = e instanceof Error ? e.message : String(e)
+    if (revision === dataRevision) runError[key] = e instanceof Error ? e.message : String(e)
   } finally {
     running[key] = false
     elapsed[key] = (performance.now() - t0) / 1000
@@ -190,7 +199,6 @@ async function execute(job: FitJob) {
 }
 function cancel(key: TabKey) {
   cancelFitJob()
-  running[key] = false
   runError[key] = '已取消'
 }
 
@@ -198,6 +206,12 @@ function cancel(key: TabKey) {
 // Try1：未知辨识
 // ---------------------------------------------------------------------------
 
+const searchMode = ref<'Strict' | 'Fast'>('Strict')
+const timeLimit = ref(0)
+const tolerance = ref(0)
+const dcrTolerance = ref(0)
+const robust = ref(false)
+const anyRunning = computed(() => Object.values(running).some(Boolean))
 const exactN = ref('')
 const topK1 = ref(5)
 function runTry1() {
@@ -205,7 +219,7 @@ function runTry1() {
   execute({
     try: 1,
     points: points.value,
-    exactN: exactN.value.trim() !== '' && Number.isInteger(n) && n >= 1 ? n : undefined,
+    exactN: String(exactN.value).trim() !== '' ? n : undefined,
     topK: topK1.value,
   })
 }
@@ -262,7 +276,7 @@ function runTry2() {
     dcr: r.kind === 'L' ? (r.dcr.trim() === '' ? 0 : parseSI(r.dcr)!) : 0,
     count: Number(r.count),
   }))
-  execute({ try: 2, points: points.value, components, topK: topK1.value })
+  execute({ try: 2, points: points.value, components, topK: topK1.value, tolerance: tolerance.value / 100, dcrTolerance: dcrTolerance.value })
 }
 
 // ---------------------------------------------------------------------------
@@ -299,7 +313,7 @@ const activeDiag3 = computed<Try3Diagnostics | null>(() =>
 const candNetlist = computed(() => (activeCandidate.value ? graphToNetlist(activeCandidate.value.adjacency) : null))
 const candIsSp = computed(() => candNetlist.value !== null)
 const minAicc = computed(() =>
-  activeCandidates.value.length ? Math.min(...activeCandidates.value.map((c) => c.aicc)) : 0,
+  activeCandidates.value.length && activeCandidates.value.every(c=>c.aicc !== null) ? Math.min(...activeCandidates.value.map(c=>c.aicc!)) : null,
 )
 
 const candTheory = computed(() => {
@@ -348,6 +362,7 @@ function errText(v: number): string {
 
 <template>
   <div class="view">
+    <div class="panel panel-body" role="status">浏览器本地 C++ / WASM · v4</div>
     <!-- ============ 数据面板 ============ -->
     <section class="panel">
       <div class="panel-head">
@@ -443,6 +458,19 @@ function errText(v: number): string {
       </div>
     </section>
 
+    <section class="panel"><div class="panel-body row" style="gap: 16px; flex-wrap: wrap">
+      <label class="field"><span>搜索模式</span><select v-model="searchMode" :disabled="anyRunning"><option>Strict</option><option>Fast</option></select></label>
+      <label class="field"><span>时间预算 / 秒（0 不限）</span><input v-model.number="timeLimit" type="number" min="0" :disabled="anyRunning" /></label>
+      <label class="field"><span><input v-model="robust" type="checkbox" :disabled="anyRunning" /> 稳健拟合（Try2 需启用容差）</span></label>
+      <template v-if="tab === 'try2'">
+        <label class="field"><span>元件容差 ±%（0 = Exact）</span><input v-model.number="tolerance" type="number" min="0" max="99" :disabled="anyRunning" /></label>
+        <label class="field"><span>DCR 绝对容差 / Ω</span><input v-model.number="dcrTolerance" type="number" min="0" :disabled="anyRunning" /></label>
+      </template>
+      <span class="hint">Strict 默认不限候选数；Fast 最多评估 1000 个候选。计算可随时取消。</span>
+    </div></section>
+    <div v-if="anyRunning" class="qpill" role="status">算法正在本地计算；可继续浏览页面。
+      <button class="btn sm" @click="cancelFitJob()">取消当前计算</button>
+    </div>
     <!-- ============ 三引擎栏目 ============ -->
     <Tabs
       :tabs="[
@@ -463,20 +491,20 @@ function errText(v: number): string {
           title="Try 1 · 未知辨识"
           intro="在串并联规范树库中枚举拓扑并拟合参数（引擎 A），辅以有理拟合 + Foster 综合回传（引擎 B），按 AICc 排序输出等价类。"
           :rows="[
-            ['器件数约束', '1 – 6；不填 = 自由搜索（默认库上限 4）'],
+            ['器件数约束', '1 – 12；不填 = 自由搜索（默认库上限 4）'],
             ['器件计数', 'R/C 各 1 个；电感 L+DCR 绑定算 1 个器件'],
-            ['参数箱', 'R 1e-3–1e7 Ω · L 1e-10–10 H · C 1e-13–1e-3 F · DCR 1e-6–1e7 Ω'],
-            ['耗时量级', '单次 ≈ 0.1 – 1 s（浏览器内 WASM）'],
+            ['参数箱', 'R 1e-3–1e7 Ω · L 1e-10–10 H · C 1e-13–1e-3 F · DCR 0–1e7 Ω'],
+            ['执行状态', 'v4 浏览器本地计算'],
             ['输出', 'Top-K 等价类：wRMSE / maxRel / AICc + 邻接矩阵电路图'],
           ]"
-          :bullets="['ΔAICc < 2 的候选视为并列最优，优先选择器件更少、可解释性更强的模型']"
+          :bullets="['AICc 仅在数学有效域使用；低残差与局部满秩不能证明唯一内部接线']"
         />
       </div>
       <div class="panel-body col">
         <div class="row">
           <label class="field">
-            器件总数约束（可选，1–6）
-            <input v-model="exactN" type="number" min="1" max="6" placeholder="不填 = 自由搜索" style="width: 180px" />
+            规范等效模型器件数约束（可选，1–12）
+            <input v-model="exactN" type="number" min="1" max="12" placeholder="不填 = 自由搜索" style="width: 180px" />
           </label>
           <label class="field">
             Top-K
@@ -486,7 +514,7 @@ function errText(v: number): string {
               <option :value="8">8</option>
             </select>
           </label>
-          <button class="btn primary" type="button" :disabled="!points.length || running.try1" @click="runTry1">
+          <button class="btn primary" type="button" :disabled="!FIT_AVAILABLE || points.length < 4 || anyRunning" @click="runTry1">
             <Play />{{ running.try1 ? '计算中…' : '运行 Try 1' }}
           </button>
           <button v-if="running.try1" class="btn" type="button" @click="cancel('try1')"><Square />取消</button>
@@ -494,7 +522,7 @@ function errText(v: number): string {
         </div>
         <div v-if="runError.try1" class="qpill crit" style="align-self: flex-start">{{ runError.try1 }}</div>
         <div v-if="activeStats1" class="hint">
-          引擎报告：拓扑库 {{ activeStats1.n_library }} · 剪枝保留 {{ activeStats1.n_pruned_kept }} · 等价类 {{ activeStats1.n_classes }}
+          引擎报告：拓扑库 {{ activeStats1.n_library }} · 已评估 {{ activeStats1.n_pruned_kept }} · 等价类 {{ activeStats1.n_classes }}
         </div>
       </div>
     </section>
@@ -509,9 +537,9 @@ function errText(v: number): string {
           title="Try 2 · 已知元件"
           intro="元件类型、数值、数量全部已知（电感带串联 DCR），引擎穷举所有可能接线（含桥式/重边），按残差排序输出等价类。"
           :rows="[
-            ['元件总数 E', '推荐 ≤ 6（秒级）；硬上限 8'],
+            ['元件总数 E', '最多 8；严格枚举成本随数量迅速增长'],
             ['数量级约束', '数值 > 0 即可，建议落在常规箱（R 1e-3–1e7 Ω 等）内'],
-            ['必备条件', '至少 1 个 L 或 C（纯电阻网络不可辨识）'],
+            ['必备条件', '支持纯 R；不同接线可能具有相同端口响应'],
             ['数值写法', '支持 1e-3 / 1m / 1k / 100n 等 SI 前缀'],
             ['输出', 'Top-K 等价类 + 串并联（SP）标注 + 电路图'],
           ]"
@@ -550,7 +578,7 @@ function errText(v: number): string {
         <div class="row">
           <button
             class="btn primary" type="button"
-            :disabled="!points.length || running.try2 || !!compErrors.length || compTotal > 8 || compTotal < 1"
+            :disabled="!FIT_AVAILABLE || points.length < 4 || anyRunning || !!compErrors.length || compTotal > 8 || compTotal < 1"
             @click="runTry2"
           >
             <Play />{{ running.try2 ? '计算中…' : '运行 Try 2' }}
@@ -560,7 +588,7 @@ function errText(v: number): string {
         </div>
         <div v-if="runError.try2" class="qpill crit" style="align-self: flex-start">{{ runError.try2 }}</div>
         <div v-if="activeStats2" class="hint">
-          引擎报告：结构 {{ activeStats2.n_structures }} · 候选 {{ activeStats2.n_candidates }} · 漏斗保留 {{ activeStats2.n_funnel_kept }}
+          引擎报告：结构 {{ activeStats2.n_structures }} · 候选 {{ activeStats2.n_candidates }} · 已评估 {{ activeStats2.n_funnel_kept }}
         </div>
       </div>
     </section>
@@ -578,7 +606,7 @@ function errText(v: number): string {
             ['节点 0 / 1', '单端口两端点，必须出现在边集中'],
             ['规模建议', '节点 ≤ 8，边 ≤ 12'],
             ['频点建议', '≥ max(4×储能元件数, 2×参数数)'],
-            ['自动减支', '并联同型合并 / 串联同型合并 / R 折入 L 的 DCR / 悬空支路删除'],
+            ['自动减支', '并联 R/C 合并 / 同型串联合并 / R 折入 DCR / 完整割点死区删除'],
             ['输出', '单结果：wRMSE / AICc / 群参数 + 弱参数、触边界、Jacobi 秩诊断'],
           ]"
           :bullets="['输入方式参照 csacademy graph editor：绘制/拖动/编辑/删除四种模式，左侧边表可直接键入 u v R|L|C']"
@@ -587,7 +615,7 @@ function errText(v: number): string {
       <div class="panel-body col">
         <GraphEditor v-model:edges="try3Edges" />
         <div class="row">
-          <button class="btn primary" type="button" :disabled="!points.length || running.try3" @click="runTry3">
+          <button class="btn primary" type="button" :disabled="!FIT_AVAILABLE || points.length < 4 || anyRunning" @click="runTry3">
             <Play />{{ running.try3 ? '计算中…' : '运行 Try 3' }}
           </button>
           <button v-if="running.try3" class="btn" type="button" @click="cancel('try3')"><Square />取消</button>
@@ -600,6 +628,12 @@ function errText(v: number): string {
 
     <!-- ============ 结果区 ============ -->
     <template v-if="activeResult">
+      <div class="qpill" :class="activeResult.search.complete ? 'good' : 'warn'">
+        {{ activeResult.search.mode }} · {{ activeResult.search.complete ? '枚举完成' : '部分搜索结果' }} · {{ activeResult.search.termination }}
+        · {{ activeResult.search.certified ? '有限候选空间最优已验证' : '不保证连续参数全局最优或唯一物理结构' }}
+        · 数值失败 {{ activeResult.search.failures }}
+      </div>
+      <div v-if="!activeCandidates.length" class="hint">没有数值可靠的候选；可增加预算或检查输入。</div>
       <!-- 候选表 -->
       <section class="panel">
         <div class="panel-head">
@@ -632,7 +666,7 @@ function errText(v: number): string {
                 <td class="num mono">{{ errText(c.wrmse) }}</td>
                 <td class="num mono">{{ errText(c.max_rel) }}</td>
                 <td class="num mono">{{ fmt.fmt(c.aicc, 2) }}</td>
-                <td class="num mono" :class="{ muted: c.aicc - minAicc >= 2 }">{{ fmt.fmt(c.aicc - minAicc, 2) }}</td>
+                <td class="num mono" :class="{ muted: c.aicc !== null && minAicc !== null && c.aicc - minAicc >= 2 }">{{ fmt.fmt(c.aicc !== null && minAicc !== null ? c.aicc - minAicc : null, 2) }}</td>
                 <td v-if="tab === 'try2'">
                   <span class="qpill" :class="c.sp ? 'good' : 'warn'">{{ c.sp ? 'SP' : '桥式' }}</span>
                 </td>
@@ -654,7 +688,7 @@ function errText(v: number): string {
       </section>
 
       <!-- 电路图 -->
-      <section class="panel">
+      <section v-if="activeCandidate" class="panel">
         <div class="panel-head">
           <span class="tag">SCHEMATIC</span>
           <h3>等效电路</h3>
@@ -704,8 +738,8 @@ function errText(v: number): string {
           <span class="qpill" :class="activeDiag3.jac_rank < (activeCandidate?.n_params ?? 0) ? 'warn' : 'good'">
             Jacobi 秩 {{ activeDiag3.jac_rank }} / {{ activeCandidate?.n_params }}
           </span>
-          <span class="qpill" :class="activeDiag3.jac_cond > 1e6 ? 'warn' : ''">
-            条件数 {{ activeDiag3.jac_cond >= 1e300 ? '∞' : activeDiag3.jac_cond.toExponential(1) }}
+          <span class="qpill" :class="activeDiag3.jac_cond === null || activeDiag3.jac_cond > 1e6 ? 'warn' : ''">
+            条件数 {{ activeDiag3.jac_cond === null ? '不可用' : activeDiag3.jac_cond.toExponential(1) }}
           </span>
           <span class="qpill">多起点 {{ activeDiag3.n_starts_used }} 次</span>
           <Network style="width: 14px; height: 14px; color: var(--text-3)" />
@@ -765,7 +799,7 @@ function errText(v: number): string {
     <section v-else-if="points.length" class="panel empty">
       <Puzzle />
       <div>
-        数据已就绪（{{ points.length }} 点）—— 在上方「{{ { try1: 'Try 1 · 未知辨识', try2: 'Try 2 · 已知元件', try3: 'Try 3 · 已知拓扑' }[tab] }}」栏目点击运行。
+        数据已就绪（{{ points.length }} 点）—— 在上方「{{ { try1: 'Try 1 · 未知辨识', try2: 'Try 2 · 已知元件', try3: 'Try 3 · 已知拓扑' }[tab] }}」栏目可查看输入约束；点击运行开始本地计算（至少需要 4 个频点）。
       </div>
     </section>
   </div>

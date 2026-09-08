@@ -100,7 +100,7 @@ function addNode(x: number, y: number): number {
 }
 function addEdge(u: number, v: number, kind: CompKind) {
   if (u === v) return
-  if (edges.length >= 16) return
+  if (edges.length >= 32) return
   if (Math.max(u, v) >= 16) return
   edges.push({ id: nextEdgeId++, u, v, kind })
   pushUpdate()
@@ -218,7 +218,7 @@ const textPanel = computed<string>({
       const k = m[2].toUpperCase()
       if (!Number.isInteger(u) || !Number.isInteger(v) || u < 0 || v < 0 || u === v) continue
       if (k !== 'R' && k !== 'L' && k !== 'C') continue
-      if (Math.max(u, v) >= 16 || parsed.length >= 16) continue
+      if (Math.max(u, v) >= 16 || parsed.length >= 32) continue
       parsed.push({ u, v, kind: k })
     }
     const incoming = serialize(parsed.map((e) => ({ id: 0, ...e })))
