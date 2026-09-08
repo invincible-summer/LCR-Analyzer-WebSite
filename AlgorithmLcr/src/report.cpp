@@ -43,6 +43,8 @@ void report(std::ostream &o, const SearchResult &r, const Data &d,
       << " evaluated=" << r.evaluated
       << " numerical_failures=" << r.numericalFailures << " seed=" << c.seed
       << " elapsed=" << r.elapsed << "s\n";
+    o << "selection_criterion=" << r.selectionCriterion
+      << " selection_qualified=" << r.selectionQualified << "\n";
     for (size_t i = 0; i < r.candidates.size(); ++i) {
       auto &a = r.candidates[i];
       o << "rank=" << i + 1 << " devices=" << a.graph.edges.size()
@@ -89,7 +91,13 @@ void report(std::ostream &o, const SearchResult &r, const Data &d,
   o << ",\"noise_model\":";
   quote(o, c.covariance.empty() ? "relative_unknown_scale"
                                 : "supplied_covariance");
-  o << ",\"equivalence\":\"observed_band\",\"stats\":{\"generated\":"
+  o << ",\"equivalence\":\"observed_band\",\"equivalence_metric\":"
+    << "\"relative_curve\",\"equivalence_threshold\":";
+  number(o, c.equivalenceTolerance);
+  o << ",\"selection\":{\"criterion\":";
+  quote(o, r.selectionCriterion);
+  o << ",\"qualified\":" << (r.selectionQualified ? "true" : "false")
+    << "},\"stats\":{\"generated\":"
     << r.generated << ",\"structures\":" << r.structures
     << ",\"evaluated\":" << r.evaluated
     << ",\"numerical_failures\":" << r.numericalFailures
@@ -116,6 +124,26 @@ void report(std::ostream &o, const SearchResult &r, const Data &d,
       number(o, *a.metrics.aicc);
     else
       o << "null";
+    o << ",\"selection\":{\"eligible\":"
+      << (a.selection.eligible ? "true" : "false") << ",\"criterion\":";
+    quote(o, a.selection.criterion);
+    o << ",\"score\":";
+    if (a.selection.score)
+      number(o, *a.selection.score);
+    else
+      o << "null";
+    o << ",\"delta\":";
+    if (a.selection.delta)
+      number(o, *a.selection.delta);
+    else
+      o << "null";
+    o << ",\"reasons\":[";
+    for (size_t k = 0; k < a.selection.reasons.size(); ++k) {
+      if (k)
+        o << ',';
+      quote(o, a.selection.reasons[k]);
+    }
+    o << "]}";
     o << ",\"adjacency\":{\"v\":" << a.graph.vertices << ",\"slots\":[";
     auto adj = adjacency(a.graph);
     bool first = true;

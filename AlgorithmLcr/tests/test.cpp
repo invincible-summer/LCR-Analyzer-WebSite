@@ -803,6 +803,89 @@ void fitting() {
               json.str().find("nan") == std::string::npos,
           "JSON diagnostics");
 }
+void selection() {
+  Config c;
+  c.starts = 12;
+  c.iterations = 180;
+  Graph rc{2, {{0, 1, {'R', 1200, 0}}, {0, 1, {'C', 2e-7, 0}}}};
+  // 1) all-valid comparison set keeps the calibrated AICc ranking.
+  c.exactN = 2;
+  auto all = try1(sample(rc), c);
+  require(all.selectionCriterion == "AICc" && all.selectionQualified,
+          "all-valid AICc selection");
+  require(!all.candidates.empty() && all.candidates[0].selection.eligible &&
+              all.candidates[0].selection.delta == 0.,
+          "primary candidate first with zero delta");
+  // 3) rank-deficient exact-fit continuum (parallel L on ideal-L data).
+  Graph ideal{2, {{0, 1, {'L', 1e-3, 0}}}};
+  auto parallel = try1(sample(ideal), c);
+  bool rankDeficient = false;
+  for (auto &cand : parallel.candidates)
+    if (!cand.selection.eligible)
+      for (auto &why : cand.selection.reasons)
+        rankDeficient = rankDeficient || why == "rank_deficient";
+  require(rankDeficient, "rank-deficient candidate recorded as diagnostic");
+  // 4) at-bound candidate stays diagnostic-only without demoting others.
+  c.exactN.reset();
+  c.maxN = 3;
+  c.topK = 40;
+  auto bound = try1(sample(rc), c);
+  require(bound.selectionCriterion == "AICc" && bound.selectionQualified,
+          "at-bound candidate does not force RSS fallback");
+  bool atBoundDiagnostic = false;
+  for (auto &cand : bound.candidates)
+    if (std::find(cand.selection.reasons.begin(), cand.selection.reasons.end(),
+                  "parameter_at_bound") != cand.selection.reasons.end()) {
+      atBoundDiagnostic = true;
+      require(!cand.selection.eligible && !cand.selection.delta,
+              "at-bound candidate is diagnostic-only without delta");
+    }
+  require(atBoundDiagnostic, "at-bound candidate present");
+  require(bound.candidates[0].selection.eligible, "rank-1 is primary");
+  c.maxN = 4;
+  c.topK = 8;
+  // 2) mixed valid/invalid AICc set keeps qualified AICc ranking: a single
+  //    over-parameterized null-AICc candidate must not demote the whole set.
+  auto mix = try1(sample(rc, 3), c);
+  require(mix.selectionCriterion == "AICc" && mix.selectionQualified &&
+              mix.candidates[0].selection.eligible,
+          "null-AICc candidate does not demote the whole set");
+  bool nullSeen = false;
+  for (auto &cand : mix.candidates)
+    if (!cand.metrics.aicc) {
+      nullSeen = true;
+      require(!cand.selection.eligible &&
+                  std::find(cand.selection.reasons.begin(),
+                            cand.selection.reasons.end(),
+                            "aicc_unavailable") !=
+                      cand.selection.reasons.end(),
+              "null-AICc candidate is diagnostic with reason");
+    }
+  require(nullSeen, "mixed set contains null-AICc candidates");
+  for (size_t i = 1; i < mix.candidates.size(); ++i)
+    if (mix.candidates[i].selection.eligible)
+      require(mix.candidates[i - 1].selection.eligible,
+              "eligible candidates precede diagnostic-only");
+  // 5) robust run: uncalibrated diagnostic fallback, never fake deltas.
+  Config robust = c;
+  robust.robust = true;
+  auto bad = sample(rc);
+  bad[8].z *= 100;
+  auto rb = try1(bad, robust);
+  require(rb.selectionCriterion == "RSS_DIAGNOSTIC_FALLBACK" &&
+              !rb.selectionQualified,
+          "robust run uses diagnostic fallback");
+  for (auto &cand : rb.candidates)
+    require(!cand.selection.delta, "no calibrated delta in fallback");
+  // 6) no eligible candidate at all: exploratory fallback.
+  auto none = try25(sample(rc, 2), {'R', 'L'}, c);
+  require(none.selectionCriterion == "RSS_DIAGNOSTIC_FALLBACK" &&
+              !none.selectionQualified,
+          "no-primary fallback");
+  for (auto &cand : none.candidates)
+    require(!cand.selection.delta && !cand.selection.eligible,
+            "fallback candidates are exploratory");
+}
 } // namespace
 int main() {
   try {
@@ -811,6 +894,7 @@ int main() {
     reductionProperties();
     enumeration();
     fitting();
+    selection();
     std::cout << checks << " checks passed\n";
     return 0;
   } catch (const std::exception &e) {

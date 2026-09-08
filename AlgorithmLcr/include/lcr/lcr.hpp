@@ -136,6 +136,13 @@ struct Diagnostics {
   double fitObjective = inf; // objective of the final optimization round
   std::vector<ParameterDiagnostic> parameters; // explicit id/edge/quantity map
 };
+struct SelectionInfo {
+  bool eligible = false; // primary selectable under the run's criterion
+  std::string criterion = "NONE";
+  std::optional<double> score;
+  std::optional<double> delta; // calibrated only within the qualified set
+  std::vector<std::string> reasons;
+};
 struct Candidate {
   Graph graph;
   Metrics metrics;
@@ -149,11 +156,14 @@ struct Candidate {
   // Enumeration identity vs electrically reduced identity (Try2.5/Try3).
   std::string originalTopologyKey, effectiveTopologyKey;
   int effectiveDevices = 0;
+  SelectionInfo selection;
 };
 struct SearchResult {
   int which = 0;
   std::string family, mode, termination = "complete";
   bool enumerationComplete = true, continuousGlobalCertified = false;
+  std::string selectionCriterion = "NONE";
+  bool selectionQualified = false;
   size_t generated = 0, structures = 0, evaluated = 0, numericalFailures = 0;
   double elapsed = 0;
   std::vector<Candidate> candidates;

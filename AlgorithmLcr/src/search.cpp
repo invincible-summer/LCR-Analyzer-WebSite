@@ -100,22 +100,94 @@ bool equivalent(const Candidate &a, const Candidate &b, const Data &d,
       return false;
   return true;
 }
+// Primary-AICc eligibility: only regular candidates participate in the
+// calibrated Delta-AICc comparison; everything else is diagnostic-only.
+SelectionInfo eligibility(const Candidate &a) {
+  SelectionInfo s;
+  s.criterion = "NONE";
+  if (!std::isfinite(a.metrics.rss) || !std::isfinite(a.metrics.wrmse) ||
+      !std::isfinite(a.metrics.maxRel)) {
+    s.reasons.push_back("nonfinite_metrics");
+    return s;
+  }
+  if (!a.metrics.aicc) {
+    s.reasons.push_back("aicc_unavailable");
+    return s;
+  }
+  if (a.diagnostics.optimizer.rfind("converged", 0) != 0) {
+    s.reasons.push_back("optimizer_not_converged");
+    return s;
+  }
+  if (a.diagnostics.robustUsed) {
+    s.reasons.push_back("robust_run");
+    return s;
+  }
+  if (a.diagnostics.rank != a.nParams) {
+    s.reasons.push_back("rank_deficient");
+    return s;
+  }
+  if (!a.diagnostics.atBound.empty()) {
+    s.reasons.push_back("parameter_at_bound");
+    return s;
+  }
+  s.eligible = true;
+  s.criterion = "AICc";
+  s.score = *a.metrics.aicc;
+  return s;
+}
 void finish(Run &run, const Data &d, bool selection) {
   auto &v = run.r.candidates;
-  // Use a common criterion for the entire comparison set, never mix AICc and
-  // RSS.
-  bool aicc = selection && std::all_of(v.begin(), v.end(), [](auto &a) {
-                return a.metrics.aicc.has_value();
-              });
-  std::stable_sort(v.begin(), v.end(), [&](auto &a, auto &b) {
-    double x = aicc ? *a.metrics.aicc : a.metrics.rss,
-           y = aicc ? *b.metrics.aicc : b.metrics.rss;
-    if (x != y)
-      return x < y;
+  auto byRss = [](auto &a, auto &b) {
+    if (a.metrics.rss != b.metrics.rss)
+      return a.metrics.rss < b.metrics.rss;
     if (a.nParams != b.nParams)
       return a.nParams < b.nParams;
     return a.topology < b.topology;
-  });
+  };
+  if (selection) {
+    for (auto &a : v)
+      a.selection = eligibility(a);
+    bool primary =
+        std::any_of(v.begin(), v.end(),
+                    [](auto &a) { return a.selection.eligible; });
+    // Robust runs never expose calibrated AICc deltas: no comparable robust
+    // likelihood exists, so they stay on the diagnostic fallback.
+    if (primary && !run.c.robust) {
+      double best = inf;
+      for (auto &a : v)
+        if (a.selection.eligible)
+          best = std::min(best, *a.metrics.aicc);
+      for (auto &a : v)
+        if (a.selection.eligible)
+          a.selection.delta = *a.metrics.aicc - best;
+      // Primary candidates first by AICc, diagnostic-only candidates after
+      // them by raw RSS; a single AICc-invalid over-parameter model can no
+      // longer demote the whole comparison set.
+      std::stable_sort(v.begin(), v.end(), [&](auto &a, auto &b) {
+        if (a.selection.eligible != b.selection.eligible)
+          return a.selection.eligible;
+        if (a.selection.eligible)
+          return std::tie(*a.metrics.aicc, a.nParams, a.topology) <
+                 std::tie(*b.metrics.aicc, b.nParams, b.topology);
+        return byRss(a, b);
+      });
+      run.r.selectionCriterion = "AICc";
+      run.r.selectionQualified = true;
+    } else {
+      std::stable_sort(v.begin(), v.end(), byRss);
+      run.r.selectionCriterion = "RSS_DIAGNOSTIC_FALLBACK";
+      run.r.selectionQualified = false;
+    }
+  } else {
+    std::stable_sort(v.begin(), v.end(), byRss);
+    // Try2 ranks by its own common objective; Try3 is a single prepared fit.
+    run.r.selectionCriterion =
+        run.r.which == 2
+            ? (run.r.family == "ACTIVE_MULTIGRAPH_EXACT" ? "RSS_EXACT"
+                                                         : "RSS_COMMON")
+            : "NONE";
+    run.r.selectionQualified = run.r.which == 2;
+  }
   std::vector<Candidate> classes;
   for (auto &cand : v) {
     auto it = std::find_if(classes.begin(), classes.end(), [&](auto &rep) {
