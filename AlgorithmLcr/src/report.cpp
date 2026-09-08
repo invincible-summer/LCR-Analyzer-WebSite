@@ -32,6 +32,25 @@ template <class T> void array(std::ostream &o, const std::vector<T> &v) {
   }
   o << ']';
 }
+void expr(std::ostream &o, const ReductionExpr &e) {
+  switch (e.op) {
+  case ExprOp::PrimitiveValue:
+    o << "{\"op\":\"value\",\"edge\":" << e.sourceEdge << '}';
+    break;
+  case ExprOp::PrimitiveDcr:
+    o << "{\"op\":\"dcr\",\"edge\":" << e.sourceEdge << '}';
+    break;
+  default:
+    o << "{\"op\":\"" << (e.op == ExprOp::Sum ? "sum" : "hsum")
+      << "\",\"children\":[";
+    for (size_t k = 0; k < e.children.size(); ++k) {
+      if (k)
+        o << ',';
+      expr(o, e.children[k]);
+    }
+    o << "]}";
+  }
+}
 } // namespace
 void report(std::ostream &o, const SearchResult &r, const Data &d,
             const Config &c, bool json) {
@@ -55,7 +74,11 @@ void report(std::ostream &o, const SearchResult &r, const Data &d,
       else
         o << "unavailable";
       o << " verdict=" << a.diagnostics.verdict
-        << " optimizer=" << a.diagnostics.optimizer << "\n";
+        << " optimizer=" << a.diagnostics.optimizer
+        << " numerical=" << a.diagnostics.numericalStatus
+        << " identifiability=" << a.diagnostics.identifiabilityStatus
+        << " selection=" << (a.selection.eligible ? "primary" : "diagnostic")
+        << "\n";
       printAdjacency(o, a.graph, int(i + 1));
       for (size_t j = 0; j < a.reduction.groups.size(); ++j) {
         auto g = a.reduction.groups[j];
@@ -71,7 +94,8 @@ void report(std::ostream &o, const SearchResult &r, const Data &d,
     }
     return;
   }
-  o << "{\"schema\":\"lcr.native.v4\",\"try\":" << r.which << ",\"mode\":";
+  o << "{\"schema\":\"lcr.native.v4\",\"schema_revision\":2,"
+       "\"engine_version\":\"4.1.0\",\"try\":" << r.which << ",\"mode\":";
   quote(o, r.mode);
   o << ",\"hypothesis_family\":";
   quote(o, r.family);
@@ -113,6 +137,11 @@ void report(std::ostream &o, const SearchResult &r, const Data &d,
     quote(o, a.engine);
     o << ",\"topology\":";
     quote(o, a.topology);
+    o << ",\"original_topology_key\":";
+    quote(o, a.originalTopologyKey);
+    o << ",\"effective_topology_key\":";
+    quote(o, a.effectiveTopologyKey);
+    o << ",\"effective_devices\":" << a.effectiveDevices;
     o << ",\"wrmse\":";
     number(o, a.metrics.wrmse);
     o << ",\"max_rel\":";
@@ -189,6 +218,12 @@ void report(std::ostream &o, const SearchResult &r, const Data &d,
     quote(o, dg.verdict);
     o << ",\"optimizer\":";
     quote(o, dg.optimizer);
+    o << ",\"numerical_status\":";
+    quote(o, dg.numericalStatus);
+    o << ",\"identifiability_status\":";
+    quote(o, dg.identifiabilityStatus);
+    o << ",\"fit_objective\":";
+    number(o, dg.fitObjective);
     o << ",\"rank\":" << dg.rank << ",\"condition\":";
     number(o, dg.condition);
     o << ",\"singular_values\":";
@@ -210,6 +245,41 @@ void report(std::ostream &o, const SearchResult &r, const Data &d,
     array(o, dg.weak);
     o << ",\"at_bound\":";
     array(o, dg.atBound);
+    o << ",\"parameters\":[";
+    for (size_t k = 0; k < dg.parameters.size(); ++k) {
+      if (k)
+        o << ',';
+      auto &pd = dg.parameters[k];
+      o << "{\"id\":" << pd.id << ",\"edge\":" << pd.edge
+        << ",\"quantity\":\""
+        << (pd.quantity == ParamQuantity::Dcr ? "dcr" : "value")
+        << "\",\"kind\":\"" << pd.kind << "\",\"value\":";
+      number(o, pd.value);
+      o << ",\"lower\":";
+      number(o, pd.lower);
+      o << ",\"upper\":";
+      number(o, pd.upper);
+      o << ",\"free\":" << (pd.free ? "true" : "false")
+        << ",\"fixed\":" << (pd.fixed ? "true" : "false")
+        << ",\"weak\":" << (pd.weak ? "true" : "false")
+        << ",\"at_bound\":" << (pd.atBound ? "true" : "false")
+        << ",\"standard_error\":";
+      if (pd.standardError)
+        number(o, *pd.standardError);
+      else
+        o << "null";
+      o << ",\"ci95\":";
+      if (pd.ci95) {
+        o << '[';
+        number(o, (*pd.ci95)[0]);
+        o << ',';
+        number(o, (*pd.ci95)[1]);
+        o << ']';
+      } else
+        o << "null";
+      o << '}';
+    }
+    o << ']';
     o << ",\"starts\":" << dg.starts << ",\"best_start\":" << dg.bestStart
       << ",\"converged_starts\":" << dg.convergedStarts
       << ",\"agreeing_starts\":" << dg.agreeingStarts
@@ -223,15 +293,46 @@ void report(std::ostream &o, const SearchResult &r, const Data &d,
       if (j)
         o << ',';
       auto &edge = a.graph.edges[j];
-      o << "{\"u\":" << edge.u << ",\"v\":" << edge.v << ",\"kind\":\""
-        << edge.element.type << "\",\"value\":";
+      auto &grp = a.reduction.groups[j];
+      auto &dom = a.reduction.domains.at(j);
+      o << "{\"gid\":" << j << ",\"u\":" << edge.u << ",\"v\":" << edge.v
+        << ",\"kind\":\"" << edge.element.type << "\",\"value\":";
       number(o, edge.element.parameter);
       o << ",\"dcr\":";
       number(o, edge.element.parameterOfCapacitanceDCResistance);
       o << ",\"members\":";
-      array(o, a.reduction.groups[j].members);
+      array(o, grp.members);
       o << ",\"mode\":";
-      quote(o, a.reduction.groups[j].mode);
+      quote(o, grp.mode);
+      o << ",\"value_bounds\":[";
+      number(o, dom.value.lo);
+      o << ',';
+      number(o, dom.value.hi);
+      o << "],\"dcr_bounds\":";
+      if (dom.dcr) {
+        o << '[';
+        number(o, dom.dcr->lo);
+        o << ',';
+        number(o, dom.dcr->hi);
+        o << ']';
+      } else
+        o << "null";
+      o << ",\"parameter_ids\":[";
+      bool firstPid = true;
+      for (auto &pd : dg.parameters)
+        if (pd.edge == int(j)) {
+          if (!firstPid)
+            o << ',';
+          firstPid = false;
+          o << pd.id;
+        }
+      o << "],\"value_expr\":";
+      expr(o, grp.valueExpr);
+      o << ",\"dcr_expr\":";
+      if (grp.dcrExpr)
+        expr(o, *grp.dcrExpr);
+      else
+        o << "null";
       o << '}';
     }
     o << "],\"dropped\":";

@@ -798,10 +798,29 @@ void fitting() {
   close(Complex(oracle(rebuilt, 1234)), forward(g, 1234).z, 1e-10);
   std::ostringstream json;
   report(json, r, d, c, true);
-  require(json.str().find("\"schema\":\"lcr.native.v4\"") !=
+  auto text = json.str();
+  require(text.find("\"schema\":\"lcr.native.v4\"") != std::string::npos &&
+              text.find("\"schema_revision\":2") != std::string::npos &&
+              text.find("\"engine_version\":\"4.1.0\"") !=
                   std::string::npos &&
-              json.str().find("nan") == std::string::npos,
+              text.find("nan") == std::string::npos,
           "JSON diagnostics");
+  require(text.find("\"parameters\":[{\"id\":0") != std::string::npos &&
+              text.find("\"quantity\":\"value\"") != std::string::npos &&
+              text.find("\"quantity\":\"dcr\"") == std::string::npos &&
+              text.find("\"free\":true") != std::string::npos &&
+              text.find("\"fixed\":false") != std::string::npos,
+          "JSON parameter descriptors");
+  require(text.find("\"selection\":") != std::string::npos &&
+              text.find("\"equivalence_metric\":\"relative_curve\"") !=
+                  std::string::npos,
+          "JSON selection contract");
+  require(text.find("\"groups\":[{\"gid\":0") != std::string::npos &&
+              text.find("\"value_bounds\":[") != std::string::npos &&
+              text.find("\"parameter_ids\":[") != std::string::npos &&
+              text.find("\"value_expr\":") != std::string::npos &&
+              text.find("\"original_topology_key\":") != std::string::npos,
+          "JSON group/topology contract");
 }
 void selection() {
   Config c;
