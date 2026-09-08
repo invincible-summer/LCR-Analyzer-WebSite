@@ -32,13 +32,36 @@ struct Point {
   Complex z;
 };
 using Data = std::vector<Point>;
+enum class ParamQuantity { Value, Dcr };
+struct Interval {
+  double lo = 0;
+  double hi = 0;
+};
+struct EdgeDomain {
+  Interval value;
+  std::optional<Interval> dcr; // only L
+};
+enum class ExprOp {
+  PrimitiveValue,
+  PrimitiveDcr,
+  Sum,
+  HarmonicSum
+};
+struct ReductionExpr {
+  ExprOp op = ExprOp::PrimitiveValue;
+  int sourceEdge = -1;                 // primitive leaf only
+  std::vector<ReductionExpr> children; // Sum/HarmonicSum
+};
 struct Group {
   std::vector<int> members;
-  std::string mode = "single";
+  ReductionExpr valueExpr;
+  std::optional<ReductionExpr> dcrExpr; // only L groups
+  std::string mode = "single"; // derived summary of the last merge op
 };
 struct Reduction {
   Graph graph;
-  std::vector<Group> groups;
+  std::vector<Group> groups;       // aligned 1:1 with graph.edges
+  std::vector<EdgeDomain> domains; // aligned 1:1 with graph.edges
   std::vector<int> dropped;
 };
 struct Config {
@@ -116,7 +139,10 @@ Upper adjacency(const Graph &);
 void printAdjacency(std::ostream &, const Graph &, int rank = 1);
 Complex impedance(const Edge &, double frequency);
 std::vector<int> liveEdges(const Graph &);
-Reduction reduce(const Graph &);
+EdgeDomain edgeDomain(const Edge &, const Config &);
+Interval bounds(const ReductionExpr &, const std::vector<EdgeDomain> &source);
+double evaluate(const ReductionExpr &, const Graph &source);
+Reduction reduce(const Graph &, const Config & = {});
 std::string canonical(const Graph &, bool values = true);
 Forward forward(const Graph &, double frequency, bool jacobian = true);
 Metrics metrics(const Data &, const std::vector<Complex> &, int parameters,

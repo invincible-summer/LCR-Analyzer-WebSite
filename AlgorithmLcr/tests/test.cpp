@@ -222,6 +222,263 @@ void physics() {
 }
 // Independent edge-labeled assignment oracle: all ordered endpoints; no
 // structural pruning.
+std::string exprKey(const ReductionExpr &e) {
+  switch (e.op) {
+  case ExprOp::PrimitiveValue:
+    return "v" + std::to_string(e.sourceEdge);
+  case ExprOp::PrimitiveDcr:
+    return "d" + std::to_string(e.sourceEdge);
+  case ExprOp::Sum: {
+    std::string s = "(+";
+    for (auto &c : e.children)
+      s += ' ' + exprKey(c);
+    return s + ')';
+  }
+  default: {
+    std::string s = "(h";
+    for (auto &c : e.children)
+      s += ' ' + exprKey(c);
+    return s + ')';
+  }
+  }
+}
+bool contains(const Interval &iv, double v) {
+  return iv.lo <= v && v <= iv.hi;
+}
+void sameImpedance(const Graph &original, const Reduction &r,
+                   const std::string &what, int points = 24) {
+  require(r.graph.edges.size() >= 1, what + ": nonempty reduction");
+  require(r.groups.size() == r.graph.edges.size() &&
+              r.domains.size() == r.graph.edges.size(),
+          what + ": groups/domains aligned with edges");
+  for (int i = 0; i < points; ++i) {
+    double f = 10 * std::pow(1e5, double(i) / (points - 1));
+    auto a = forward(original, f, false), b = forward(r.graph, f, false);
+    require(a.status == SolveStatus::OK && b.status == SolveStatus::OK,
+            what + ": solver status");
+    double rel = std::abs(a.z - b.z) / std::max(1., std::abs(a.z));
+    require(rel <= 1e-11,
+            what + ": Z preserved, rel=" + std::to_string(rel) + " @f=" +
+                std::to_string(f));
+  }
+}
+std::vector<EdgeDomain> leafDomains(const Graph &g, const Config &c) {
+  std::vector<EdgeDomain> src;
+  for (auto b : g.edges)
+    src.push_back(edgeDomain(b.element, c));
+  return src;
+}
+void reductionProperties() {
+  Config c;
+  // --- exact reductions preserve Z and carry explicit expressions ---
+  struct Case {
+    std::string name;
+    Graph g;
+    std::string valueKey;
+    std::string dcrKey; // empty when no DCR aggregate exists
+    std::vector<int> members;
+  };
+  std::vector<Case> cases{
+      {"parR",
+       {2, {{0, 1, {'R', 100, 0}}, {0, 1, {'R', 330, 0}}}},
+       "(h v0 v1)",
+       "",
+       {0, 1}},
+      {"parC",
+       {2, {{0, 1, {'C', 1e-7, 0}}, {0, 1, {'C', 2.2e-7, 0}}}},
+       "(+ v0 v1)",
+       "",
+       {0, 1}},
+      {"serR",
+       {3, {{0, 2, {'R', 100, 0}}, {2, 1, {'R', 330, 0}}}},
+       "(+ v0 v1)",
+       "",
+       {0, 1}},
+      {"serC",
+       {3, {{0, 2, {'C', 1e-7, 0}}, {2, 1, {'C', 2.2e-7, 0}}}},
+       "(h v0 v1)",
+       "",
+       {0, 1}},
+      {"serL",
+       {4, {{0, 2, {'L', 1e-3, 2}}, {2, 1, {'L', 2e-3, 3}}}},
+       "(+ v0 v1)",
+       "(+ d0 d1)",
+       {0, 1}},
+      {"serRL",
+       {3, {{0, 2, {'R', 47, 0}}, {2, 1, {'L', 1e-3, 2}}}},
+       "v1",
+       "(+ d1 v0)",
+       {0, 1}},
+      {"nestedRR",
+       {3,
+        {{0, 2, {'R', 100, 0}},
+         {0, 2, {'R', 100, 0}},
+         {2, 1, {'R', 50, 0}}}},
+       "(+ (h v0 v1) v2)",
+       "",
+       {0, 1, 2}},
+      {"nestedCC",
+       {3,
+        {{0, 2, {'C', 1e-7, 0}},
+         {0, 2, {'C', 1e-7, 0}},
+         {2, 1, {'C', 1e-7, 0}}}},
+       "(h (+ v0 v1) v2)",
+       "",
+       {0, 1, 2}},
+      {"nestedLLR",
+       {5,
+        {{0, 2, {'L', 1e-3, 2}},
+         {2, 3, {'L', 2e-3, 3}},
+         {3, 1, {'R', 50, 0}}}},
+       "(+ v0 v1)",
+       "(+ (+ d0 d1) v2)",
+       {0, 1, 2}}};
+  std::mt19937 rng(7);
+  for (auto &k : cases) {
+    auto r = reduce(k.g, c);
+    sameImpedance(k.g, r, k.name);
+    require(r.graph.edges.size() == 1, k.name + ": single effective edge");
+    require(exprKey(r.groups[0].valueExpr) == k.valueKey,
+            k.name + ": value expression");
+    if (k.dcrKey.empty())
+      require(!r.groups[0].dcrExpr, k.name + ": no DCR expression");
+    else
+      require(r.groups[0].dcrExpr &&
+                  exprKey(*r.groups[0].dcrExpr) == k.dcrKey,
+              k.name + ": DCR expression");
+    require(r.groups[0].members == k.members, k.name + ": members");
+    // The effective value always lies inside the propagated interval, and
+    // random legal leaf combinations stay inside it too.
+    auto src = leafDomains(k.g, c);
+    const auto &expr = r.groups[0].valueExpr;
+    auto vb = bounds(expr, src);
+    require(contains(vb, evaluate(expr, k.g)), k.name + ": value in bounds");
+    if (r.groups[0].dcrExpr) {
+      auto db = bounds(*r.groups[0].dcrExpr, src);
+      require(contains(db, evaluate(*r.groups[0].dcrExpr, k.g)),
+              k.name + ": DCR in bounds");
+      for (int trial = 0; trial < 50; ++trial) {
+        Graph q = k.g;
+        for (size_t e = 0; e < q.edges.size(); ++e) {
+          auto &dom = src[e];
+          double w = std::pow(10., std::uniform_real_distribution<double>(
+                                        std::log10(dom.value.lo),
+                                        std::log10(dom.value.hi))(rng));
+          q.edges[e].element.parameter = w;
+          if (q.edges[e].element.type == 'L' && dom.dcr)
+            q.edges[e].element.parameterOfCapacitanceDCResistance =
+                std::uniform_real_distribution<double>(dom.dcr->lo,
+                                                       dom.dcr->hi)(rng);
+        }
+        require(contains(bounds(expr, src), evaluate(expr, q)) &&
+                    contains(bounds(*r.groups[0].dcrExpr, src),
+                             evaluate(*r.groups[0].dcrExpr, q)),
+                k.name + ": random leaf sample inside propagated domain");
+      }
+    } else
+      for (int trial = 0; trial < 50; ++trial) {
+        Graph q = k.g;
+        for (size_t e = 0; e < q.edges.size(); ++e)
+          q.edges[e].element.parameter = std::pow(
+              10., std::uniform_real_distribution<double>(
+                       std::log10(src[e].value.lo),
+                       std::log10(src[e].value.hi))(rng));
+        require(contains(bounds(expr, src), evaluate(expr, q)),
+                k.name + ": random leaf sample inside propagated domain");
+      }
+  }
+  // --- pendant component dead zone: Z preserved, dropped Jacobian zero ---
+  Graph dead{5,
+             {{0, 1, {'R', 10, 0}},
+              {0, 2, {'R', 1, 0}},
+              {2, 3, {'R', 2, 0}},
+              {3, 0, {'R', 3, 0}}}};
+  auto dr = reduce(dead, c);
+  sameImpedance(dead, dr, "pendant");
+  auto fr = forward(dead, 123., true);
+  require(fr.jacobian.size() == 4, "pendant: jacobian size");
+  for (size_t k = 1; k < 4; ++k)
+    require(fr.jacobian[k] == Complex(0, 0),
+            "pendant: dropped edge jacobian zero");
+  // --- aggregate boundary containment: legal member combinations that the
+  // old single-device bounds rejected must lie inside the propagated domain ---
+  struct Boundary {
+    std::string name;
+    Graph g;
+    double expectValue; // NaN when only the DCR aggregate matters
+    double expectDcr;
+  };
+  std::vector<Boundary> limits{
+      {"rMin||rMin",
+       {2, {{0, 1, {'R', c.rMin, 0}}, {0, 1, {'R', c.rMin, 0}}}},
+       c.rMin / 2,
+       -1},
+      {"rMax+rMax",
+       {3, {{0, 2, {'R', c.rMax, 0}}, {2, 1, {'R', c.rMax, 0}}}},
+       2 * c.rMax,
+       -1},
+      {"cMax||cMax",
+       {2, {{0, 1, {'C', c.cMax, 0}}, {0, 1, {'C', c.cMax, 0}}}},
+       2 * c.cMax,
+       -1},
+      {"cMin ser cMin",
+       {3, {{0, 2, {'C', c.cMin, 0}}, {2, 1, {'C', c.cMin, 0}}}},
+       c.cMin / 2,
+       -1},
+      {"lMax+lMax",
+       {3, {{0, 2, {'L', c.lMax, 0}}, {2, 1, {'L', c.lMax, 0}}}},
+       2 * c.lMax,
+       -1},
+      {"dcrMax+dcrMax",
+       {3,
+        {{0, 2, {'L', 1e-3, c.dcrMax}}, {2, 1, {'L', 1e-3, c.dcrMax}}}},
+       2e-3,
+       2 * c.dcrMax},
+      {"L(dcrMax)+rMax",
+       {3, {{0, 2, {'R', c.rMax, 0}}, {2, 1, {'L', 1e-3, c.dcrMax}}}},
+       1e-3,
+       c.dcrMax + c.rMax}};
+  for (auto &b : limits) {
+    auto r = reduce(b.g, c);
+    sameImpedance(b.g, r, b.name);
+    require(r.graph.edges.size() == 1, b.name + ": single group");
+    auto &dom = r.domains[0];
+    if (std::isfinite(b.expectValue)) {
+      require(contains(dom.value, b.expectValue),
+              b.name + ": aggregate value inside domain");
+      close(Complex(r.graph.edges[0].element.parameter, 0),
+            Complex(b.expectValue, 0), 1e-12);
+    }
+    if (b.expectDcr >= 0)
+      require(dom.dcr && contains(*dom.dcr, b.expectDcr),
+              b.name + ": aggregate DCR inside domain");
+  }
+  // Nested expression evaluated on boundary leaves stays inside the
+  // propagated interval.
+  Graph nested{3,
+               {{0, 2, {'R', c.rMax, 0}},
+                {0, 2, {'R', c.rMax, 0}},
+                {2, 1, {'R', c.rMax, 0}}}};
+  auto nr = reduce(nested, c);
+  require(contains(nr.domains[0].value, 1.5 * c.rMax),
+          "nested boundary aggregate inside domain");
+  // --- nominal tolerance leaf domains ---
+  Config t;
+  t.tolerance = .2;
+  Graph lr{2, {{0, 1, {'L', .001, 0}}, {0, 1, {'R', 1000, 0}}}};
+  auto doms = leafDomains(lr, t);
+  require(contains(doms[0].value, .001) && doms[0].value.lo >= .001 * .8 &&
+              doms[0].value.hi <= .001 * 1.2,
+          "tolerance L value box");
+  require(doms[0].dcr && doms[0].dcr->lo == 0 && doms[0].dcr->hi == 0,
+          "nominal zero DCR with zero absolute tolerance stays fixed");
+  require(contains(doms[1].value, 1000) && doms[1].value.lo == 800 &&
+              doms[1].value.hi == 1200,
+          "tolerance R value box");
+  Graph outside{2, {{0, 1, {'R', 1e9, 0}}}};
+  rejects([&] { leafDomains(outside, t); });
+}
+
 std::string referenceSignature(const Graph &g) {
   std::vector<int> labels(g.vertices);
   std::iota(labels.begin(), labels.end(), 0);
@@ -433,6 +690,7 @@ int main() {
   try {
     io();
     physics();
+    reductionProperties();
     enumeration();
     fitting();
     std::cout << checks << " checks passed\n";
