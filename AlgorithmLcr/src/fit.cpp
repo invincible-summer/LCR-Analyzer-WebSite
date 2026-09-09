@@ -83,13 +83,7 @@ Evaluation evaluate(const Model &m, const Eigen::VectorXd &x, const Data &d,
     auto f = forward(g, d[k].f);
     a.backward = std::max(a.backward, f.backwardError);
     a.rcond = std::min(a.rcond, f.rcond);
-    if (f.status != SolveStatus::OK &&
-        f.status != SolveStatus::ILL_CONDITIONED) {
-      a.ok = false;
-      return a;
-    }
-    if (f.backwardError > numerics::policy.backwardReject ||
-        f.rcond < numerics::policy.rcondReject) {
+    if (numerics::classify(f) == numerics::ForwardDisposition::Reject) {
       a.ok = false;
       return a;
     }

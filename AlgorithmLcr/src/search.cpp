@@ -1,4 +1,5 @@
 #include "lcr/lcr.hpp"
+#include "numerics.hpp"
 #include <algorithm>
 #include <chrono>
 #include <map>
@@ -73,6 +74,7 @@ std::string labeledTopologyKey(const Graph &g, bool values) {
 struct Run {
   SearchResult r;
   const Config &c;
+  bool numericalWarningSeen = false;
   Clock::time_point start = Clock::now();
   Run(int which, const Config &cfg, std::string family) : c(cfg) {
     r.which = which;
@@ -104,6 +106,8 @@ struct Run {
       r.termination = "budget_exhausted";
     }
     ++r.evaluated;
+    if (x.diagnostics.numericalStatus == "WARN")
+      numericalWarningSeen = true;
     if (!std::isfinite(x.metrics.rss)) {
       ++r.numericalFailures;
       return;
@@ -229,6 +233,11 @@ void finish(Run &run, const Data &d, bool selection) {
     run.r.continuousGlobalCertified = false;
     if (run.r.termination == "complete")
       run.r.termination = "complete_with_numerical_failures";
+  }
+  if (run.numericalWarningSeen) {
+    run.r.continuousGlobalCertified = false;
+    if (run.r.termination == "complete")
+      run.r.termination = "complete_with_numerical_warnings";
   }
 }
 } // namespace
@@ -424,21 +433,29 @@ SearchResult try2(const Data &d, const std::vector<Edge> &components,
           a.graph = g;
           a.diagnostics.optimizer = "exact_evaluation";
           a.diagnostics.verdict = "AMBIGUOUS_EQUIVALENCE_CLASS";
-          bool ok = true;
+          bool ok = true, warned = false;
           for (auto p : d) {
             auto f = forward(g, p.f, false);
             a.diagnostics.worstBackwardError =
                 std::max(a.diagnostics.worstBackwardError, f.backwardError);
             a.diagnostics.worstRcond =
                 std::min(a.diagnostics.worstRcond, f.rcond);
-            if (f.status != SolveStatus::OK) {
+            // Same Accept/Warn/Reject policy as the common fit evaluator:
+            // retain warning-level points instead of dropping the candidate.
+            auto disposition = numerics::classify(f);
+            if (disposition == numerics::ForwardDisposition::Reject) {
               ok = false;
               break;
             }
+            if (disposition == numerics::ForwardDisposition::Warn)
+              warned = true;
             a.predicted.push_back(f.z);
           }
-          if (ok)
+          if (ok) {
             a.metrics = metrics(d, a.predicted, 0, c);
+            a.diagnostics.numericalStatus = warned ? "WARN" : "OK";
+            a.diagnostics.identifiabilityStatus = "NOT_APPLICABLE";
+          }
         }
         a.topology = canonical(g, true);
         run.add(std::move(a));
@@ -448,7 +465,8 @@ SearchResult try2(const Data &d, const std::vector<Edge> &components,
   run.r.enumerationComplete = done && run.r.enumerationComplete;
   run.r.continuousGlobalCertified = run.r.enumerationComplete &&
                                     c.tolerance == 0 &&
-                                    run.r.numericalFailures == 0;
+                                    run.r.numericalFailures == 0 &&
+                                    !run.numericalWarningSeen;
   finish(run, d, false);
   return run.r;
 }

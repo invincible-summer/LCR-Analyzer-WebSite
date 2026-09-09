@@ -1,4 +1,5 @@
 #include "lcr/lcr.hpp"
+#include "../src/numerics.hpp"
 #include <algorithm>
 #include <iomanip>
 #include <iostream>
@@ -878,6 +879,60 @@ void fitting() {
               text.find("\"original_topology_key\":") != std::string::npos,
           "JSON group/topology contract");
 }
+void forwardPolicy() {
+  using numerics::ForwardDisposition;
+  Forward f;
+  f.status = SolveStatus::OK;
+  require(numerics::classify(f) == ForwardDisposition::Accept,
+          "classify OK accepts");
+  f.status = SolveStatus::ILL_CONDITIONED;
+  f.rcond = 1e-13;
+  f.backwardError = 1e-12;
+  require(numerics::classify(f) == ForwardDisposition::Warn,
+          "classify rcond warning window");
+  f.rcond = numerics::policy.rcondReject / 10;
+  f.backwardError = 0;
+  require(numerics::classify(f) == ForwardDisposition::Reject,
+          "classify below rcondReject");
+  f.rcond = 1e-13;
+  f.backwardError = numerics::policy.backwardReject * 10;
+  require(numerics::classify(f) == ForwardDisposition::Reject,
+          "classify backward reject");
+  f.status = SolveStatus::SINGULAR;
+  f.backwardError = 0;
+  require(numerics::classify(f) == ForwardDisposition::Reject,
+          "classify singular rejects");
+  // A real near-antiresonance point lands exactly in the warning window.
+  Graph ideal{2, {{0, 1, {'L', 1, 0}}, {0, 1, {'C', 1, 0}}}};
+  auto near = forward(ideal, (1 + 1e-14) / (2 * pi));
+  require(near.status == SolveStatus::ILL_CONDITIONED &&
+              numerics::classify(near) == ForwardDisposition::Warn,
+          "near antiresonance classified as warning");
+  // Try2 Exact retains the warned candidate and withholds the certificate.
+  Data warnData;
+  for (double f0 : {1e-2, (1 + 1e-14) / (2 * pi), 1., 10.})
+    warnData.push_back({f0, forward(ideal, f0, false).z});
+  Config c;
+  auto warn = try2(warnData, {{'L', 1, 0}, {'C', 1, 0}}, c);
+  require(warn.enumerationComplete, "warn run completes enumeration");
+  require(warn.termination == "complete_with_numerical_warnings" &&
+              !warn.continuousGlobalCertified,
+          "warning withholds exact certificate");
+  const Candidate *warned = nullptr;
+  for (auto &cand : warn.candidates)
+    if (cand.graph.vertices == 2 && cand.graph.edges.size() == 2)
+      warned = &cand;
+  require(warned && warned->diagnostics.numericalStatus == "WARN" &&
+              warned->diagnostics.identifiabilityStatus == "NOT_APPLICABLE",
+          "warning-level candidate retained with WARN status");
+  // A truly singular point still rejects and counts as a numerical failure.
+  Data exactData = warnData;
+  exactData[1] = {1. / (2 * pi), {1e12, 0}};
+  auto failed = try2(exactData, {{'L', 1, 0}, {'C', 1, 0}}, c);
+  require(failed.numericalFailures >= 1 && !failed.continuousGlobalCertified &&
+              failed.termination == "complete_with_numerical_failures",
+          "singular point still rejects as failure");
+}
 void knownTopology() {
   // Try3 accepts known topologies with more internal nodes than the
   // diagnostic canonical-labeling helper supports; its topology keys are
@@ -1003,6 +1058,7 @@ int main() {
     reductionProperties();
     enumeration();
     fitting();
+    forwardPolicy();
     knownTopology();
     selection();
     std::cout << checks << " checks passed\n";
