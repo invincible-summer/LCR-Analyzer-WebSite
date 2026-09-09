@@ -88,6 +88,29 @@ ok(
   ok(c.groups[0].value_bounds[1] > 1e7, 'aggregate bounds beyond rMax')
   ok(Math.abs(c.groups[0].value - 1.2e7) / 1.2e7 < 1e-6, 'aggregate value recovered')
 }
+// 4b: Try3 known topology with 9 internal nodes — beyond the canonical
+//     labeling helper limit — fits and reports preserve-label topology keys.
+{
+  const d = sample(() => ({ re: 10000, im: 0 }))
+  m._lcr_configure(0, 0, 0, 0, 0, 0)
+  const us = [0, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+  const vs = [2, 3, 4, 5, 6, 7, 8, 9, 10, 1]
+  const r = call(
+    '_lcr_try3',
+    [f64(d.f), f64(d.re), f64(d.im), N],
+    [i32(us), i32(vs), i32(us.map(() => 82)), 10],
+  )
+  const c = r.candidates[0]
+  ok(
+    c.wrmse < 1e-8 && c.groups.length === 1 && c.groups[0].members.length === 10,
+    'try3 chain beyond 8 internal nodes reduces to one group',
+  )
+  ok(
+    c.original_topology_key.includes('0,2:R') &&
+      c.original_topology_key.includes('1,10:R'),
+    'try3 original key preserves labels',
+  )
+}
 
 // 5: fixed-zero-DCR parameter status. Try2 tolerance keeps nominal zero DCR
 //    fixed (never at-bound); Try3 wide bounds hit zero as a free boundary.

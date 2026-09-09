@@ -878,6 +878,40 @@ void fitting() {
               text.find("\"original_topology_key\":") != std::string::npos,
           "JSON group/topology contract");
 }
+void knownTopology() {
+  // Try3 accepts known topologies with more internal nodes than the
+  // diagnostic canonical-labeling helper supports; its topology keys are
+  // preserve-label identities, stable under edge row reordering.
+  std::vector<int> path{0, 2, 3, 4, 5, 6, 7, 8, 9, 10, 1};
+  Graph chain{11};
+  for (size_t i = 0; i + 1 < path.size(); ++i)
+    chain.edges.push_back({path[i], path[i + 1], {'R', 1000, 0}});
+  rejects([&] { canonical(chain, false); });
+  auto chainData = sample(chain);
+  Config c;
+  auto r = try3(chainData, chain, c);
+  const auto &best = r.candidates[0];
+  require(best.metrics.wrmse < 1e-8,
+          "chain: Try3 recovery beyond 8 internal nodes");
+  require(best.graph.edges.size() == 1,
+          "chain: exact reduction collapses the chain");
+  require(best.originalTopologyKey.find("0,2:R") != std::string::npos &&
+              best.originalTopologyKey.find("1,10:R") != std::string::npos,
+          "chain: original key preserves user labels");
+  require(best.effectiveTopologyKey.find("0,1:R") != std::string::npos,
+          "chain: effective key nonempty and labeled");
+  std::mt19937 shuffler(3);
+  for (int trial = 0; trial < 20; ++trial) {
+    Graph shuffled = chain;
+    std::shuffle(shuffled.edges.begin(), shuffled.edges.end(), shuffler);
+    auto rs = try3(chainData, shuffled, c);
+    require(rs.candidates[0].originalTopologyKey ==
+                    best.originalTopologyKey &&
+                rs.candidates[0].effectiveTopologyKey ==
+                    best.effectiveTopologyKey,
+            "chain: keys invariant under edge row reordering");
+  }
+}
 void selection() {
   Config c;
   c.starts = 12;
@@ -969,6 +1003,7 @@ int main() {
     reductionProperties();
     enumeration();
     fitting();
+    knownTopology();
     selection();
     std::cout << checks << " checks passed\n";
     return 0;

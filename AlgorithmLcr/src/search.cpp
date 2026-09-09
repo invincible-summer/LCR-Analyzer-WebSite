@@ -6,6 +6,7 @@
 #include <numeric>
 #include <set>
 #include <stdexcept>
+#include <sstream>
 namespace lcr {
 namespace {
 using Clock = std::chrono::steady_clock;
@@ -46,6 +47,27 @@ std::string labeledSignature(const Graph &g) {
   for (auto b : g.edges)
     key += std::to_string(b.u) + "," + std::to_string(b.v) + ":" +
            b.element.type + ";";
+  return key;
+}
+// Preserve-label diagnostic identity for Try3 known topologies: stable for a
+// given edge multiset, invariant under edge row reordering, and free of the
+// factorial canonical-labeling internal-node limit. Never a search key.
+std::string labeledTopologyKey(const Graph &g, bool values) {
+  validate(g);
+  std::vector<std::string> keys;
+  for (auto b : g.edges) {
+    int u = std::min(b.u, b.v), v = std::max(b.u, b.v);
+    std::ostringstream s;
+    s << u << ',' << v << ':' << b.element.type;
+    if (values)
+      s << ':' << std::hexfloat << b.element.parameter << ':'
+        << b.element.parameterOfCapacitanceDCResistance;
+    keys.push_back(s.str());
+  }
+  std::sort(keys.begin(), keys.end());
+  std::string key;
+  for (auto &s : keys)
+    key += s + ';';
   return key;
 }
 struct Run {
@@ -440,8 +462,8 @@ SearchResult try3(const Data &d, const Graph &g, const Config &c) {
   auto p = prepareForFit(g, c, ReductionPolicy::ExactElectrical);
   auto a = fit(p, d, run.fitConfig());
   a.topology = "known_topology";
-  a.originalTopologyKey = canonical(g, false);
-  a.effectiveTopologyKey = canonical(a.graph, false);
+  a.originalTopologyKey = labeledTopologyKey(g, false);
+  a.effectiveTopologyKey = labeledTopologyKey(a.graph, false);
   a.effectiveDevices = int(a.graph.edges.size());
   run.r.generated = run.r.structures = 1;
   run.add(std::move(a));
