@@ -62,6 +62,16 @@ export interface ParameterDiagnostic {
   ci95: [number, number] | null
 }
 
+/**
+ * Candidate selection tier. criterion: 'AICc' = qualified (calibrated delta
+ * within the qualified set), 'AICc_PROVISIONAL' = unconverged regular
+ * candidate (joins the AICc-scored ordering with its current score but is
+ * never a calibrated qualification; delta stays null), 'NONE' =
+ * diagnostic-only (see reasons). Run-level criterion may additionally be
+ * 'AICc_PROVISIONAL_ORDER' (rank-1 is provisional) or
+ * 'RSS_DIAGNOSTIC_FALLBACK' (robust runs / no scored candidate: diagnostic
+ * ordering, not calibrated robust model selection).
+ */
 export interface SelectionInfo {
   eligible: boolean
   criterion: string

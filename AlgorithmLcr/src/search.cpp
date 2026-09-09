@@ -1,5 +1,6 @@
 #include "lcr/lcr.hpp"
 #include "numerics.hpp"
+#include "selection.hpp"
 #include <algorithm>
 #include <chrono>
 #include <map>
@@ -126,41 +127,6 @@ bool equivalent(const Candidate &a, const Candidate &b, const Data &d,
       return false;
   return true;
 }
-// Primary-AICc eligibility: only regular candidates participate in the
-// calibrated Delta-AICc comparison; everything else is diagnostic-only.
-SelectionInfo eligibility(const Candidate &a) {
-  SelectionInfo s;
-  s.criterion = "NONE";
-  if (!std::isfinite(a.metrics.rss) || !std::isfinite(a.metrics.wrmse) ||
-      !std::isfinite(a.metrics.maxRel)) {
-    s.reasons.push_back("nonfinite_metrics");
-    return s;
-  }
-  if (!a.metrics.aicc) {
-    s.reasons.push_back("aicc_unavailable");
-    return s;
-  }
-  if (a.diagnostics.optimizer.rfind("converged", 0) != 0) {
-    s.reasons.push_back("optimizer_not_converged");
-    return s;
-  }
-  if (a.diagnostics.robustUsed) {
-    s.reasons.push_back("robust_run");
-    return s;
-  }
-  if (a.diagnostics.rank != a.nParams) {
-    s.reasons.push_back("rank_deficient");
-    return s;
-  }
-  if (!a.diagnostics.atBound.empty()) {
-    s.reasons.push_back("parameter_at_bound");
-    return s;
-  }
-  s.eligible = true;
-  s.criterion = "AICc";
-  s.score = *a.metrics.aicc;
-  return s;
-}
 void finish(Run &run, const Data &d, bool selection) {
   auto &v = run.r.candidates;
   auto byRss = [](auto &a, auto &b) {
@@ -171,39 +137,36 @@ void finish(Run &run, const Data &d, bool selection) {
     return a.topology < b.topology;
   };
   if (selection) {
-    for (auto &a : v)
-      a.selection = eligibility(a);
-    bool primary =
-        std::any_of(v.begin(), v.end(),
-                    [](auto &a) { return a.selection.eligible; });
-    // Robust runs never expose calibrated AICc deltas: no comparable robust
-    // likelihood exists, so they stay on the diagnostic fallback.
-    if (primary && !run.c.robust) {
-      double best = inf;
-      for (auto &a : v)
-        if (a.selection.eligible)
-          best = std::min(best, *a.metrics.aicc);
-      for (auto &a : v)
-        if (a.selection.eligible)
-          a.selection.delta = *a.metrics.aicc - best;
-      // Primary candidates first by AICc, diagnostic-only candidates after
-      // them by raw RSS; a single AICc-invalid over-parameter model can no
-      // longer demote the whole comparison set.
-      std::stable_sort(v.begin(), v.end(), [&](auto &a, auto &b) {
-        if (a.selection.eligible != b.selection.eligible)
-          return a.selection.eligible;
-        if (a.selection.eligible)
-          return std::tie(*a.metrics.aicc, a.nParams, a.topology) <
-                 std::tie(*b.metrics.aicc, b.nParams, b.topology);
-        return byRss(a, b);
+    // Qualified / Provisional / Diagnostic tiers (selection.hpp): the
+    // AICc-scored set orders by current AICc, calibrated deltas live only
+    // inside the qualified set, and robust runs stay on the diagnostic
+    // fallback — no comparable robust likelihood exists.
+    selection::annotate(v, run.c.robust);
+    double floor = selection::qualifiedFloor(v);
+    std::stable_sort(v.begin(), v.end(), [&](auto &a, auto &b) {
+      return selection::aheadOf(a, b, run.c.robust);
+    });
+    std::vector<Candidate> classes;
+    for (auto &cand : v) {
+      auto it = std::find_if(classes.begin(), classes.end(), [&](auto &rep) {
+        return equivalent(cand, rep, d, run.c.equivalenceTolerance);
       });
-      run.r.selectionCriterion = "AICc";
-      run.r.selectionQualified = true;
-    } else {
-      std::stable_sort(v.begin(), v.end(), byRss);
-      run.r.selectionCriterion = "RSS_DIAGNOSTIC_FALLBACK";
-      run.r.selectionQualified = false;
+      if (it != classes.end()) {
+        ++it->members;
+        if (selection::betterRepresentative(cand, *it, run.c.robust))
+          *it = cand;
+        continue;
+      }
+      classes.push_back(std::move(cand));
     }
+    std::stable_sort(classes.begin(), classes.end(), [&](auto &a, auto &b) {
+      return selection::aheadOf(a, b, run.c.robust);
+    });
+    selection::assignDeltas(classes, floor);
+    run.r.candidates = std::move(classes);
+    auto outcome = selection::outcomeOf(run.r.candidates, run.c.robust);
+    run.r.selectionCriterion = outcome.criterion;
+    run.r.selectionQualified = outcome.qualified;
   } else {
     std::stable_sort(v.begin(), v.end(), byRss);
     // Try2 ranks by its own common objective; Try3 is a single prepared fit.
@@ -213,21 +176,21 @@ void finish(Run &run, const Data &d, bool selection) {
                                                          : "RSS_COMMON")
             : "NONE";
     run.r.selectionQualified = run.r.which == 2;
-  }
-  std::vector<Candidate> classes;
-  for (auto &cand : v) {
-    auto it = std::find_if(classes.begin(), classes.end(), [&](auto &rep) {
-      return equivalent(cand, rep, d, run.c.equivalenceTolerance);
-    });
-    if (it != classes.end()) {
-      ++it->members;
-      continue;
+    std::vector<Candidate> classes;
+    for (auto &cand : v) {
+      auto it = std::find_if(classes.begin(), classes.end(), [&](auto &rep) {
+        return equivalent(cand, rep, d, run.c.equivalenceTolerance);
+      });
+      if (it != classes.end()) {
+        ++it->members;
+        continue;
+      }
+      classes.push_back(std::move(cand));
     }
-    classes.push_back(std::move(cand));
+    run.r.candidates = std::move(classes);
   }
-  if (classes.size() > size_t(run.c.topK))
-    classes.resize(run.c.topK);
-  run.r.candidates = std::move(classes);
+  if (run.r.candidates.size() > size_t(run.c.topK))
+    run.r.candidates.resize(run.c.topK);
   run.r.elapsed = run.seconds();
   if (run.r.numericalFailures) {
     run.r.continuousGlobalCertified = false;

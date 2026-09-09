@@ -412,9 +412,10 @@ const selectionText = computed(() => {
   if (!s) return ''
   const name: Record<string, string> = {
     AICc: 'AICc（校准模型选择）',
+    AICc_PROVISIONAL_ORDER: 'AICc 顺序（含未收敛候选，未形成校准模型选择结论）',
     RSS_EXACT: '共同精确目标（有限空间严格搜索）',
     RSS_COMMON: '共同 RSS 目标',
-    RSS_DIAGNOSTIC_FALLBACK: 'RSS 探索性回退（未校准）',
+    RSS_DIAGNOSTIC_FALLBACK: 'RSS 诊断回退（诊断排序，非校准模型选择）',
     NONE: '未进行跨模型选择',
   }
   return name[s.selection.criterion] ?? s.selection.criterion
@@ -824,7 +825,8 @@ function errText(v: number): string {
                 </td>
                 <td class="muted">
                   <div class="row tight" style="gap: 4px; flex-wrap: wrap">
-                    <span v-if="c.selection && !c.selection.eligible" class="qpill warn" :title="'诊断候选：' + c.selection.reasons.join('、')">诊断候选</span>
+                    <span v-if="c.selection && c.selection.criterion === 'AICc_PROVISIONAL'" class="qpill warn" :title="'未收敛候选（provisional）：优化器未达收敛判据，仅以当前 AICc 参与排序（' + c.selection.reasons.join('、') + '），不参与校准 ΔAICc，其当前 AICc 是该拓扑可达 AICc 的保守上界'">未收敛候选</span>
+                    <span v-else-if="c.selection && !c.selection.eligible" class="qpill warn" :title="'诊断候选：' + c.selection.reasons.join('、')">诊断候选</span>
                     <span v-if="(c.diagnostics?.parameters ?? []).some(p => p.fixed)" class="qpill" :title="'固定参数（独立状态，不计触边界）：' + c.diagnostics!.parameters.filter(p => p.fixed).map(p => p.quantity === 'dcr' ? 'DCR' : p.kind).join('、')">
                       固定 ×{{ c.diagnostics!.parameters.filter(p => p.fixed).length }}
                     </span>
@@ -850,7 +852,7 @@ function errText(v: number): string {
           <div class="hint" style="margin-top: 6px">
             点击行切换下方电路图与叠加曲线。
             <template v-if="!qualifiedAicc">
-              当前选择准则为 {{ selectionText }}，ΔAICc 未校准故显示 —；标注「诊断候选」的条目不参与校准排名（悬停查看原因）。
+              当前选择准则为 {{ selectionText }}，ΔAICc 未校准故显示 —；标注「诊断候选」或「未收敛候选」的条目不参与校准 ΔAICc 排名（悬停查看原因）。
             </template>
           </div>
         </div>

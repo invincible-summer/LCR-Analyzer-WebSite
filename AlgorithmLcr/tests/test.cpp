@@ -1,5 +1,6 @@
 #include "lcr/lcr.hpp"
 #include "../src/numerics.hpp"
+#include "../src/selection.hpp"
 #include <algorithm>
 #include <iomanip>
 #include <iostream>
@@ -879,6 +880,110 @@ void fitting() {
               text.find("\"original_topology_key\":") != std::string::npos,
           "JSON group/topology contract");
 }
+void selectionTiers() {
+  using lcr::selection::Tier;
+  auto scored = [](double aicc, double rss, const char *optimizer) {
+    Candidate a;
+    a.metrics.rss = rss;
+    a.metrics.wrmse = rss;
+    a.metrics.maxRel = rss;
+    a.metrics.aicc = aicc;
+    a.diagnostics.optimizer = optimizer;
+    a.diagnostics.rank = 1;
+    a.nParams = 1;
+    a.topology = "t";
+    return a;
+  };
+  // A provisional candidate with better current AICc outranks a qualified
+  // candidate; it stays unqualified and never shows a calibrated delta.
+  std::vector<Candidate> v{scored(100., 10., "converged_gradient"),
+                           scored(50., 5., "max_iterations")};
+  lcr::selection::annotate(v, false);
+  double floor = lcr::selection::qualifiedFloor(v);
+  std::stable_sort(v.begin(), v.end(),
+                    [](auto &a, auto &b) { return lcr::selection::aheadOf(a, b, false); });
+  lcr::selection::assignDeltas(v, floor);
+  auto outcome = lcr::selection::outcomeOf(v, false);
+  require(v[0].metrics.aicc == 50. && !v[0].selection.eligible &&
+              v[0].selection.criterion == "AICc_PROVISIONAL" &&
+              !v[0].selection.delta &&
+              std::find(v[0].selection.reasons.begin(),
+                        v[0].selection.reasons.end(),
+                        "optimizer_not_converged") !=
+                  v[0].selection.reasons.end(),
+          "provisional candidate outranks worse qualified");
+  require(v[1].selection.eligible && v[1].selection.delta == 0.,
+          "qualified candidate keeps calibrated zero delta");
+  require(outcome.criterion == "AICc_PROVISIONAL_ORDER" && !outcome.qualified,
+          "provisional rank-1 does not claim qualification");
+  // A qualified candidate with better AICc still wins the run.
+  v = {scored(50., 1., "converged_gradient"), scored(100., 5., "stalled")};
+  lcr::selection::annotate(v, false);
+  std::stable_sort(v.begin(), v.end(),
+                    [](auto &a, auto &b) { return lcr::selection::aheadOf(a, b, false); });
+  outcome = lcr::selection::outcomeOf(v, false);
+  require(v[0].selection.eligible &&
+              v[1].selection.criterion == "AICc_PROVISIONAL",
+          "qualified candidate first when its AICc is better");
+  require(outcome.criterion == "AICc" && outcome.qualified,
+          "qualified rank-1 keeps calibrated semantics");
+  // Diagnostic-only candidates never precede the scored set, whatever their
+  // raw RSS.
+  Candidate noAicc;
+  noAicc.metrics.rss = .5;
+  noAicc.metrics.wrmse = .5;
+  noAicc.metrics.maxRel = .5;
+  noAicc.diagnostics.optimizer = "converged_gradient";
+  noAicc.diagnostics.rank = 1;
+  noAicc.nParams = 1;
+  noAicc.topology = "d";
+  v = {scored(100., 10., "max_iterations"),
+       scored(80., 5., "converged_gradient"), noAicc};
+  lcr::selection::annotate(v, false);
+  std::stable_sort(v.begin(), v.end(),
+                    [](auto &a, auto &b) { return lcr::selection::aheadOf(a, b, false); });
+  require(lcr::selection::tierOf(v[0]) == Tier::Qualified &&
+              lcr::selection::tierOf(v[1]) == Tier::Provisional &&
+              lcr::selection::tierOf(v[2]) == Tier::Diagnostic &&
+              v[2].metrics.rss < v[0].metrics.rss,
+          "scored set precedes diagnostics regardless of RSS");
+  require(std::find(v[2].selection.reasons.begin(), v[2].selection.reasons.end(),
+                    "aicc_unavailable") != v[2].selection.reasons.end(),
+          "null-AICc candidate keeps its reason");
+  // Robust runs never expose calibrated AICc semantics.
+  v = {scored(10., 1., "converged_gradient")};
+  v[0].diagnostics.robustUsed = true;
+  lcr::selection::annotate(v, true);
+  require(lcr::selection::outcomeOf(v, true).criterion ==
+                  "RSS_DIAGNOSTIC_FALLBACK" &&
+              !lcr::selection::outcomeOf(v, true).qualified,
+          "robust run outcome stays fallback");
+  require(!v[0].selection.eligible && v[0].selection.criterion == "NONE" &&
+              std::find(v[0].selection.reasons.begin(),
+                        v[0].selection.reasons.end(),
+                        "robust_run") != v[0].selection.reasons.end(),
+          "robust run stays diagnostic");
+  // Equivalence-class representatives prefer the most reliable tier.
+  Candidate provisionalRep = scored(30., 5., "max_iterations");
+  Candidate qualifiedRep = scored(100., 10., "converged_gradient");
+  require(lcr::selection::betterRepresentative(qualifiedRep, provisionalRep,
+                                               false),
+          "qualified member represents over provisional");
+  require(!lcr::selection::betterRepresentative(provisionalRep, qualifiedRep,
+                                                false),
+          "provisional never displaces a qualified representative");
+  Candidate tight = scored(20., 4., "converged_gradient");
+  require(lcr::selection::betterRepresentative(tight, qualifiedRep, false) &&
+              !lcr::selection::betterRepresentative(qualifiedRep, tight, false),
+          "same tier prefers smaller AICc");
+  Candidate wide = noAicc;
+  wide.metrics.rss = 7.;
+  require(lcr::selection::betterRepresentative(noAicc, wide, false),
+          "same diagnostic tier prefers smaller RSS");
+  require(lcr::selection::betterRepresentative(wide, noAicc, true) == false,
+          "robust representative comparison ignores tiers");
+}
+
 void forwardPolicy() {
   using numerics::ForwardDisposition;
   Forward f;
@@ -967,7 +1072,7 @@ void knownTopology() {
             "chain: keys invariant under edge row reordering");
   }
 }
-void selection() {
+void selectorScenarios() {
   Config c;
   c.starts = 12;
   c.iterations = 180;
@@ -1026,10 +1131,14 @@ void selection() {
               "null-AICc candidate is diagnostic with reason");
     }
   require(nullSeen, "mixed set contains null-AICc candidates");
+  // v4.1.2: the AICc-scored set (qualified union provisional) precedes the
+  // diagnostic-only tail; a provisional may legitimately outrank a qualified
+  // candidate by current AICc, so eligibility alone is no longer the tier
+  // boundary.
   for (size_t i = 1; i < mix.candidates.size(); ++i)
-    if (mix.candidates[i].selection.eligible)
-      require(mix.candidates[i - 1].selection.eligible,
-              "eligible candidates precede diagnostic-only");
+    if (mix.candidates[i].selection.criterion != "NONE")
+      require(mix.candidates[i - 1].selection.criterion != "NONE",
+              "scored candidates precede diagnostic-only");
   // 5) robust run: uncalibrated diagnostic fallback, never fake deltas.
   Config robust = c;
   robust.robust = true;
@@ -1060,7 +1169,8 @@ int main() {
     fitting();
     forwardPolicy();
     knownTopology();
-    selection();
+    selectorScenarios();
+    selectionTiers();
     std::cout << checks << " checks passed\n";
     return 0;
   } catch (const std::exception &e) {
