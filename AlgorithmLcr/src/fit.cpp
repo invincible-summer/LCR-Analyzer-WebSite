@@ -274,8 +274,9 @@ Candidate fit(const PreparedNetwork &prepared, const Data &d, const Config &c,
   std::vector<double> robust(d.size(), 1);
   std::mt19937 rng(c.seed);
   std::uniform_real_distribution<double> jitter(-2.5, 2.5);
-  Optimum best;
-  best.eval.ok = false;
+  // best stays empty until a start produces a valid evaluation; a failed
+  // start never contributes a usable Model coordinate.
+  std::optional<Optimum> bestOpt;
   int bestIndex = -1, converged = 0;
   std::vector<double> finalCosts;
   std::vector<Eigen::VectorXd> finalCoordinates;
@@ -313,8 +314,8 @@ Candidate fit(const PreparedNetwork &prepared, const Data &d, const Config &c,
     finalCosts.push_back(o.eval.ok ? o.eval.r.squaredNorm() : inf);
     finalCoordinates.push_back(o.x);
     if (o.eval.ok &&
-        (!best.eval.ok || o.eval.r.squaredNorm() < best.eval.r.squaredNorm())) {
-      best = std::move(o);
+        (!bestOpt || o.eval.r.squaredNorm() < bestOpt->eval.r.squaredNorm())) {
+      bestOpt = std::move(o);
       bestIndex = start;
     }
   }
@@ -351,15 +352,22 @@ Candidate fit(const PreparedNetwork &prepared, const Data &d, const Config &c,
       diag.parameters.push_back(std::move(pd));
     }
   };
-  if (!best.eval.ok) {
-    fillParameters(best.x);
-    diag.optimizer = "numerical_failure";
+  if (!bestOpt) {
+    // Total-state-safe failure: decode the projected initial guess so the
+    // descriptor contract holds even when no start returned a valid point.
+    const Eigen::VectorXd fallback = model.project(base);
+    bool exhausted = usedStarts == 0 && stop();
+    result.graph = model.decode(fallback);
+    fillParameters(fallback);
+    diag.optimizer = exhausted ? "budget_exhausted" : "numerical_failure";
     diag.numericalStatus = "FAIL";
-    diag.verdict = "NUMERICALLY_UNSTABLE";
+    diag.identifiabilityStatus = "NOT_EVALUATED";
+    diag.verdict = exhausted ? "LOCAL_FIT_UNCONFIRMED" : "NUMERICALLY_UNSTABLE";
     result.reduction = prepared.reduction;
     result.reduction.graph = result.graph;
     return result;
   }
+  Optimum &best = *bestOpt;
   for (size_t i = 0; i < finalCosts.size(); ++i) {
     if (!std::isfinite(finalCosts[i]))
       continue;

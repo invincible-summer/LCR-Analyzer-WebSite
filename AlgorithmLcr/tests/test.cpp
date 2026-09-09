@@ -788,6 +788,62 @@ void fitting() {
   budget.starts = 1000;
   auto interrupted = try3(d, g, budget);
   require(!interrupted.enumerationComplete, "LM time budget");
+  // --- v4.1.2: no-best failure paths must stay total-state safe ---
+  // A cancellation that fires before the first start must not decode an
+  // unassigned coordinate.
+  Config preCancelled = c;
+  preCancelled.robust = false;
+  preCancelled.cancelled = [] { return true; };
+  auto earlyFit =
+      fit(prepareForFit(g, preCancelled, ReductionPolicy::None), d, preCancelled);
+  require(earlyFit.diagnostics.optimizer == "budget_exhausted" &&
+              earlyFit.diagnostics.numericalStatus == "FAIL" &&
+              earlyFit.diagnostics.identifiabilityStatus == "NOT_EVALUATED" &&
+              earlyFit.diagnostics.verdict == "LOCAL_FIT_UNCONFIRMED" &&
+              !std::isfinite(earlyFit.metrics.rss),
+          "pre-cancel fit reports exhausted budget safely");
+  require(earlyFit.diagnostics.parameters.size() == 2 &&
+              earlyFit.diagnostics.parameters[0].id == 0 &&
+              earlyFit.diagnostics.parameters[1].id == 1,
+          "pre-cancel keeps complete parameter descriptors");
+  auto early = try3(d, g, preCancelled);
+  require(early.termination == "budget_exhausted" &&
+              !early.enumerationComplete && early.candidates.empty() &&
+              early.numericalFailures == 1,
+          "pre-cancel try3 stays empty with exhausted budget");
+  // Fixed L/C domains pin every multi-start at the same parallel-LC
+  // antiresonance, where the forward solve is singular: all starts fail
+  // numerically and fit() must still return a well-formed candidate.
+  Graph antiresonator{2, {{0, 1, {'L', 1, 0}}, {0, 1, {'C', 1, 0}}}};
+  PreparedNetwork pinned;
+  pinned.original = pinned.effective = antiresonator;
+  pinned.reduction.graph = antiresonator;
+  EdgeDomain lv, cv;
+  lv.value = Interval{1, 1};
+  lv.dcr = Interval{0, 0};
+  cv.value = Interval{1, 1};
+  pinned.domains = {lv, cv};
+  Data atResonance{{1e-2, {1e6, 0}},
+                   {1. / (2 * pi), {1e12, 0}},
+                   {1., {1e3, 0}},
+                   {10., {1e3, 0}}};
+  auto failed = fit(pinned, atResonance, c);
+  require(failed.diagnostics.optimizer == "numerical_failure" &&
+              failed.diagnostics.numericalStatus == "FAIL" &&
+              failed.diagnostics.identifiabilityStatus == "NOT_EVALUATED" &&
+              failed.diagnostics.verdict == "NUMERICALLY_UNSTABLE" &&
+              !std::isfinite(failed.metrics.rss),
+          "all-failed starts report numerical failure");
+  require(failed.diagnostics.parameters.size() == 3,
+          "all-failed starts keep full descriptors");
+  require(failed.diagnostics.parameters[0].quantity == ParamQuantity::Value &&
+              failed.diagnostics.parameters[1].quantity == ParamQuantity::Dcr &&
+              failed.diagnostics.parameters[2].quantity == ParamQuantity::Value &&
+              failed.diagnostics.parameters[0].edge == 0 &&
+              failed.diagnostics.parameters[1].edge == 0 &&
+              failed.diagnostics.parameters[2].edge == 1,
+          "failure descriptor ids/edges/quantities complete");
+
   auto triangle = adjacency(g);
   Graph rebuilt;
   rebuilt.vertices = g.vertices;
