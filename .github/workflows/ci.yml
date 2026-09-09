@@ -111,7 +111,8 @@ jobs:
         run: pnpm build
       - name: Serve and smoke
         run: |
-          npx vite preview --port 4173 --strictPort &
+          npx vite preview --port 4173 --strictPort --host 127.0.0.1 &
           trap 'kill %1' EXIT
           for i in $(seq 1 30); do curl -sf http://127.0.0.1:4173/ >/dev/null && break; sleep 1; done
+          curl -sf http://127.0.0.1:4173/ >/dev/null
           node scripts/browser-smoke.mjs
