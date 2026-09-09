@@ -635,7 +635,7 @@ function errText(v: number): string {
             ['SP 深度', '默认 4，与器件数上限相互独立'],
             ['器件计数', 'R/C 各 1 个；电感 L+DCR 绑定算 1 个器件'],
             ['参数箱', 'R 1e-3–1e7 Ω · L 1e-10–10 H · C 1e-13–1e-3 F · DCR 0–1e7 Ω'],
-            ['输出', 'Top-K 等价类：wRMSE / maxRel / AICc + 邻接矩阵电路图'],
+            ['输出', 'Top-K 观测频点（observed-grid）等价类：wRMSE / maxRel / AICc + 邻接矩阵电路图'],
           ]"
           :bullets="['候选须同时满足 AICc 有效、优化收敛、满秩且无触界参数才参与校准 ΔAICc 排名；其余为诊断候选', '低残差与局部满秩不能证明唯一内部接线']"
         />
@@ -750,7 +750,7 @@ function errText(v: number): string {
         <div class="spacer" />
         <HelpBubble
           title="Try 3 · 已知拓扑"
-          intro="拓扑与每条边的元件类型已知，引擎对 log 参数做多起点箱约束最小二乘，输出每条边（或合并群）的拟合数值与可辨识性诊断。"
+          intro="拓扑与每条边的元件类型已知，引擎做多起点箱约束最小二乘：R/L/C 正参数用 log 坐标，DCR 用可精确表示 0 的线性非负坐标；输出每条边（或合并群）的拟合数值与可辨识性诊断。"
           :rows="[
             ['节点 0 / 1', '单端口两端点，必须出现在边集中'],
             ['规模建议', '节点 ≤ 8，边 ≤ 12'],
@@ -852,7 +852,7 @@ function errText(v: number): string {
           <div class="hint" style="margin-top: 6px">
             点击行切换下方电路图与叠加曲线。
             <template v-if="!qualifiedAicc">
-              当前选择准则为 {{ selectionText }}，ΔAICc 未校准故显示 —；标注「诊断候选」或「未收敛候选」的条目不参与校准 ΔAICc 排名（悬停查看原因）。
+              当前选择准则为 {{ selectionText }}，ΔAICc 未校准故显示 —；标注「诊断候选」或「未收敛候选」的条目不参与校准 ΔAICc 排名（悬停查看原因）。等价类为观测频点（observed-grid）数值等价，非连续频带数学等价。
             </template>
           </div>
         </div>
@@ -944,7 +944,7 @@ function errText(v: number): string {
                 <td class="mono muted">{{ g.members.map((m: number) => m + 1).join(', ') }}</td>
                 <td>
                   <span v-if="g.fixed.length" class="qpill" :title="'固定参数：' + g.fixed.join('、')">固定（{{ g.fixed.join('、') }}）</span>
-                  <span v-if="g.weak.length" class="qpill warn">弱参数</span>
+                  <span v-if="g.weak.length" class="qpill warn" title="弱参数为 relative-effect 启发式（|∂Z/∂q|·|q|/|Z| 的最大值低于阈值）：零或近零 DCR 等边界参数的相对敏感度会自然退化，不代表绝对导数为零或必不可辨识；请以 Jacobian 秩/条件与拟合区间为主">弱参数</span>
                   <span v-if="g.at_bound.length" class="qpill warn">触边界</span>
                   <span v-if="!g.weak.length && !g.at_bound.length && !g.fixed.length" class="qpill good">良好</span>
                 </td>

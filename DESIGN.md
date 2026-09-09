@@ -30,7 +30,7 @@ Try2 Exact/Tolerance、Try3、内部 Try2.5、Try1 有界 SP 与 Foster 辅助�
 的条件最优声明，其他连续拟合始终是局部方法。
 
 L+DCR 算一个器件，最多两个自由参数。exactN 表示规范不可约等效模型器件数。
-原生 JSON schema 为 `lcr.native.v4` revision 2（engine_version 4.1.0），
+原生 JSON schema 为 `lcr.native.v4` revision 2（engine_version 4.1.2），
 由网页适配器转换为前端展示协议：参数诊断用显式 `parameters[]` 描述符
 （id/edge/quantity/free/fixed/SE/CI），选择状态用运行级与候选级
 `selection`（primary/diagnostic 分层，校准 ΔAICc 仅限合格 AICc 运行），

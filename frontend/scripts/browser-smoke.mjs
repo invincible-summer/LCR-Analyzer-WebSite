@@ -88,6 +88,37 @@ await page.locator('textarea').fill('0 2 R\n2 1 R');
 await page.getByRole('button',{name:'运行 Try 3',exact:true}).click();
 await page.getByText('Try 3 拟合诊断',{exact:true}).waitFor();
 assert.match(await page.locator('body').innerText(),/12 M\s*Ω/);console.log('Try3 aggregate bounds PASS');
+// v4.1.2: 迭代上限压到 1 → 未收敛 provisional 候选成为 rank-1，UI 显示
+// provisional 徽标与 AICc_PROVISIONAL_ORDER 准则，且不显示校准 ΔAICc；等价类
+// 声明为 observed-grid。
+await upload('f,re,im\n10,1199.72718721397,-18.0914597647841\n100,1173.3192270178,-176.932371067909\n1000,366.52895976007,-552.71264990887\n10000,5.25403970697875,-79.2290522165449\n');
+await page.getByText('相对加权回退',{exact:false}).first().waitFor();
+await page.getByText('Try 1 · 未知辨识',{exact:true}).click();
+await page.getByText('高级设置（starts / iterations / seed / 等价容差）').click();
+await page.getByLabel('迭代上限').fill('2');
+await page.getByPlaceholder('不填 = 自由搜索').fill('1');
+await page.getByRole('button',{name:'运行 Try 1',exact:true}).click();
+await page.locator('.cand-table').waitFor({timeout:120000});
+{
+  const body=await page.locator('body').innerText();
+  assert.match(body,/AICc 顺序（含未收敛候选，未形成校准模型选择结论）/);
+  assert.match(body,/未收敛候选/);
+  assert.match(body,/observed-grid/);
+  assert.match(await page.locator('.cand-table').innerText(),/—/);
+  console.log('provisional badge PASS');
+}
+await page.getByLabel('迭代上限').fill('');
+await page.getByText('高级设置（starts / iterations / seed / 等价容差）').click();
+// v4.1.2: Try3 已知拓扑 9 个内部节点（超过 canonical 助手上限）可正常拟合
+await upload('f,re,im\n10,12000000,0\n100,12000000,0\n1000,12000000,0\n10000,12000000,0\n');
+await page.getByText('相对加权回退',{exact:false}).first().waitFor();
+await page.getByText('Try 3 · 已知拓扑',{exact:true}).click();
+await page.locator('textarea').fill('0 2 R\n2 3 R\n3 4 R\n4 5 R\n5 6 R\n6 7 R\n7 8 R\n8 9 R\n9 10 R\n10 1 R');
+
+await page.getByRole('button',{name:'运行 Try 3',exact:true}).click();
+await page.getByText('Try 3 拟合诊断',{exact:true}).waitFor();
+assert.match(await page.locator('body').innerText(),/R1\+R2/);
+console.log('Try3 >8 internal nodes PASS');
 console.log('errors',errors);assert.equal(errors.length,0);
 if(process.env.LCR_SCREENSHOT)await page.screenshot({path:process.env.LCR_SCREENSHOT,fullPage:true});
 } finally { await browser.close(); }

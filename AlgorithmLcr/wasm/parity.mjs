@@ -73,6 +73,8 @@ function compare(a, b, what) {
   ok(a.selection.criterion === b.selection.criterion, what + ': selection criterion')
   ok(a.selection.qualified === b.selection.qualified, what + ': selection qualified')
   ok(a.noise_model === b.noise_model, what + ': noise model')
+  ok(a.equivalence === b.equivalence && a.equivalence === 'observed_grid', what + ': equivalence contract')
+  ok(a.engine_version === b.engine_version && a.engine_version === '4.1.2', what + ': engine version')
   ok(a.stats.generated === b.stats.generated, what + ': generated count')
   ok(a.stats.structures === b.stats.structures, what + ': structures count')
   ok(a.candidates.length === b.candidates.length, what + ': candidate/class count')

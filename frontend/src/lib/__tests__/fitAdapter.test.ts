@@ -2,7 +2,7 @@ import { describe,it,expect,vi,afterEach } from 'vitest'
 import { adaptReport, type NativeReport } from '../fitAdapter'
 import { runFitJob,cancelFitJob } from '../lcrWasm'
 const report: NativeReport = {
- schema:'lcr.native.v4',schema_revision:2,engine_version:'4.1.0',try:3,elapsed:1,mode:'Strict',termination:'complete',
+ schema:'lcr.native.v4',schema_revision:2,engine_version:'4.1.2',try:3,elapsed:1,mode:'Strict',termination:'complete',
  enumeration_complete:true,continuous_global_certified:false,hypothesis_family:'KNOWN_REDUCED_GRAPH',
  noise_model:'relative_unknown_scale',equivalence_metric:'relative_curve',equivalence_threshold:1e-6,
  selection:{criterion:'NONE',qualified:false},

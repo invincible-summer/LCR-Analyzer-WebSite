@@ -47,7 +47,7 @@ const sample = fn => ({
 
 // 1 & 9: module version and report schema revision.
 ok(
-  m.UTF8ToString(m._lcr_version()) === 'lcr.native.v4 revision 2 / wasm 4.1.0',
+  m.UTF8ToString(m._lcr_version()) === 'lcr.native.v4 revision 2 / wasm 4.1.2',
   'version string',
 )
 
@@ -58,6 +58,8 @@ ok(
   const r = call('_lcr_try1', [f64(d.f), f64(d.re), f64(d.im), N], [1, 0, 0, 8])
   ok(r.schema === 'lcr.native.v4', 'schema string')
   ok(r.schema_revision === 2, 'schema revision 2')
+  ok(r.engine_version === '4.1.2', 'engine version 4.1.2')
+  ok(r.equivalence === 'observed_grid', 'observed-grid equivalence contract')
   ok(r.candidates.length >= 1 && r.candidates[0].wrmse < 1e-7, 'try1 single R fit')
 }
 

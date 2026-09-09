@@ -135,7 +135,7 @@ export interface SearchOptions {
   budget?: number
   seconds?: number
   robust?: boolean
-  /** equivalence-class merge tolerance for observed-band curves */
+  /** equivalence-class merge tolerance over the observed frequency grid */
   equivalenceTolerance?: number
   /** multi-start / LM budget advanced controls */
   starts?: number

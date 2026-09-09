@@ -28,7 +28,7 @@ L 与 DCR 绑定为一个器件；DCR=0 是真实边界，不能替换成正的�
 单端口通常只能识别端口行为，不能唯一识别物理内部结构。
 例如 R1+R2 与一个等值 R、R+(Rd+sL) 与一个等值 L+DCR 不可区分。
 故 exactN 是**规范不可约等效模型**器件数，不是物理 BOM 数量。
-有限采样上的接近只称 observed-band equivalence，不能当作符号恒等。
+有限采样上的接近只称 observed-grid equivalence（观测频点数值等价），不能当作符号恒等，也不是连续频带等价。
 普通图 2-isomorphism 不足以保证端口阻抗等价；还需保持端口分离两森林信息。
 
 ## 2. 统一前向方程与解析导数
@@ -180,7 +180,7 @@ E 个活动连通边的二端图满足 2≤V≤E+1。对每个 V 枚举所有节
 检查活动性，对内部重标号和互易端口交换规范化；再枚举器件赋值，剔除相同器件置换
 以及带值图同构重复。支持 E≤8，包含桥式和重边；复杂度随 E 急增。
 
-Strict Exact 对每个剩余候选全频评价，排序后按 observed-band 容差（默认 1e-6）
+Strict Exact 对每个剩余候选全频评价，排序后按 observed-grid 容差（默认 1e-6）
 聚类，返回 Top-K 代表元。初版不做 partial-cost pruning。
 
 非负部分和确实给出总损失下界，但旧伪代码 `partial>best` 只足够保留最佳值；
@@ -194,7 +194,7 @@ Tolerance 对每图调用公共局部优化器，不自动作用于 Exact。
 内部 Try2.5 用相同枚举器产生已知类型的图，再复用 Try3 的 prepared 内层：
 对每图执行同样的 R0 + 精确归约（含域传播）后共享局部拟合，不可分别辨识的
 聚合（如两串联 R）只拟合一个等效参数。候选同时报告原枚举拓扑键与
-有效拓扑键，二者不得混淆；行为等价聚类仍可把它们并入同一 observed-band 类。
+有效拓扑键，二者不得混淆；行为等价聚类仍可把它们并入同一 observed-grid 类。
 二者必须分开报告 `enumeration_complete` 和 `continuous_global_certified`，后者为 false。
 
 ## 7. Try3 与可辨识性
@@ -317,7 +317,7 @@ waveform least-squares covariance.
 
 Try2 Exact enumerates all declared active connected E-edge terminal multigraphs for
 2≤V≤E+1, E≤8; canonicalization quotients internal permutations, terminal exchange and
-identical components. Full-frequency evaluation precedes observed-band Top-K clustering.
+identical components. Full-frequency evaluation precedes observed-grid Top-K clustering.
 The legacy partial-cost threshold against the single best result is not a valid Top-K-class
 algorithm and is not used. Only complete, numerically reliable exact evaluation supports
 a conditional finite-space minimum claim. Hidden dead-zone BOMs are outside this space.

@@ -95,7 +95,7 @@ void report(std::ostream &o, const SearchResult &r, const Data &d,
     return;
   }
   o << "{\"schema\":\"lcr.native.v4\",\"schema_revision\":2,"
-       "\"engine_version\":\"4.1.0\",\"try\":" << r.which << ",\"mode\":";
+       "\"engine_version\":\"4.1.2\",\"try\":" << r.which << ",\"mode\":";
   quote(o, r.mode);
   o << ",\"hypothesis_family\":";
   quote(o, r.family);
@@ -115,7 +115,7 @@ void report(std::ostream &o, const SearchResult &r, const Data &d,
   o << ",\"noise_model\":";
   quote(o, c.covariance.empty() ? "relative_unknown_scale"
                                 : "supplied_covariance");
-  o << ",\"equivalence\":\"observed_band\",\"equivalence_metric\":"
+  o << ",\"equivalence\":\"observed_grid\",\"equivalence_metric\":"
     << "\"relative_curve\",\"equivalence_threshold\":";
   number(o, c.equivalenceTolerance);
   o << ",\"selection\":{\"criterion\":";

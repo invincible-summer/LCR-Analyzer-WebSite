@@ -859,7 +859,7 @@ void fitting() {
   auto text = json.str();
   require(text.find("\"schema\":\"lcr.native.v4\"") != std::string::npos &&
               text.find("\"schema_revision\":2") != std::string::npos &&
-              text.find("\"engine_version\":\"4.1.0\"") !=
+              text.find("\"engine_version\":\"4.1.2\"") !=
                   std::string::npos &&
               text.find("nan") == std::string::npos,
           "JSON diagnostics");
@@ -871,8 +871,10 @@ void fitting() {
           "JSON parameter descriptors");
   require(text.find("\"selection\":") != std::string::npos &&
               text.find("\"equivalence_metric\":\"relative_curve\"") !=
+                  std::string::npos &&
+              text.find("\"equivalence\":\"observed_grid\"") !=
                   std::string::npos,
-          "JSON selection contract");
+          "JSON selection/equivalence contract");
   require(text.find("\"groups\":[{\"gid\":0") != std::string::npos &&
               text.find("\"value_bounds\":[") != std::string::npos &&
               text.find("\"parameter_ids\":[") != std::string::npos &&

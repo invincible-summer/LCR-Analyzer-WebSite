@@ -40,9 +40,10 @@ Eigen 头文件随 `vendor/` 固定，离线构建可用。公开 API 在 `inclu
 `--starts`、`--iterations`、`--seed` 控制多初值；`--robust` 显式开启 IRLS。
 CLI 提供 R/L/C 上下界和 DCR 上界；C++ Config 还支持逐点协方差及取消回调。
 
-原生 JSON `lcr.native.v4` revision 2（engine 4.1.0）包含原精度邻接矩阵、显式
+原生 JSON `lcr.native.v4` revision 2（engine 4.1.2）包含原精度邻接矩阵、显式
 参数描述符（id/edge/quantity/free/fixed/SE/CI）、运行与候选级 selection
-（primary/diagnostic 分层）及归约群有效域/表达式，不是网页 Worker 协议。
+（qualified/provisional/diagnostic 三层；等价类声明为 observed-grid 观测频点
+数值等价）及归约群有效域/表达式，不是网页 Worker 协议。
 网页通过 Worker/WASM 调用相同 C++ 核心。模型选择按声明的 eligibility 分层
 （校准 ΔAICc 仅限合格 AICc 运行），有限带系统误差下较复杂模型可能排前；
 不能把低残差或局部满秩当作唯一物理接线证明。

@@ -50,7 +50,7 @@ std::string output(const lcr::SearchResult &r, const lcr::Data &d,
 extern "C" {
 void lcr_free(char *p) { std::free(p); }
 const char *lcr_version() {
-  return "lcr.native.v4 revision 2 / wasm 4.1.0";
+  return "lcr.native.v4 revision 2 / wasm 4.1.2";
 }
 // Reset + common options. Extended settings go through the dedicated
 // setters below; nothing in the binding layer silently rewrites other

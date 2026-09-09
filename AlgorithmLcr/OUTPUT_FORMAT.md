@@ -53,11 +53,13 @@ merged 成员的单独物理值不可由输出聚合值唯一恢复；dropped �
 ## 原生报告（schema revision 2）与网站接入
 
 原生 CLI 默认输出摘要、矩阵块及归约注释；`--json` 输出 `lcr.native.v4`，
-自 revision 2 起顶层携带 `schema_revision:2`、`engine_version:"4.1.0"`、
+自 revision 2 起顶层携带 `schema_revision:2`、`engine_version:"4.1.2"`、
 `noise_model`（`relative_unknown_scale | supplied_covariance`）、
-`equivalence:"observed_band"` + `equivalence_metric:"relative_curve"` +
+`equivalence:"observed_grid"` + `equivalence_metric:"relative_curve"` +
 `equivalence_threshold`，以及运行级 `selection:{criterion,qualified}`。
-criterion ∈ `AICc | RSS_EXACT | RSS_COMMON | RSS_DIAGNOSTIC_FALLBACK | NONE`。
+criterion ∈ `AICc | AICc_PROVISIONAL_ORDER | RSS_EXACT | RSS_COMMON |
+RSS_DIAGNOSTIC_FALLBACK | NONE`。等价声明是 observed-grid（观测频点数值等价），
+不是连续频带数学等价证明。
 
 保留 candidate 的 `rank/devices/n_params/wrmse/max_rel/aicc/rss`、
 `adjacency:{v,slots:[{u,j,edges:[{t,p,d}]}]}` 和 `theory:{f,re,im}` 结构，
@@ -67,8 +69,12 @@ criterion ∈ `AICc | RSS_EXACT | RSS_COMMON | RSS_DIAGNOSTIC_FALLBACK | NONE`�
 
 每候选另含：
 
-- `selection:{eligible,criterion,score,delta,reasons}`：primary/diagnostic
-  分层与资格原因；校准 `delta` 仅存在于合格的 AICc 运行。
+- `selection:{eligible,criterion,score,delta,reasons}`：三层分层与资格原因。
+  `AICc` = qualified（合格，校准 `delta` 仅在此层）；`AICc_PROVISIONAL` =
+  未收敛正则候选（以当前 AICc 参与 scored 排序，`delta` 恒 null，不是校准资格）；
+  `NONE` = diagnostic-only（AICc 不可用 / robust / 秩亏 / 触界 / 非有限）。
+  运行级 rank-1 为 provisional 时 criterion 为 `AICc_PROVISIONAL_ORDER`
+  且 `qualified=false`；robust 运行恒为 `RSS_DIAGNOSTIC_FALLBACK`。
 - `diagnostics` 增加独立维度 `optimizer / numerical_status / identifiability_status /
   fit_objective`（verdict 保留为派生摘要），以及显式参数描述符数组
   `parameters:[{id,edge,quantity,kind,value,lower,upper,free,fixed,weak,
@@ -85,8 +91,14 @@ criterion ∈ `AICc | RSS_EXACT | RSS_COMMON | RSS_DIAGNOSTIC_FALLBACK | NONE`�
 附加报告：搜索空间、模式、完备性、预算终止、种子、计数和耗时；每候选包含
 优化终止、启动一致性、局部 Jacobian 秩/奇异值/条件数、弱参数、边界、
 适用时的标准误差及近似 95% 区间、线性求解质量及 robust 标记。原始相对误差不被 robust 权重覆盖。
+`optimizer` 失败态为 `budget_exhausted | numerical_failure`，此时
+`identifiability_status` 为 `NOT_EVALUATED`；Try2 Exact 在保留 warning 级候选时
+`termination` 为 `complete_with_numerical_warnings` 且撤销连续全局证书
+（warning 级 ILL 点满足 reject 阈值，被保留但 `numerical_status=WARN`）。
+`weak` 是 relative-effect 启发式：零/近零 DCR 等边界参数的相对敏感度自然退化，
+不代表绝对导数为零或必不可辨识，请以 Jacobian 秩/条件与拟合区间为主。
 `enumeration_complete` 不代表连续优化全局最优，也不代表物理接线唯一。
-聚类名称为 observed-band，非符号电学等价证明。
+聚类名称为 observed-grid（观测频点数值等价），非符号电学等价证明，也非连续频带等价。
 
 CLI 退出码：0 有结果且搜索完成；1 输入/运行错误；2 有部分结果但预算耗尽；
 3 无可用候选。数值失败计数非零时不得宣称全候选空间全局证书。
