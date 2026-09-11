@@ -1,15 +1,14 @@
 // ============================================================================
-// screen_menu.cpp —— 主菜单
+// screen_menu.cpp —— 主菜单（三个产品模式 + 隐藏诊断入口）
 // ----------------------------------------------------------------------------
-// 三个功能入口（任务书）：
-//   1. Signal Generator     信号发生器
-//   2. Impedance @ Single F 单频点复阻抗测量
-//   3. Frequency Response   幅频/相频特性测量
-// 操作：编码器旋转或 左/右 键移动选择，OK 进入，BACK 无操作（根界面）。
+//   1 Component R/C/L     单元件自动识别与测量
+//   2 One-Port Z Sweep    单端口扫频 -> BLE -> 网站拟合
+//   3 Two-Port H Sweep    双端口扫频 -> BLE -> 网站曲线
+// 隐藏页：3 秒内连按 3 次 Up 进入 Diagnostics（信号发生器等调试工具）。
 // ============================================================================
 
 #include "screens.h"
-#include "bt_link.h"
+#include "radio_manager.h"
 
 #include <Arduino.h>
 
@@ -18,13 +17,13 @@ MainMenuScreen screenMenu;
 
 namespace {
 const char* const kItems[] = {
-    "1  Signal Generator",
-    "2  Impedance @ 1 Freq",
-    "3  Freq Response Sweep",
+    "1  Component R/C/L",
+    "2  One-Port Z Sweep",
+    "3  Two-Port H Sweep",
 };
 constexpr int kNItems = 3;
-constexpr int kItemY0 = 58;     // 第一项 y 坐标
-constexpr int kItemDY = 40;     // 行距
+constexpr int kItemY0 = 30;     // 第一项 y 坐标（160x128 横屏）
+constexpr int kItemDY = 24;     // 行距
 }  // namespace
 
 // ---------------------------------------------------------------------------
@@ -33,29 +32,27 @@ void MainMenuScreen::drawItem(int i, bool selected)
     const int W = tft.width();
     const int y = kItemY0 + i * kItemDY;
 
-    // 选中项：面板底色 + 左侧高亮竖条；未选中：背景 + 暗色竖条
-    tft.fillRect(16, y, W - 32, 32, selected ? ui::C_PANEL : ui::C_BG);
-    tft.fillRect(16, y, 4, 32, selected ? ui::C_ACCENT : ui::C_GRID);
+    tft.fillRect(8, y, W - 16, 20, selected ? ui::C_PANEL : ui::C_BG);
+    tft.fillRect(8, y, 3, 20, selected ? ui::C_ACCENT : ui::C_GRID);
 
     tft.setTextFont(2);
     tft.setTextColor(selected ? ui::C_FG : ui::C_DIM,
                      selected ? ui::C_PANEL : ui::C_BG);
-    tft.drawString(kItems[i], 30, y + 8);
+    tft.drawString(kItems[i], 16, y + 2);
 }
 
 // ---------------------------------------------------------------------------
 void MainMenuScreen::onEnter()
 {
     tft.fillScreen(ui::C_BG);
-    ui::topBar("LCR  METER", bt.connected());
+    ui::topBar("LCR  METER", radio.state() != RadioState::Off);
 
-    // 标题下的简短状态行：频率范围提示（任务书约束 10 ~ 10000 Hz）
     tft.setTextFont(1);
     tft.setTextColor(ui::C_DIM, ui::C_BG);
-    tft.drawString("10 Hz - 10 kHz  |  4-btn + encoder", 8, 30);
+    tft.drawString("10Hz-10kHz  BLE-after-sweep", 8, 20);
 
     for (int i = 0; i < kNItems; ++i) drawItem(i, i == m_sel);
-    ui::bottomHint("ENC/<>:SELECT  OK:ENTER");
+    ui::bottomHint("ENC/UD:SELECT  OK:ENTER");
 }
 
 void MainMenuScreen::onEvent(InputEvent e)
@@ -63,14 +60,25 @@ void MainMenuScreen::onEvent(InputEvent e)
     int next = m_sel;
     switch (e) {
     case InputEvent::EncInc:
-    case InputEvent::Right:  next = (m_sel + 1) % kNItems; break;
+    case InputEvent::Down: next = (m_sel + 1) % kNItems; break;
     case InputEvent::EncDec:
-    case InputEvent::Left:   next = (m_sel + kNItems - 1) % kNItems; break;
+    case InputEvent::Up: {
+        next = (m_sel + kNItems - 1) % kNItems;
+        // 隐藏诊断页解锁：3 秒窗口内连按 3 次 Up
+        const uint32_t now = millis();
+        if (now - m_diagFirstMs > 3000) { m_diagArmed = 0; m_diagFirstMs = now; }
+        if (++m_diagArmed >= 3) {
+            m_diagArmed = 0;
+            screens.push(&screenSigGen);
+            return;
+        }
+        break;
+    }
     case InputEvent::Ok:
         switch (m_sel) {
-        case 0: screens.push(&screenSigGen);   break;
-        case 1: screens.push(&screenMeasure);  break;
-        case 2: screens.push(&screenSweep);    break;
+        case 0: screens.push(&screenComponent); break;
+        case 1: screens.push(&screenOnePort);   break;
+        case 2: screens.push(&screenTwoPort);   break;
         }
         return;
     default: return;
@@ -84,7 +92,10 @@ void MainMenuScreen::onEvent(InputEvent e)
 
 void MainMenuScreen::onTick()
 {
-    // 蓝牙连接状态变化时刷新顶栏（其余区域无需重绘）
-    if (bt.takeStatusChanged())
-        ui::topBar("LCR  METER", bt.connected());
+    // 射频状态变化时刷新顶栏（其余区域无需重绘）
+    static RadioState last = RadioState::Off;
+    if (radio.state() != last) {
+        last = radio.state();
+        ui::topBar("LCR  METER", last != RadioState::Off);
+    }
 }

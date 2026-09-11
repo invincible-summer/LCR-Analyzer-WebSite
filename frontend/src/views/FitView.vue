@@ -8,6 +8,7 @@
 import { computed, reactive, ref, onUnmounted } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useScanStore } from '../store/scan'
+import { useDeviceStore } from '../store/device'
 import * as api from '../api'
 import EChart from '../components/EChart.vue'
 import FigBlock from '../components/FigBlock.vue'
@@ -37,6 +38,19 @@ import {
 const palette = computed(() => getPalette())
 const store = useScanStore()
 const { scans } = storeToRefs(store)
+const device = useDeviceStore()
+
+/** 蓝牙按钮动态文案（区分 busy 各阶段） */
+const deviceBusyLabel = computed(() => {
+  switch (device.phase) {
+    case 'chooser': return '选择设备…'
+    case 'connecting': return '连接中…'
+    case 'receiving': return `接收中 ${Math.round(device.progress * 100)}%`
+    case 'validating': return '校验中…'
+    case 'complete': return '再次蓝牙导入'
+    default: return '蓝牙导入'
+  }
+})
 
 // ---------------------------------------------------------------------------
 // 数据源
@@ -50,6 +64,34 @@ let scanUncertainty: PolarUncertainty | null = null
 const useScanUncertainty = ref(false)
 const parseMsg = reactive({ warnings: [] as string[], errors: [] as string[] })
 const fileInputEl = ref<HTMLInputElement | null>(null)
+
+/** BLE 导入的原始 CSV（CRC 校验后的 bytes 解码），供“保存收到的 CSV” */
+function saveDeviceCsv() {
+  const ds = device.dataset
+  if (!ds) return
+  const blob = new Blob([ds.csvText], { type: 'text/csv' })
+  const a = document.createElement('a')
+  a.href = URL.createObjectURL(blob)
+  a.download = `lcr-${ds.kind.toLowerCase()}-${ds.metadata.session_id}.csv`
+  a.click()
+  URL.revokeObjectURL(a.href)
+}
+
+/** BLE 导入：与文件上传在 parseZCsv 之后汇合，不存在第二套拟合格式 */
+async function importBle() {
+  const ds = await device.importFromDevice()
+  if (!ds) return
+  if (ds.kind !== 'ONE_PORT_Z') {
+    parseMsg.errors = ['收到的是双端口数据集（TWO_PORT_H）：请在「扫频 Bode / Nyquist」页导入并查看曲线']
+    parseMsg.warnings = []
+    return
+  }
+  const r = parseZCsv(ds.csvText)
+  parseMsg.errors = r.errors
+  parseMsg.warnings = r.warnings
+  if (r.points.length >= 4)
+    loadPoints(r.points, `BLE 设备 · fw ${ds.metadata.firmware} · session ${ds.metadata.session_id}`)
+}
 
 function loadPoints(list: ZPoint[], source: string) {
   if (list.length < 4) {
@@ -482,7 +524,7 @@ function errText(v: number): string {
             ['f 约束', '> 0，建议 10 Hz – 10 MHz 对数分布'],
             ['点数', '≥ 4，建议 ≥ 20；Try3 建议 ≥ 4×储能元件数'],
             ['兼容', 'AlgorithmLcr measurements.txt（首行点数）可直接上传'],
-            ['蓝牙', 'ESP32 蓝牙传输为规划功能，稍后提供'],
+            ['蓝牙', '设备完成单端口扫频并封存后经 BLE 上传；与文件上传走同一 parseZCsv → 拟合链路'],
           ]"
         />
       </div>
@@ -492,9 +534,25 @@ function errText(v: number): string {
           <button class="btn primary" type="button" @click="fileInputEl?.click()">
             <Upload />上传 CSV
           </button>
-          <button class="btn" type="button" disabled title="ESP32 蓝牙传输 · 规划中，稍后支持">
-            <FileAudio />蓝牙导入（稍后）
+          <button
+            class="btn" type="button"
+            :disabled="!device.supported || device.busy"
+            :title="device.supported
+              ? '连接 LCR 设备（BLE），接收封存的 one-port 数据集后自动进入同一拟合链路'
+              : '当前浏览器不支持 Web Bluetooth：需要桌面 Chrome/Edge 且 HTTPS 或 localhost'"
+            @click="importBle"
+          >
+            <FileAudio />{{ deviceBusyLabel }}
           </button>
+          <button
+            v-if="device.dataset?.kind === 'ONE_PORT_Z'" class="btn ghost sm" type="button"
+            title="下载通过 CRC 校验后收到的原始 CSV 字节（复现实验）"
+            @click="saveDeviceCsv"
+          >
+            <Download />保存设备 CSV
+          </button>
+          <span v-if="!device.supported" class="hint">此浏览器不支持 Web Bluetooth（需 Chrome/Edge + HTTPS/localhost）</span>
+          <span v-else-if="device.phase === 'error'" class="qpill crit" :title="device.error">{{ device.error }}</span>
           <span class="sep" />
           <select v-model="demoKey" class="demo-select">
             <option v-for="c in DEMO_CASES" :key="c.key" :value="c.key">{{ c.label }}</option>

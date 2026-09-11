@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
+!! DEPRECATED (v4.1.0) !!
+本桥面向旧 Classic Bluetooth(SPP) 固件（bt_link.* 行协议）。v4.1.0 固件
+已删除 Classic BT，BLE GATT v1 成为唯一设备→浏览器通道（浏览器直连，
+不经 HTTP 桥）。本文件仅作历史参考保留，不再是正常数据路径；参见
+protocol/BLE_PROTOCOL_V1.md 与 ino/README.md。
 bt_bridge.py —— ESP32 蓝牙(SPP) -> LCR 网站后端(HTTP) 数据桥
 ================================================================
 把 LCR_UI 固件经经典蓝牙发来的行协议消息（见 ino/LCR_UI/bt_link.h）翻译成

@@ -89,6 +89,30 @@ jobs:
       - name: Test
         run: python -m pytest
 
+  firmware:
+    name: firmware (esp32s3 compile + static gates + host tests)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install arduino-cli
+        run: |
+          set -euo pipefail
+          curl -fsSL https://raw.githubusercontent.com/arduino/arduino-cli/master/install.sh | BINDIR=/usr/local/bin sh
+          arduino-cli config init --additional-urls https://espressif.github.io/arduino-esp32/package_esp32_index.json
+          arduino-cli core update-index
+      - name: Install esp32 core 3.3.11 + TFT_eSPI 2.5.43
+        run: |
+          arduino-cli core install esp32:esp32@3.3.11
+          arduino-cli lib install TFT_eSPI@2.5.43
+      - name: Static gates (no Classic BT / GPIO centralized / no stubs)
+        run: bash ino/tools/static_check.sh
+      - name: ESP32-S3 production compile
+        run: bash ino/tools/build_check.sh
+      - name: Host unit tests + golden CSV fixture must match rebuild
+        run: |
+          bash ino/tools/run_tests.sh
+          git diff --exit-code -- frontend/src/lib/__tests__/fixtures/golden_oneport.csv
+
   browser:
     name: browser smoke
     runs-on: ubuntu-latest

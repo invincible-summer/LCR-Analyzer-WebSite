@@ -1,43 +1,69 @@
 // ============================================================================
-// LCR_UI.ino —— ESP32 本地 LCR 仪表主程序（入口 + 装配）
+// LCR_UI.ino —— ESP32-S3 LCR 仪表主程序（入口 + 装配）· v4.1.0
 // ----------------------------------------------------------------------------
-// 硬件：ESP32 DevKit + ILI9341 SPI 彩屏 + 4 按键（左/右/返回/确定）+ EC11 编码器
-// 功能：1) 信号发生器  2) 单频点复阻抗/双端口测量  3) 幅频/相频特性扫频
-//       另保留经典蓝牙(SPP)通路，把测量数据转发给 LCR 网站后端。
+// 硬件：自制 ESP32-S3 开发板（N16R8）+ 外接 ST7735S 屏 / 4 按键 / EC11
+//       编码器 / PCM5102A 激励 DAC / LCR 模拟前端（引脚矩阵见
+//       docs/HARDWARE_MAPPING.md 与 board_profile.cpp）。
 //
-// 模块装配关系（详见 ino/README.md）：
-//   input    —— 按键/编码器 -> InputEvent 事件队列
-//   display  —— TFT 初始化/主题/控件（DigitEditor、Checkbox）
-//   screens  —— 屏幕栈与四个功能界面
-//   analysis —— 正弦拟合 -> 幅度比/相位差 -> 调用队友接口求 Z / 增益
-//   bt_link  —— 蓝牙数据通路（api_contract 行协议）
-//   partner_stubs —— 队友接口 weak 参考实现（真实实现加入后自动覆盖）
+// 顶层三个用户模式（plan.md §5）：
+//   1) 单元件 R/C/L 自动识别与测量（不启动 BLE）
+//   2) 单端口阻抗扫频 -> 采样完成后 BLE 上传网站拟合（f,re,im CSV）
+//   3) 双端口扫频（H=Vout/Vin）-> BLE 上传网站显示曲线
+//   另有隐藏诊断页（信号发生器）。
 //
-// 主循环模型：非阻塞事件驱动。每圈：扫描输入 -> 分发事件 -> 当前屏 onTick
-// -> 蓝牙收发冲刷。队友的采样函数是同步阻塞调用，由界面在 onTick/onEvent
-// 中按需调用（单频点一次；扫频每圈一个频点，保持界面可响应）。
+// 模块装配：
+//   board_profile  —— 引脚/硬件常量唯一出处
+//   excitation_driver / adc_capture —— I2S 激励与 ADC DMA 采集（IDF5 驱动）
+//   measurement_engine / sweep_engine —— poll-driven 状态机（非阻塞）
+//   component_meter —— R/C/(L+DCR) 三模型分类
+//   dataset/csv/CRC + radio_manager/ble —— 封存数据集与 BLE GATT v1
+//   input / display / screens / plot / dsp_fit —— 保留的 UI 与 DSP 框架
+//
+// 主循环模型：非阻塞事件驱动。每圈：扫描输入 -> 分发事件 -> 当前屏
+// onTick（推进测量状态机）-> BLE 事件泵。业务逻辑禁止 delay() 时序。
+//
+// 射频互斥（硬 invariant）：测量窗口内 BLE 完全关闭；dataset seal 后才允许
+// startBleForSealedDataset()。固件不初始化 Wi-Fi。
 // ============================================================================
 
 #include <Arduino.h>
 
-#include "bt_link.h"
+#include "adc_capture.h"
+#include "board_profile.h"
 #include "display.h"
-#include "hw_config.h"
+#include "excitation_driver.h"
+#include "fw_version.h"
 #include "input.h"
+#include "radio_manager.h"
 #include "screens.h"
+#include "sweep_engine.h"
+
+// ---------------------------------------------------------------------------
+// 引擎装配：真实硬件驱动注入（host 单测注入 mock，见 ino/test/）
+// ---------------------------------------------------------------------------
+MeasurementEngine engine(excitationDriver, adcCapture, &frontEndGpio,
+                         factoryCalibration(),
+                         kBoard.nominalCurrentSenseOhm,
+                         kBoard.nominalTransimpedanceGain);
+SweepEngine sweep(engine);
 
 // ---------------------------------------------------------------------------
 void setup()
 {
     Serial.begin(115200);
-    Serial.println("\nLCR-UI booting...");
+    Serial.printf("\nLCR-UI v%s booting (BLE protocol %d, z-schema v%d, "
+                  "h-schema v%d)\n",
+                  LCR_FW_VERSION, LCR_BLE_PROTOCOL_VERSION,
+                  LCR_Z_CSV_SCHEMA_VERSION, LCR_H_CSV_SCHEMA_VERSION);
 
-    ui::begin();               // TFT 彩屏
-    input.begin();             // 按键 + 编码器
-    bt.begin();                // 蓝牙 SPP 通路（保留网站数据链路）
+    // 注意：启动时不初始化 BLE（plan.md §1.2）——测量完成封存后才允许。
+    frontEndGpio.frontEndDisable();    // 前端安全态
+    excitationDriver.excitationStop();
 
-    screens.begin(&screenMenu);   // 进入主菜单
-    Serial.printf("LCR-UI ready. BT name: %s\n", BT_DEVICE_NAME);
+    ui::begin();                       // ST7735S（BoardProfile 参数）
+    input.begin();                     // 按键 + 编码器
+    screens.begin(&screenMenu);        // 进入主菜单
+    Serial.println("LCR-UI ready. BLE stays OFF until a sweep is sealed.");
 }
 
 // ---------------------------------------------------------------------------
@@ -49,11 +75,11 @@ void loop()
          e = input.getEvent())
         screens.handle(e);
 
-    // 2. 当前界面的空闲回调（扫频逐点推进、状态刷新等）
+    // 2. 当前界面的空闲回调（测量状态机推进、进度刷新等）
     screens.tick();
 
-    // 3. 蓝牙通路：冲刷发送缓冲 + 处理下行命令（非阻塞）
-    bt.poll();
+    // 3. BLE 事件泵（RadioState == Off 时是空操作）
+    radio.poll();
 
-    delay(1);                  // 串口/网络栈喘息，降低功耗
+    delay(1);                          // 串口栈喘息，降低功耗
 }

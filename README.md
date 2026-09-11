@@ -8,7 +8,7 @@
 - **辨识**：`AlgorithmLcr/` 使用 C++17 / Eigen 实现 Try1、Try2、Try3，保留原输入输出
   结构。旧 Python 拟合和旧 WASM 已删除，网页通过 WASM 在浏览器本地运行三个引擎，原生 CLI 仍可独立使用。归约参数按表达式传播有效域（聚合等效值可超出单器件箱）；
   候选分 primary/diagnostic-only 两层，校准 ΔAICc 仅对合格 AICc 运行显示。
-- 固件目录 `ino/` 保留。Web Bluetooth 测量文件导入仍为规划功能。
+- **设备（v4.1.0）**：`ino/` 固件面向自制 ESP32-S3 板收敛为三个产品模式（单元件 R/C/L、单端口扫频、双端口扫频）；扫频封存数据集经 BLE GATT v1 直传浏览器——单端口进 `parseZCsv → WASM 拟合`，双端口复数 `H=Vout/Vin` 出 Bode/Nyquist。测量期间射频完全静默。硬件映射见 `docs/HARDWARE_MAPPING.md`，协议见 `protocol/`。
 
 ## 构建 v4 算法
 

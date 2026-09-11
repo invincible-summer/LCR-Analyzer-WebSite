@@ -30,6 +30,8 @@
   "devDependencies": {
     "@types/katex": "^0.16.8",
     "@types/markdown-it": "^14.1.2",
+    "@types/node": "^22.15.0",
+    "@types/web-bluetooth": "^0.0.20",
     "@vitejs/plugin-vue": "^5.0.4",
     "playwright": "1.63.0",
     "typescript": "^5.4.5",

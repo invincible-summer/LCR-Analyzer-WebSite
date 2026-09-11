@@ -14,7 +14,7 @@ v4 重点是原生 C++ 算法重写。测量网站和 ESP32 固件保留，旧 P
    模拟器的前向 DUT 公式独立于算法库，不包含拟合功能。
 2. **辨识流**：原生测量文本/CSV + Try 先验 → C++17/Eigen 公共核心 → Top-K 图与诊断。
    CLI 与网页 CSV/示例/历史扫描 → Worker → WASM 均可运行。
-   辨识结果不写 SQLite。Web Bluetooth 测量导入仍是规划项。
+   辨识结果不写 SQLite。v4.1.0 起 Web Bluetooth 导入已实现（BLE GATT v1，protocol/BLE_PROTOCOL_V1.md）：设备封存数据集直传浏览器，单端口经 parseZCsv 汇入拟合流，双端口复数 H 出曲线。
 
 旧 `/api/models`、`/api/fit`、`/api/fit/{id}`、SPICE 导出和扫描旧拟合列表已删除。
 扫频页面不再请求旧拟合数据。历史 fitresults 表不主动删除、不迁移、不再由 ORM 管理；

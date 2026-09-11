@@ -1,0 +1,15 @@
+# lcr-dataset=one-port-z
+# schema=lcr-z-csv-v1
+# protocol=1
+# firmware=4.1.0
+# calibration_id=factory-none
+# drive_vrms=1.05
+f,re,im
+100,1000,1.5
+223.607,1002,-1.5
+500,1004,-4.5
+866.025,1006,-7.5
+1000.01,1008,-10.5
+1581.14,1010,-13.5
+2236.07,1012,-16.5
+5000,1014,-19.5

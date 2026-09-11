@@ -4,9 +4,9 @@
 // 事件模型：所有输入统一抽象为 InputEvent，放入一个小型环形队列；
 // 主循环每圈取走事件分发给当前界面，保证界面代码不直接触碰 GPIO。
 //
-//   Left / Right / Ok / Back  —— 4 个物理按键（支持长按连发，用于游标快速移动）
+//   Up / Down / Ok / Back     —— 4 个物理按键（支持长按连发）
 //   EncInc / EncDec           —— 编码器顺时针 / 逆时针旋转一格(定位档)
-//   编码器按钮可选等效 Ok（hw_config.h: ENC_SW_AS_OK）
+//   编码器按钮可选等效 Ok（ENC_SW_AS_OK，board_profile 后由 input.cpp 决定）
 // ============================================================================
 
 #pragma once
@@ -15,8 +15,8 @@
 
 enum class InputEvent : uint8_t {
     None = 0,
-    Left, Right, Ok, Back,   // 按键事件
-    EncInc, EncDec,          // 编码器旋转事件（一格一个事件）
+    Up, Down, Ok, Back,   // 按键事件（v4.1：上/下/确定/返回）
+    EncInc, EncDec,       // 编码器旋转事件（一格一个事件）
 };
 
 class Input {

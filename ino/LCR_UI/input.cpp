@@ -2,18 +2,25 @@
 // input.cpp —— 按键消抖/连发 与 编码器正交解码实现
 // ----------------------------------------------------------------------------
 // * 按键：每圈扫描原始电平，25ms 稳定后确认状态；下降沿产生一次事件；
-//   按住不放超过 450ms 后每 110ms 连发一次（游标快速移动）。
+//   按住不放超过 450ms 后每 110ms 连发一次。
 // * 编码器：A 相双边沿中断 + 读 B 相判向（格雷码解码天然抑制抖动）；
 //   累计计数，poll() 中按 ENC_COUNTS_PER_DETENT 折算成「一格一事件」。
+// * GPIO 一律来自 BoardProfile（本文件不出现裸 GPIO 数字）。
 // ============================================================================
 
 #include "input.h"
 
-#include "hw_config.h"
+#include "board_profile.h"
 
 #include <Arduino.h>
 
 Input input;
+
+// 消抖/连发时序（输入域常量，与引脚无关）
+static constexpr uint32_t BTN_DEBOUNCE_MS = 25;
+static constexpr uint32_t BTN_REPEAT_FIRST_MS = 450;
+static constexpr uint32_t BTN_REPEAT_MS = 110;
+static constexpr int ENC_COUNTS_PER_DETENT = 2;
 
 // 编码器计数（文件内静态：中断与 poll 共享，IRAM_ATTR ISR 可直接访问）
 static volatile int32_t s_encCount = 0;
@@ -26,8 +33,8 @@ static volatile int32_t s_encLastIssued = 0;
 // ---------------------------------------------------------------------------
 static void IRAM_ATTR encoderIsr()
 {
-    const int a = digitalRead(PIN_ENC_A);
-    const int b = digitalRead(PIN_ENC_B);
+    const int a = digitalRead(kBoard.encA);
+    const int b = digitalRead(kBoard.encB);
     // A 的当前沿与 B 的电平同相 -> 一个方向；异相 -> 另一个方向
     if (a == b) s_encCount += 1;
     else        s_encCount -= 1;
@@ -37,20 +44,23 @@ static void IRAM_ATTR encoderIsr()
 void Input::begin()
 {
     // ---- 按键：内部上拉，按下接地（低电平有效） ---------------------------
-    const uint8_t pins[4] = {PIN_BTN_LEFT, PIN_BTN_RIGHT, PIN_BTN_BACK, PIN_BTN_OK};
+    // keyUp -> Up（菜单/编辑中的「上一个」），keyDown -> Down
+    const uint8_t pins[4] = {(uint8_t)kBoard.keyUp, (uint8_t)kBoard.keyDown,
+                             (uint8_t)kBoard.keyBack, (uint8_t)kBoard.keyOk};
     for (int i = 0; i < 4; ++i) {
         m_btns[i] = Button{pins[i], false, true, 0, 0, false};
         pinMode(pins[i], INPUT_PULLUP);
     }
+    // 编码器按钮并入 Ok 键扫描（不接也无妨，悬空为高）
+    if (kBoard.encSw >= 0) {
+        pinMode(kBoard.encSw, INPUT_PULLUP);
+        m_btns[3].pin = (uint8_t)kBoard.encSw;
+    }
 
     // ---- 编码器：内部上拉；A 相中断计数 ------------------------------------
-    pinMode(PIN_ENC_A, INPUT_PULLUP);
-    pinMode(PIN_ENC_B, INPUT_PULLUP);
-    if (ENC_SW_AS_OK && PIN_ENC_SW >= 0) {
-        pinMode(PIN_ENC_SW, INPUT_PULLUP);   // 编码器按钮并入 Ok 键扫描
-        m_btns[3].pin = PIN_ENC_SW;          // 复用 Ok 的 Button 槽位
-    }
-    attachInterrupt(digitalPinToInterrupt(PIN_ENC_A), encoderIsr, CHANGE);
+    pinMode(kBoard.encA, INPUT_PULLUP);
+    pinMode(kBoard.encB, INPUT_PULLUP);
+    attachInterrupt(digitalPinToInterrupt(kBoard.encA), encoderIsr, CHANGE);
 }
 
 // ---------------------------------------------------------------------------
@@ -109,7 +119,7 @@ void Input::scanButton(Button& b, InputEvent ev)
 void Input::poll()
 {
     static const InputEvent map[4] = {
-        InputEvent::Left, InputEvent::Right, InputEvent::Back, InputEvent::Ok};
+        InputEvent::Up, InputEvent::Down, InputEvent::Back, InputEvent::Ok};
     for (int i = 0; i < 4; ++i)
         scanButton(m_btns[i], map[i]);
 

@@ -4,7 +4,7 @@
 
 #include "display.h"
 
-#include "hw_config.h"
+#include "board_profile.h"
 
 #include <Arduino.h>
 #include <stdio.h>
@@ -18,27 +18,23 @@ using namespace ui;
 void ui::begin()
 {
     tft.init();
-    tft.setRotation(TFT_ROTATION);
-    if (TFT_PIN_BL >= 0) {          // 可程控背光（默认 -1 常亮）
-        pinMode(TFT_PIN_BL, OUTPUT);
-        digitalWrite(TFT_PIN_BL, HIGH);
-    }
+    tft.setRotation(kBoard.tftRotation);
     tft.fillScreen(C_BG);
 }
 
 // ---------------------------------------------------------------------------
-void ui::topBar(const char* title, bool btOn)
+void ui::topBar(const char* title, bool bleOn)
 {
     const int W = tft.width();
-    const int H = 22;
+    const int H = 18;
     tft.fillRect(0, 0, W, H, C_PANEL);
-    tft.setTextFont(2);
+    tft.setTextFont(1);
     tft.setTextColor(C_FG, C_PANEL);
-    tft.drawString(title, 6, 3);
+    tft.drawString(title, 4, 5);
 
-    // 右侧蓝牙状态标记：连接时实心绿色 BT，未连接暗色
-    tft.setTextColor(btOn ? C_OK : C_DIM, C_PANEL);
-    tft.drawRightString(btOn ? "BT*" : "BT", W - 6, 3, 2);   // (str,x,y,font)
+    // 右侧 BLE 状态标记：射频开启（advertising/连接）时点亮
+    tft.setTextColor(bleOn ? C_OK : C_DIM, C_PANEL);
+    tft.drawRightString(bleOn ? "BLE*" : "BLE", W - 4, 5, 1);
     tft.drawFastHLine(0, H, W, C_AXIS);   // 顶栏底部分隔线
 }
 
@@ -46,11 +42,11 @@ void ui::topBar(const char* title, bool btOn)
 void ui::bottomHint(const char* hint)
 {
     const int W = tft.width();
-    const int y = tft.height() - 18;
-    tft.fillRect(0, y, W, 18, C_BG);
+    const int y = tft.height() - 12;
+    tft.fillRect(0, y, W, 12, C_BG);
     tft.setTextFont(1);
     tft.setTextColor(C_DIM, C_BG);
-    tft.drawCentreString(hint, W / 2, y + 5, 1);
+    tft.drawCentreString(hint, W / 2, y + 2, 1);
 }
 
 // ---------------------------------------------------------------------------
@@ -65,12 +61,12 @@ void ui::progressBar(int x, int y, int w, int h, double frac, uint16_t color)
 // ---------------------------------------------------------------------------
 void ui::row(int x, int y, int w, const char* label, const char* value, uint16_t color)
 {
-    tft.setTextFont(2);
+    tft.setTextFont(1);
     tft.setTextColor(C_DIM, C_BG);
-    tft.drawString(label, x, y + 5);           // 标签与数值垂直居中对齐
-    tft.setTextFont(4);
+    tft.drawString(label, x, y + 4);            // 标签与数值垂直居中对齐
+    tft.setTextFont(2);
     tft.setTextColor(color, C_BG);
-    tft.drawRightString(value, x + w, y, 4);
+    tft.drawRightString(value, x + w, y, 2);
 }
 
 // ---------------------------------------------------------------------------
@@ -124,10 +120,10 @@ void DigitEditor::syncFromValue()
 bool DigitEditor::onEvent(InputEvent e)
 {
     switch (e) {
-    case InputEvent::Left:
+    case InputEvent::Up:
         if (m_pos > 0) { --m_pos; return true; }
         return false;                          // 已在最左位：交还界面层
-    case InputEvent::Right:
+    case InputEvent::Down:
         if (m_pos < m_ndigits - 1) { ++m_pos; return true; }
         return false;                          // 已在最右位：交还界面层
     case InputEvent::EncInc:
