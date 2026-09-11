@@ -1,10 +1,11 @@
 // ============================================================================
 // screen_twoport.cpp —— 模式 3：双端口扫频（H=Vout/Vin）-> seal -> BLE
 // ----------------------------------------------------------------------------
-// 采集引擎与单端口相同，但通道为 Vin/Vout，canonical 数据是复数传递函数：
-//   H = Vout/Vin；reH/imH 为真源；gainDb/phaseDeg 由复 H 推导（网站侧同理）。
-// 测量时显示进度/当前频率/错误计数；完成后给轻量 gain preview；
-// 网站是完整曲线展示真源。采样完成前 BLE OFF（同模式 2）。
+// 全部测量经 SweepEngine -> ILcrService -> DNT lcr_api_sweep_w。
+// canonical 数据是复数传递函数：re_h/im_h 由 API 的 h_mag/phase 纯数学
+// 换算（H = |H|e^{jφ}）；网站侧从复 H 推导 Bode/Nyquist。
+// W 链在 DNT 中为 raw chain / no calib —— CSV 头如实标注 raw_w_path，
+// 不复用单端口校准状态暗示双端口已校准（plan.md §8.1）。
 // ============================================================================
 
 #include "screens.h"
@@ -19,7 +20,7 @@ TwoPortScreen screenTwoPort;
 namespace {
 constexpr int kCfgX = 8;
 constexpr int kCfgY0 = 30, kCfgDY = 30;
-}  // namespace
+}
 
 // ---------------------------------------------------------------------------
 void TwoPortScreen::onEnter()
@@ -29,7 +30,6 @@ void TwoPortScreen::onEnter()
         m_f0.setup((int32_t)INSTRUMENT_F_MIN_HZ, 9999, 5, 100);
         m_f1.setup(11, (int32_t)INSTRUMENT_F_MAX_HZ, 5, 2000);
         m_ppd.setup(1, 50, 2, 10);
-        m_plot.setup(24, 60, tft.width() - 44, 40);
         inited = true;
     }
     m_field = 0;
@@ -69,7 +69,6 @@ bool TwoPortScreen::startSweep()
         drawConfig();
         return false;
     }
-    // 强 invariant：已连接 BLE 时开始新测量，先 disconnect/deinit 再采集
     if (radio.state() != RadioState::Off) {
         radio.stopBle();
         if (radio.state() != RadioState::Off) return false;
@@ -77,12 +76,10 @@ bool TwoPortScreen::startSweep()
 
     SweepConfig cfg{};
     cfg.kind = MeasurementKind::TwoPortTransfer;
-    cfg.driveVrms = 0;
     cfg.fStartHz = (double)f0;
     cfg.fStopHz = (double)f1;
     cfg.pointsPerDecade = (uint16_t)m_ppd.value();
     cfg.maxPoints = SWEEP_MAX_POINTS;
-    cfg.logSpacing = true;
     if (sweep.start(cfg) != SweepStatus::Ok) {
         m_errUntilMs = millis() + 2000;
         drawConfig();
@@ -104,12 +101,12 @@ void TwoPortScreen::drawRun()
     tft.drawString("pts:", 8, 54);
     tft.drawString("err:", 8, 68);
     ui::progressBar(8, 88, tft.width() - 16, 10, 0.0, ui::C_ACCENT);
-    ui::bottomHint("BACK:ABORT");
+    ui::bottomHint("BACK:STOP AFTER BLOCK");
 }
 
-void TwoPortScreen::updateRun()
+void TwoPortScreen::updateRun(bool stopping)
 {
-    char buf[24];
+    char buf[28];
     tft.setTextFont(1);
     tft.setTextColor(ui::C_FG, ui::C_BG);
     snprintf(buf, sizeof(buf), "%.6g", sweep.currentFreqHz());
@@ -119,6 +116,11 @@ void TwoPortScreen::updateRun()
     tft.drawString(buf, 34, 54);
     snprintf(buf, sizeof(buf), "%d", (int)sweep.errorCount());
     tft.drawString(buf, 40, 68);
+    if (stopping) {
+        tft.fillRect(8, 22, tft.width() - 16, 12, ui::C_BG);
+        tft.setTextColor(ui::C_CH2, ui::C_BG);
+        tft.drawString("STOPPING AFTER BLOCK", 8, 22);
+    }
     ui::progressBar(8, 88, tft.width() - 16, 10,
                     sweep.totalPoints()
                         ? (double)sweep.completedPoints() / sweep.totalPoints()
@@ -130,14 +132,16 @@ void TwoPortScreen::drawPreview()
 {
     const TwoPortDataset* d = sweep.sealedTwoPortDataset();
     if (!d || d->nPoints < 2) return;
-    double f[SWEEP_MAX_POINTS], g[SWEEP_MAX_POINTS];
+    static double f[SWEEP_MAX_POINTS], g[SWEEP_MAX_POINTS];
     double lo = 1e9, hi = -1e9;
-    for (uint16_t i = 0; i < d->nPoints; ++i) {
-        f[i] = d->points[i].actualHz;
-        g[i] = d->points[i].gainDb;
+    for (uint16_t i = 0; i < d->nPoints && i < SWEEP_MAX_POINTS; ++i) {
+        f[i] = d->points[i].f;
+        // Bode 幅度从复 H 推导（与网站一致）：20*log10|H|
+        g[i] = 20.0 * log10(hypot(d->points[i].reH, d->points[i].imH));
         if (g[i] < lo) lo = g[i];
         if (g[i] > hi) hi = g[i];
     }
+    m_plot.setup(24, 60, tft.width() - 44, 44);
     m_plot.setXRange(f[0], f[d->nPoints - 1]);
     m_plot.setMagRange(false, lo, hi + 0.5);
     m_plot.setLegend("gain dB", "");
@@ -148,7 +152,7 @@ void TwoPortScreen::drawPreview()
 void TwoPortScreen::drawReady()
 {
     const TwoPortDataset* d = sweep.sealedTwoPortDataset();
-    char buf[28];
+    char buf[30];
     tft.fillScreen(ui::C_BG);
     ui::topBar("SWEEP  SEALED", false);
     tft.setTextFont(1);
@@ -156,14 +160,14 @@ void TwoPortScreen::drawReady()
     if (d) {
         snprintf(buf, sizeof(buf), "points %d  err %d", d->nPoints,
                  d->diag.failedPoints);
-        tft.drawString(buf, 8, 26);
+        tft.drawString(buf, 8, 24);
         snprintf(buf, sizeof(buf), "bytes %lu  CRC %08lX",
                  (unsigned long)d->csvLen, (unsigned long)d->crc32);
-        tft.drawString(buf, 8, 38);
+        tft.drawString(buf, 8, 36);
+        tft.drawString("H raw (no calib)", 8, 48);
     } else {
-        tft.drawString("NO DATASET", 8, 26);
+        tft.drawString("NO DATASET", 8, 24);
     }
-    tft.drawString("CSV: f,re_h,im_h (H=Vout/Vin)", 8, 48);
     drawPreview();                       // 轻量 preview（网站才是完整真源）
     ui::bottomHint("OK:BLE UPLOAD  BACK:CONFIG");
 }
@@ -193,12 +197,19 @@ void TwoPortScreen::drawBle()
 void TwoPortScreen::onTick()
 {
     if (m_phase == Phase::Run) {
-        sweep.poll(micros());
-        updateRun();
+        sweep.poll(millis());
         const SweepState st = sweep.state();
+        updateRun(st == SweepState::Stopping);
         if (st == SweepState::TransferReady) {
             m_phase = Phase::Ready;
             drawReady();
+        } else if (st == SweepState::Insufficient) {
+            m_errUntilMs = millis() + 4000;
+            m_phase = Phase::Config;
+            drawConfig();
+            tft.setTextFont(1);
+            tft.setTextColor(ui::C_ERR, ui::C_BG);
+            tft.drawCentreString("DATA INSUFFICIENT (<2 PTS)", tft.width() / 2, 108, 1);
         } else if (st == SweepState::Cancelled || st == SweepState::Error) {
             m_phase = Phase::Config;
             drawConfig();

@@ -1,224 +1,130 @@
-# 硬件映射 — ESP32-S3 自制板（BoardProfile 真源文档）
+# 硬件映射 — ESP32-S3 自制板（v4.1.0：DNT 测量链 + UI 外设）
 
-> 状态：**v4.1.0 按「原理图 + 开发板手册 + 数据手册」逐条核对完成；连续性 /
-> 上电 smoke test 待实板执行**（清单见 §6）。若实测与本文冲突，先改本文，
-> 再改 `ino/LCR_UI/board_profile.cpp`（唯一允许出现裸 GPIO 的业务文件）。
->
-> 本文档依据的仓库内真源：
-> - `ino/databook/自制开发板资料/.../开发板原理图.pdf`（3 页）
-> - `ino/databook/自制开发板资料/.../开发板手册.pdf`（排针表 / 受限引脚）
-> - `ino/databook/esp32-s3_datasheet_cn.pdf`、`esp32-s3-wroom-1_wroom-1u_datasheet_cn.pdf`
-> - `ino/databook/TFT_ST7735S_Sitronix_datasheet_mirror (1).pdf`
-> - `ino/databook/编码器数据手册 (1)/(2).PDF`（EC11 类旋转编码器）
-> - `ino/databook/Button_6x6x5_B3F_Omron_datasheet.pdf`（轻触按键）
+> 状态：**v4.1.0 重构后的硬件真源文档。** 测量链 GPIO 以
+> `ino/LCR_UI/DO_NOT_TOUCH_*.h` 为最终依据（实板验证、不可修改）；
+> UI 外设（TFT/按键/编码器）以本文 + `board_profile.cpp` 为依据。
+> TFT 新映射（GPIO4/5/6/7/21）**待实物 continuity 确认**（§5 清单）。
 
-## 1. 板卡概述
+> 真源文件：
+> - 测量链：`DO_NOT_TOUCH_lcr_adc.h` / `DO_NOT_TOUCH_sinwave.h` /
+>   `DO_NOT_TOUCH_lcr_measure.h`（引脚宏直接取自这些文件，见 §1）
+> - 板卡：`ino/databook/自制开发板资料/.../开发板原理图.pdf`、`开发板手册.pdf`
+> - 芯片：`esp32-s3_datasheet_cn.pdf`、`esp32-s3_technical_reference_manual_cn.pdf`
+> - 屏：`TFT_ST7735S_Sitronix_datasheet_mirror (1).pdf`；编码器：`编码器数据手册 (1)/(2).PDF`
 
-课程自制 ESP32-S3 开发板（9.61 × 9.79 cm），三区域结构：
+## 0. 架构与硬件事实（v4.1.0 重构的出发点）
 
-| 区域 | 内容 | 与本仪器的关系 |
-|---|---|---|
-| 电源 | Type-C（PD）/ DC5521 双输入，JW5357 降压 → 5V/3.3V，AMS1117-3.3 供核心板 | 仪器供电 |
-| 电机驱动 | L298N 双 H 桥（IN1-4/EA/EB 经 H6/H7/H8 引出） | **不使用** |
-| 核心板 | ESP32-S3-WROOM-1-**N16R8**（16MB Flash / 8MB **八线** PSRAM） | 主控 |
-| 隔离区 | Micro USB → CH340X → ISO7722/ISO7720 → UART0，一键下载 | 烧录/日志，**无 JTAG** |
+测量硬件是一条**已在实板验证的不可变链**（详见 `plan.md`）：
 
-**关键事实：本板没有板载 TFT、按键（仅 RST/BOOT）、编码器或 LCR 模拟前端。**
-仪器的全部外设（ST7735S 屏、4 按键、EC11 编码器、激励 DAC、LCR 前端）
-都通过 H4/H5 排针外接；`BoardProfile` 声明的就是这套外接布线。
+```
+LCD_CAM 外设 → 8 个 GPIO 输出并行正弦码 → 外部电阻网络 DAC → 模拟正弦
+3 个 GPIO → 74HC595（串行移位）→ 10 个控制端：
+    4×TIA 放大倍数、2×电压放大、2×电流放大、2×双端口模式
+模拟链处理后 → 两个 ADC 引脚（间隔采样）→ DNT 计算与校准 → Z/H 结果
+```
 
-Micro USB 的 D+/D- 接 CH340X（不直连 GPIO19/20），因此：
-- **板载 JTAG 不可用**；GPIO19/20 虽引出（H5-20/19）但网络属 USB 专用，不用。
-- Arduino 烧录参数须 **USB CDC On Boot = Disabled**（否则 Serial 走
-  GPIO19/20 而本板串口在 GPIO43/44），见 `ino/tools/build_check.sh`。
+- 本项目**没有**外部 DAC 芯片（不存在 PCM5102 等）；并行电阻网络即 DAC。
+- 除 74HC595 外**没有**任何其它外部数字芯片；没有外部同步 ADC。
+- 应用层不触碰上述任何 GPIO / 外设 —— 一切经 `DO_NOT_TOUCH_lcr_api.h`
+  的公开 API（唯一入口 `lcr_api.cpp`，CI Gate C 强制）。
 
-## 2. 排针引脚表（开发板手册 §3.3.4，与原理图核对一致）
+## 1. 测量链 GPIO（DNT 保留，应用层/CI 一律禁用）
 
-### H4（左排）
+| 功能 | GPIO | 定义处（不可修改） |
+|---|---:|---|
+| ADC 电压通道 | GPIO2 / ADC1_CH1 | `DO_NOT_TOUCH_lcr_adc.h`（LCR_ADC_CH_A） |
+| ADC 电流通道 | GPIO1 / ADC1_CH0 | `DO_NOT_TOUCH_lcr_adc.h`（LCR_ADC_CH_B） |
+| LCD_CAM D0 | GPIO18 | `DO_NOT_TOUCH_sinwave.h`（PIN_D0） |
+| LCD_CAM D1 | GPIO8 | `DO_NOT_TOUCH_sinwave.h`（PIN_D1） |
+| LCD_CAM D2 | GPIO9 | `DO_NOT_TOUCH_sinwave.h`（PIN_D2） |
+| LCD_CAM D3 | GPIO10 | `DO_NOT_TOUCH_sinwave.h`（PIN_D3） |
+| LCD_CAM D4 | GPIO11 | `DO_NOT_TOUCH_sinwave.h`（PIN_D4） |
+| LCD_CAM D5 | GPIO12 | `DO_NOT_TOUCH_sinwave.h`（PIN_D5） |
+| LCD_CAM D6 | GPIO13 | `DO_NOT_TOUCH_sinwave.h`（PIN_D6） |
+| LCD_CAM D7 | GPIO14 | `DO_NOT_TOUCH_sinwave.h`（PIN_D7） |
+| 74HC595 SRCLK | GPIO15 | `DO_NOT_TOUCH_lcr_measure.h`（HC595_PIN_SRCLK） |
+| 74HC595 SER | GPIO16 | `DO_NOT_TOUCH_lcr_measure.h`（HC595_PIN_SER） |
+| 74HC595 RCLK | GPIO17 | `DO_NOT_TOUCH_lcr_measure.h`（HC595_PIN_RCLK） |
 
-| 脚 | 网络 | 板上用途 | 备注 |
-|---|---|---|---|
-| 1/2 | 3V3 | 3.3V 输出 | 外设供电 |
-| 3 | CHIP_PU (EN) | RST 键 SW2 | 不用 |
-| 4 | GPIO4 | 空闲 | ADC1_CH3 |
-| 5 | GPIO5 | 空闲 | ADC1_CH4 |
-| 6 | GPIO6 | 空闲 | ADC1_CH5 |
-| 7 | GPIO7 | 空闲 | ADC1_CH6 |
-| 8 | GPIO15 | 空闲 | ADC2_CH4 |
-| 9 | GPIO16 | 空闲 | ADC2_CH5 |
-| 10 | GPIO17 | 空闲 | ADC2_CH6 / U1TXD 备用 |
-| 11 | GPIO18 | 空闲 | ADC2_CH7 / U1RXD 备用 |
-| 12 | GPIO8 | 空闲 | ADC1_CH7 |
-| 13 | GPIO3 | 空闲 | **strap（JTAG 源）** |
-| 14 | GPIO46 | 空闲 | **strap（启动模式）** |
-| 15 | GPIO9 | 空闲 | ADC1_CH8 |
-| 16 | GPIO10 | 空闲 | ADC1_CH9 / FSPICS0 |
-| 17 | GPIO11 | 空闲 | ADC2_CH0 / FSPID |
-| 18 | GPIO12 | 空闲 | ADC2_CH1 / FSPICLK |
-| 19 | GPIO13 | 空闲 | ADC2_CH2 / FSPIQ |
-| 20 | GPIO14 | 空闲 | ADC2_CH3 / FSPIWP |
-| 21 | VCC_5V | 5V 输出 | — |
-| 22 | GND | 地 | — |
+合计保留集：**{1, 2, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18}**。
+`tools/static_check.sh` Gate F 自动检查 UI 引脚不得落入该集合与受限集。
+DNT 分析频段 10 Hz–20.8 kHz（`DO_NOT_TOUCH_EXAMPLE` FREQ_MAX_HZ=20800）；
+产品声明频段 10 Hz–10 kHz（更高频段属独立测试，不自动扩大声明）。
 
-### H5（右排）
+ADC task-affinity 约束（重要）：DNT 的 ADC ISR 通知 `lcr_api_init()` 时
+保存的 FreeRTOS task —— 因此 **init 与全部测量必须在同一个 Worker task**
+（`lcr_api.cpp`；详见 `lcr_api.h` 文件头）。
 
-| 脚 | 网络 | 板上用途 | 备注 |
-|---|---|---|---|
-| 1 | GND | 地 | — |
-| 2 | GPIO43 (U0TXD) | 串口 TX → 隔离 → CH340X | 烧录/日志 |
-| 3 | GPIO44 (U0RXD) | 串口 RX | 同上 |
-| 4 | GPIO1 | 空闲 | ADC1_CH0（预留 I2C） |
-| 5 | GPIO2 | 空闲 | ADC1_CH1（预留 I2C） |
-| 6 | GPIO42 | 空闲（JTAG 组） | 默认 MTDI |
-| 7 | GPIO41 | 空闲（JTAG 组） | 默认 MTMS |
-| 8 | GPIO40 | 空闲（JTAG 组） | 默认 MTDO |
-| 9 | GPIO39 | 空闲（JTAG 组） | 默认 MTCK |
-| 10 | GPIO38 | 空闲 | FSPIWP 备用 |
-| 11 | GPIO37 | 空闲 | **N16R8 八线 PSRAM 占用，不可用** |
-| 12 | GPIO36 | 空闲 | **N16R8 八线 PSRAM 占用，不可用** |
-| 13 | GPIO35 | 空闲 | **N16R8 八线 PSRAM 占用，不可用** |
-| 14 | GPIO0 | BOOT 键 SW1 | **strap** |
-| 15 | GPIO45 | 空闲 | **strap（VDD_SPI）** |
-| 16 | GPIO48 | 空闲 | 纯数字 |
-| 17 | GPIO47 | 空闲 | 纯数字 |
-| 18 | GPIO21 | 空闲 | 纯数字 |
-| 19 | GPIO20 | USB_D+ | USB 专用网络，不用 |
-| 20 | GPIO19 | USB_D- | 同上 |
-| 21/22 | GND | 地 | — |
+## 2. 其它不占用引脚（ESP32-S3 / N16R8 限制）
 
-> 注：手册 H5 表把 GPIO35/36/37 标为「空闲」，但手册 §3.3.2 与模组数据手册
-> 均说明八线 PSRAM（N16R8 的 R8）模式下 GPIO33–37 被占用。以数据手册为准，
-> 本仪器**不使用**这三脚。同理 GPIO26–32（模组内 Flash/PSRAM）未引出。
+| 引脚 | 原因 |
+|---|---|
+| GPIO0 / 3 / 45 / 46 | strapping（BOOT 键 / JTAG 源 / 启动模式 / ROM 日志） |
+| GPIO19 / 20 | USB D-/D+ 网络（本板 Micro USB 经 CH340X 隔离，仍属 USB 专用域） |
+| GPIO26–32 | 模组内 Octal Flash/PSRAM，未引出 |
+| GPIO33–37 | N16R8 八线 PSRAM 高 4 位占用（手册虽标"空闲"，以数据手册为准） |
+| GPIO43 / 44 | UART0 → 隔离 → CH340X（烧录/日志；Arduino 须 CDCOnBoot=Disabled） |
 
-## 3. BoardProfile 交叉核对表（仪器外设接线）
+## 3. UI 外设 — 显示（ST7735S 4-wire SPI，经 H4/H5 排针外接）
 
-每行都给出：排针位 → GPIO → 数据手册能力 → 用途与理由。
+**v4.1.0 起 TFT 完全移出 GPIO10–14**（旧映射 SCK12/MOSI11/CS10/DC14/RST13
+与 LCD_CAM 并行 DAC 总线直接硬件冲突，不可使用）。
 
-### 3.1 模拟通道（4 路全部 ADC1）
+新映射（`plan.md` §10.4 候选接法，**待实物 continuity 确认**）：
 
-| 信号 | GPIO | 排针 | ADC | 核对 |
-|---|---|---|---|---|
-| `adcVoltageGpio`（DUT 电压 V） | GPIO4 | H4-4 | ADC1_CH3 | ✅ 手册 ADC 表 |
-| `adcCurrentGpio`（电流感测电压） | GPIO5 | H4-5 | ADC1_CH4 | ✅ |
-| `adcPort2InputGpio`（双端口 Vin） | GPIO6 | H4-6 | ADC1_CH5 | ✅ |
-| `adcPort2OutputGpio`（双端口 Vout） | GPIO7 | H4-7 | ADC1_CH6 | ✅ |
+| 信号 | GPIO | 排针 | 备注 |
+|---|---:|---|---|
+| `spiSck` | GPIO4 | H4-4 | 旧 ADC 计划已废止（测量 ADC 固定 GPIO1/2） |
+| `spiMosi` | GPIO5 | H4-5 | 同上 |
+| `tftCs` | GPIO6 | H4-6 | |
+| `tftDc` | GPIO7 | H4-7 | |
+| `tftRst` | GPIO21 | H5-18 | |
+| `spiMiso` | — | — | 屏幕只写，不接 |
 
-- **全部落在 ADC1**：ESP32-S3 ADC2 的 DMA continuous 模式受稳定性限制，
-  且 Wi-Fi 开启即失效；本项目测量期间射频静默但仍不依赖 ADC2
-  （plan.md §2.2 明令禁止「有 ADC1+ADC2 ⇒ 双 ADC 同步 DMA」的推导）。
-- 同一 ADC1 pattern 内两路是**交错采样**：V/I 相邻样本存在确定性时差
-  （= 1/总采样率），正弦拟合按 `Δφ = 2πfΔt` 显式补偿（见
-  `measurement_types.h` 的 `SampleSeries` 通道时差模型）。
-- 内部 ADC continuous 模式总采样率上限约 83.3 ksps（数据手册 SAR ADC
-  转换率），双通道交错即每通道约 41.7 ksps → **双通道测量质量保证频段
-  上限约 2 kHz（≥16 点/周期）**；更高频率仍可测但质量下降并在 UI 标注。
-  若实板验证不足，按 plan.md §2.2 换外部同步 ADC，上层接口不变。
-- 原始码 → 电压经 ESP-IDF curve-fitting 校准（`adc_cali_*`）；该层只修正
-  MCU ADC 传递，不替代前端复增益/相位校准（分层见 `calibration.h`）。
-
-### 3.2 显示（ST7735S 4-wire SPI）
-
-| 信号 | GPIO | 排针 | 备用功能 | 核对 |
-|---|---|---|---|---|
-| `spiSck` | GPIO12 | H4-18 | FSPICLK | ✅ |
-| `spiMosi` | GPIO11 | H4-17 | FSPID | ✅ |
-| `tftCs` | GPIO10 | H4-16 | FSPICS0 | ✅ |
-| `tftDc` | GPIO14 | H4-20 | FSPIWP | ✅ |
-| `tftRst` | GPIO13 | H4-19 | FSPIQ | ✅ |
-| `spiMiso` | PIN_UNUSED | — | — | 屏幕只写 |
-
-- ST7735S 数据手册串行接口写时钟周期最小 **66 ns**（理论 ≈15.15 MHz），
+- ST7735S 数据手册：4-wire 串行写时钟周期 ≥ 66 ns（上限 ~15.15 MHz），
   首版 `tftSpiHz = 10 MHz`；升频前必须逻辑分析仪 + 实屏压力测试。
-- 128×160 RAM 与模块可见区未必一致：`tftXOffset/tftYOffset/tftInvert`
-  属实板属性，默认按常见 BLACKTAB（0,0/不反转）起步，实屏 color-bar /
-  边界矩形测试后只在 `board_profile.cpp` 修改（plan.md §2.4 禁止凭
-  「ST7735S」字符串写死偏移）。
-- 测量 `CAPTURING` 期间不做 TFT 大块刷新，进度更新放在频点间隙。
+- `tftXOffset/tftYOffset/tftInvert` 属实板面板属性，color-bar 实测后只改
+  `board_profile.cpp`。
+- 编译期引脚同步注入 `tools/build_check.sh` 的 TFT_FLAGS（与 kBoard 一致）。
 
-### 3.3 人机输入（外接，按下接地 + 内部上拉）
+## 4. UI 外设 — 人机输入（4 按键 + EC11 编码器，经 H5 外接）
 
-| 信号 | GPIO | 排针 | 核对 |
-|---|---|---|---|
-| `keyUp` | GPIO47 | H5-17 | ✅ 纯数字脚，支持上拉输入 |
-| `keyDown` | GPIO48 | H5-16 | ✅ |
-| `keyBack` | GPIO41 | H5-7 | ✅ JTAG 组脚，固件未启用 JTAG |
-| `keyOk` | GPIO42 | H5-6 | ✅ |
-| `encA` | GPIO38 | H5-10 | ✅ |
-| `encB` | GPIO39 | H5-9 | ✅ |
-| `encSw` | GPIO40 | H5-8 | ✅ |
+| 信号 | GPIO | 排针 | 备注 |
+|---|---:|---|---|
+| `keyUp` | GPIO47 | H5-17 | 纯数字脚，按下接地 + 内部上拉 |
+| `keyDown` | GPIO48 | H5-16 | |
+| `keyBack` | GPIO41 | H5-7 | JTAG 组（MTMS），本固件不启用 JTAG |
+| `keyOk` | GPIO42 | H5-6 | JTAG 组（MTDI） |
+| `encA` | GPIO38 | H5-10 | A 相双边沿中断 |
+| `encB` | GPIO39 | H5-9 | JTAG 组（MTCK） |
+| `encSw` | GPIO40 | H5-8 | JTAG 组（MTDO） |
 
-- 4 按键为 Omron B3F 类 6×6 轻触开关（另一端 GND）；EC11 编码器
-  A/B/SW（C 与开关公共端接 GND）。去抖/长按连发由 `input.cpp` 的
-  非阻塞扫描处理，固件不把长任务放进输入回调。
-- GPIO39–42 上电默认为 JTAG 功能输入；Arduino-ESP32 固件不使能 JTAG，
-  直接作 GPIO 输入。烧录后若需 JTAG 调试，必须先改 `board_profile`。
+与测量 GPIO 无冲突（软件上可保留原接线）。GPIO39–42 属 JTAG 默认组：
+**产品固件不能同时依赖 pad JTAG 调试**（`plan.md` §10.3）。
 
-### 3.4 激励源（I2S → 外部 PCM5102A DAC）
+## 5. 实板验收 checklist（软件侧已验收，以下待实测）
 
-| 信号 | GPIO | 排针 | 核对 |
-|---|---|---|---|
-| `excitationBck` | GPIO17 | H4-10 | ✅ |
-| `excitationLrck` | GPIO18 | H4-11 | ✅ |
-| `excitationData` | GPIO21 | H5-18 | ✅ 纯数字脚 |
-| `excitationMclk` | PIN_UNUSED | — | PCM5102 SCK 接地（内部 PLL） |
+软件侧（host 单测 + ESP32-S3 生产编译 + 静态门禁 A–H）已在 CI 全部通过。
+以下条目需要真实硬件，逐项执行后在本文打勾（`plan.md` §17.3 / Phase D）：
 
-- ESP32-S3 **无片上 DAC**（与经典 ESP32 不同）；激励路径选 I2S 标准模式
-  → PCM5102A：全 DMA 硬件驱动、频率由 `Fs·K/L` 有理数构造**精确可知**
-  （`actualHz` 按构造回读，非估计），每点 sine fit 与 CSV 均用 actualHz。
-- 幅度固定（DAC 满量程一半），属 plan.md §2.3 的「硬件只有固定幅度」
-  情形：UI 只显示 **calibrated nominal drive**，不提供虚假的电压设定。
-  闭环幅度控制留待前端硬件升级（接口已预留 `ExcitationConfig`）。
-- Sine 是唯一测量波形；方波/三角只存在于隐藏诊断页（若接入）。
+- [ ] TFT 新映射 GPIO4/5/6/7/21 逐脚 continuity（表笔核对排针到屏）；
+- [ ] 上电 smoke：屏点亮、color-bar 无偏移（否则只改 board_profile 偏移字段）；
+- [ ] 按键/编码器逐脚 continuity + 功能确认；
+- [ ] Worker 初始化 DNT 成功不死锁（`LCR CORE INIT...` -> 主菜单 <15 s）；
+- [ ] normal mode 串口测量路径静默（diagnostics off）；
+- [ ] 标准 R / C / L（含 L+DCR、负 DCR 告警路径）重复测量；
+- [ ] 10 Hz–10 kHz 单端口产品扫频 → seal → BLE → 网站拟合全链路；
+- [ ] 双端口扫频 → BLE → Bode/Nyquist；已知网络 H 趋势正确；
+- [ ] LCD_CAM 工作时 TFT 不乱屏（测量期间无大块刷新）；
+- [ ] 测量期间输入仍响应；取消在当前 2/3 点块后停止并显示 STOPPING；
+- [ ] cancel / 正常结束均确认 tone stop（示波器看 DAC 输出归零）；
+- [ ] 测量全过程 BLE Off；seal 后才能 advertising；
+- [ ] 网站 CRC 与设备 CRC 完全一致；≥20 次连接/断开无泄漏；
+- [ ] 校准状态显示与 `lcr_api_cal_status` 真实一致。
 
-### 3.5 前端控制与电气常数
+## 6. 修改规则
 
-| 信号 | GPIO | 排针 | 说明 |
-|---|---|---|---|
-| `frontEndEnablePin` | GPIO8 | H4-12 | 高 = 前端上电；错误/取消路径统一拉低（safe-off） |
-| `rangeSelectPins[0]` | GPIO15 | H4-8 | 量程位 0 |
-| `rangeSelectPins[1]` | GPIO16 | H4-9 | 量程位 1 |
-
-- 电气常数（硬件事实，非拟合参数）：`nominalCurrentSenseOhm = 100 Ω`
-  （v1 参考前端的精密采样电阻）、`nominalTransimpedanceGain = 1.0`
-  （无跨阻级）。**必须与实际搭建的前端一致**；残余增益/相位误差由
-  `CalibrationProfile` 复数校准层吸收，不改这两个数来"凑"读数。
-
-### 3.6 引脚冲突总检（同一 GPIO 不重复使用）
-
-```
-GPIO4,5,6,7        模拟 ADC1 专用        GPIO11,12    TFT SPI
-GPIO8,15,16        前端控制              GPIO10,13,14 TFT 控制
-GPIO17,18,21       I2S 激励              GPIO38..42   编码器/按键
-GPIO47,48          按键                  其余         禁用/预留（见 §2）
-```
-
-## 4. 烧录与构建
-
-- FQBN：`esp32:esp32:esp32s3:PSRAM=opi,FlashSize=16M,CDCOnBoot=default,
-  PartitionScheme=app3M_fat9M_16MB`（CDCOnBoot=default = Disabled，本板
-  串口在 GPIO43/44；PSRAM=opi 对应 N16R8 八线 PSRAM）。
-- TFT_eSPI 引脚经编译期 `-D` 注入（`USER_SETUP_LOADED` + `ST7735_DRIVER` +
-  引脚/偏移/频率宏），见 `ino/tools/build_check.sh`；与 `kBoard` 一致。
-- 上传速率 115200；一键下载电路兼容 Arduino 默认 RTS/DTR 时序。
-
-## 5. 供电与接地注意（测量质量相关）
-
-- 5V/3.3V 由 JW5357 开关降压产生；模拟前端建议独立 LDO 供电并在
-  `frontEndEnable` 控制下上电，避免开关噪声直接进 ADC 通道。
-- ADC 通道走线（H4-4..7 相邻四脚）尽量短、远离 I2S/TFT 时钟线。
-- 测量期间（CAPTURING）BLE/Wi-Fi 射频完全关闭（RadioState=Off 是
-  硬 invariant），TFT 刷新只发生在频点间隙。
-
-## 6. 实板验证清单（冻结 BoardProfile 前必须完成）
-
-1. **连续性**：H4/H5 每个使用脚 ↔ 外设模块对应脚通断；GND 共地。
-2. **上电 smoke**：3V3/5V 电压；前端 enable 前/后电流合理。
-3. **TFT**：color-bar 与边界矩形全屏可见（确认 offset/inversion/rotation，
-   只改 board_profile.cpp）；10 MHz 下长时间无花屏。
-4. **按键/编码器**：每个键按下事件、编码器双向与按压；无抖动误触发。
-5. **I2S DAC**：示波器看 BCK/LRCK/DATA；DAC 输出正弦频率/幅度与
-   `ExcitationState` 一致；stop 后输出静音。
-6. **ADC**：已知直流电平双通道读数；1 kHz 已知正弦的双通道幅相
-   （与台式表/示波器对比）；故意 DMA overflow → `ADC_OVERRUN`。
-7. **射频隔离**：BLE 广播/连接窗口内 ADC 静默；测量窗口内电流无射频尖峰。
-8. ** straps**：确认外设接线不拉低 GPIO0/3/45/46（否则无法启动/烧录）。
+1. 测量链 GPIO 永远不改（DO_NOT_TOUCH 文件 + Gate A manifest 锁定）；
+2. UI 接线变化只改 `ino/LCR_UI/board_profile.cpp` + 本文档 +
+   `tools/build_check.sh` 的 TFT_FLAGS；
+3. 任何新 UI 引脚不得落入 §1 保留集与 §2 受限集（Gate F 自动拦截）。

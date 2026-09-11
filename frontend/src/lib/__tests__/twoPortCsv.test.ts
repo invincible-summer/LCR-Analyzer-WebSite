@@ -74,3 +74,42 @@ describe('parseHCsv（H = Vout/Vin 真源）', () => {
     expect(unsorted.points[0].f).toBe(100)
   })
 })
+
+// ---- v2 golden fixture（固件 formatTwoPortCsv host 产物，run_tests.sh 生成）----
+import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
+
+const twoPortFixture = readFileSync(
+  fileURLToPath(new URL('./fixtures/golden_twoport.csv', import.meta.url)),
+  'utf-8',
+)
+
+describe('固件 two-port CSV v2（golden fixture）', () => {
+  it('parseHCsv 完整解析 v2 头部 + RC 低通物理趋势', () => {
+    const r = parseHCsv(twoPortFixture)
+    expect(r.errors).toEqual([])
+    expect(r.points).toHaveLength(7)
+    expect(r.headers['schema']).toBe('lcr-h-csv-v2')
+    expect(r.headers['measurement_backend']).toBe('DO_NOT_TOUCH_lcr_api')
+    expect(r.headers['calibration_state']).toBe('raw_w_path')
+    // 一阶 RC 低通（fc≈1591.5Hz）：低频 |H|≈1，高频单调下降
+    expect(r.points[0].gainDb).toBeGreaterThan(-0.5)
+    const last = r.points[r.points.length - 1]
+    expect(last.gainDb).toBeLessThan(-10)
+    expect(r.points.every((p) => p.phaseDeg < 0 && p.phaseDeg > -90)).toBe(true)
+  })
+  it('v1 历史文件（calibration_id 头）仍可读', () => {
+    const v1 = [
+      '# lcr-dataset=two-port-h',
+      '# schema=lcr-h-csv-v1',
+      '# calibration_id=factory-none',
+      'f,re_h,im_h',
+      '100,0.9,0.1',
+      '200,0.8,0.1',
+    ].join(String.fromCharCode(10))
+    const r = parseHCsv(v1)
+    expect(r.errors).toEqual([])
+    expect(r.points).toHaveLength(2)
+    expect(r.headers['calibration_id']).toBe('factory-none')
+  })
+})

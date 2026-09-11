@@ -18,7 +18,12 @@
 
 - 协议细节（UUID、帧布局、命令字节、Status 负载）：
   仓库 `protocol/BLE_PROTOCOL_V1.md`；
-- 数据模式（`lcr-z-csv-v1` / `lcr-h-csv-v1`）：`protocol/CSV_SCHEMA_V1.md`。
+- 数据模式：v2（`lcr-z-csv-v2` / `lcr-h-csv-v2`，诚实校准元数据）见
+  `protocol/CSV_SCHEMA_V2.md`；v1 历史文件仍可读（`CSV_SCHEMA_V1.md`），
+  两代解析为同一 `ZPoint[]`/`HPoint[]`，拟合与画图不变；
+- 接收期间页面显示字节级进度（0→100%，`receiveDataset` 的 `onProgress`）；
+- 双端口 W 链在设备测量核心中为 raw/no-calib，数据集头部如实标注
+  `calibration_state=raw_w_path`——网站不掩盖该事实。
 
 ### 拟合页（单端口）
 

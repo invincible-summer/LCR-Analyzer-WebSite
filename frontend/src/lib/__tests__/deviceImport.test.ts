@@ -33,11 +33,17 @@ describe('固件 one-port CSV（golden fixture）', () => {
     expect(r.warnings.some((w) => w.includes('排序'))).toBe(false)
   })
 
-  it('头部注释被容忍（# 行 + f,re,im 表头跳过）', () => {
+  it('头部注释被容忍（# 行 + f,re,im 表头跳过）；v2 元数据键存在', () => {
     const r = parseZCsv(fixture)
     // parseZCsv 跳过 # 注释；"f,re,im" 作为非数值表头跳过并提示
     expect(r.points.length).toBe(8)
     expect(r.warnings.some((w) => w.includes('表头行'))).toBe(true)
+    // v2 头部：诚实元数据（不再有 drive_vrms / calibration_id）
+    expect(fixture).toContain('# schema=lcr-z-csv-v2')
+    expect(fixture).toContain('# measurement_backend=DO_NOT_TOUCH_lcr_api')
+    expect(fixture).toContain('# calibration_state=')
+    expect(fixture).not.toContain('drive_vrms')
+    expect(fixture).not.toContain('calibration_id')
   })
 
   it('golden 内容的 CRC32 稳定（协议字段的可追溯性）', () => {

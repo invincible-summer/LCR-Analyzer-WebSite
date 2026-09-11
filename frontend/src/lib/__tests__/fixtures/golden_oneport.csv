@@ -1,9 +1,9 @@
 # lcr-dataset=one-port-z
-# schema=lcr-z-csv-v1
+# schema=lcr-z-csv-v2
 # protocol=1
 # firmware=4.1.0
-# calibration_id=factory-none
-# drive_vrms=1.05
+# measurement_backend=DO_NOT_TOUCH_lcr_api
+# calibration_state=cal:3/10,open:ok,short:--
 f,re,im
 100,1000,1.5
 223.607,1002,-1.5

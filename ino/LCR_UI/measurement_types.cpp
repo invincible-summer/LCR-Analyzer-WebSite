@@ -6,74 +6,71 @@
 
 #include <math.h>
 
-const char* measurementStatusText(MeasurementStatus s)
-{
-    switch (s) {
-    case MeasurementStatus::Ok:                 return "OK";
-    case MeasurementStatus::InvalidConfig:      return "INVALID CONFIG";
-    case MeasurementStatus::ExcitationFail:     return "EXCITATION FAIL";
-    case MeasurementStatus::AdcFail:            return "ADC FAIL";
-    case MeasurementStatus::AdcOverrun:         return "ADC OVERRUN";
-    case MeasurementStatus::Clipped:            return "CLIPPED";
-    case MeasurementStatus::SignalTooSmall:     return "SIGNAL TOO SMALL";
-    case MeasurementStatus::FitSingular:        return "FIT SINGULAR";
-    case MeasurementStatus::FrequencyMismatch:  return "FREQ MISMATCH";
-    case MeasurementStatus::CalibrationMissing: return "CAL MISSING";
-    case MeasurementStatus::CalibrationStale:   return "CAL STALE";
-    case MeasurementStatus::Cancelled:          return "CANCELLED";
-    case MeasurementStatus::InternalError:      return "INTERNAL ERROR";
-    }
-    return "?";
-}
-
 const char* measurementKindText(MeasurementKind k)
 {
     return k == MeasurementKind::OnePortImpedance ? "ONE_PORT_Z" : "TWO_PORT_H";
 }
 
+const char* sweepStatusText(SweepStatus s)
+{
+    switch (s) {
+    case SweepStatus::Ok:            return "OK";
+    case SweepStatus::InvalidConfig: return "INVALID CONFIG";
+    case SweepStatus::Busy:          return "BUSY";
+    case SweepStatus::NotReady:      return "NOT READY";
+    case SweepStatus::Cancelled:     return "CANCELLED";
+    case SweepStatus::Error:         return "ERROR";
+    }
+    return "?";
+}
+
 const char* sweepStateText(SweepState s)
 {
     switch (s) {
-    case SweepState::Idle:           return "IDLE";
-    case SweepState::Measuring:      return "MEASURING";
-    case SweepState::Sealing:        return "SEALING";
-    case SweepState::TransferReady:  return "TRANSFER READY";
-    case SweepState::Error:          return "ERROR";
-    case SweepState::Cancelled:      return "CANCELLED";
+    case SweepState::Idle:          return "IDLE";
+    case SweepState::Measuring:     return "MEASURING";
+    case SweepState::Stopping:      return "STOPPING";
+    case SweepState::TransferReady: return "TRANSFER READY";
+    case SweepState::Insufficient:  return "DATA INSUFFICIENT";
+    case SweepState::Error:         return "ERROR";
+    case SweepState::Cancelled:     return "CANCELLED";
     }
     return "?";
 }
 
 // ---------------------------------------------------------------------------
-// 频率表：对数（首尾精确）或线性等间隔，几何分布
+// 频率表：对数几何分布（首尾精确）。点数 = round(ppd * log10(f1/f0)) + 1，
+// 超过 maxPoints/cap 时整体压缩为 maxPoints 点（用最终 n 重算网格，
+// 保证点距均匀，不产生“截尾”）。
 // ---------------------------------------------------------------------------
 size_t buildFrequencyPlan(const SweepConfig& cfg, double* freqs, size_t cap)
 {
-    if (!freqs || cap == 0) return 0;
+    if (!freqs || cap < 2) return 0;
     if (!(cfg.fStartHz > 0.0) || !(cfg.fStopHz > cfg.fStartHz)) return 0;
-    if (cfg.pointsPerDecade == 0 || cfg.maxPoints == 0) return 0;
+    if (cfg.pointsPerDecade == 0 || cfg.maxPoints < 2) return 0;
+    if (cfg.fStartHz < INSTRUMENT_F_MIN_HZ || cfg.fStopHz > INSTRUMENT_F_MAX_HZ)
+        return 0;
 
-    size_t n;
-    if (cfg.logSpacing) {
-        const double dec = log10(cfg.fStopHz / cfg.fStartHz);
-        n = 1 + (size_t)lround((double)cfg.pointsPerDecade * dec);
-    } else {
-        n = 1 + (size_t)cfg.pointsPerDecade;
-    }
-    if (n < 2) n = 2;
-    if (n > cap || n > cfg.maxPoints) n = (cap < cfg.maxPoints ? cap : cfg.maxPoints);
+    const double dec = log10(cfg.fStopHz / cfg.fStartHz);
+    size_t n = 1 + (size_t)lround((double)cfg.pointsPerDecade * dec);
+    const size_t lim = cap < cfg.maxPoints ? cap : cfg.maxPoints;
+    if (n > lim) n = lim;
     if (n < 2) return 0;
 
     for (size_t i = 0; i < n; ++i) {
-        if (cfg.logSpacing) {
-            const double t = (double)i / (double)(n - 1);
-            freqs[i] = cfg.fStartHz * pow(10.0, log10(cfg.fStopHz / cfg.fStartHz) * t);
-        } else {
-            freqs[i] = cfg.fStartHz +
-                       (cfg.fStopHz - cfg.fStartHz) * (double)i / (double)(n - 1);
-        }
+        const double t = (double)i / (double)(n - 1);
+        freqs[i] = cfg.fStartHz * pow(10.0, dec * t);
     }
-    freqs[0] = cfg.fStartHz;       // 首尾精确（浮点累积误差清零）
+    freqs[0] = cfg.fStartHz;        // 首尾精确（清掉浮点累积误差）
     freqs[n - 1] = cfg.fStopHz;
     return n;
+}
+
+void wMagPhaseToComplex(double hMag, double phaseDeg, double* reH, double* imH)
+{
+    if (!reH || !imH) return;
+    if (!isfinite(hMag) || !isfinite(phaseDeg)) { *reH = NAN; *imH = NAN; return; }
+    const double rad = phaseDeg * M_PI / 180.0;
+    *reH = hMag * cos(rad);
+    *imH = hMag * sin(rad);
 }

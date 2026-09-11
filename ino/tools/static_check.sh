@@ -1,65 +1,134 @@
 #!/usr/bin/env bash
 # ============================================================================
-# static_check.sh —— plan.md §9.1 构建/静态验收的 grep 门禁
+# static_check.sh —— v4.1.0 DO_NOT_TOUCH 边界 / 硬件假设 / GPIO / 版本门禁
 # ----------------------------------------------------------------------------
-#   1. production source 中 BluetoothSerial 引用数 = 0（Classic BT 已删除）
-#   2. 顶层业务 GPIO 仅由 BoardProfile 提供：board_profile.cpp 之外不允许
-#      pinMode/digitalWrite/digitalRead/attachInterrupt 带裸数字
-#   3. 合成 stub（partner_stubs 等）不参与生产构建
-#   4. 固件版本宏存在且三处 schema/protocol 版本一致
-#   5. 测量/射频互斥的 debug 断言源码存在（radio_lock）
-# 用法：bash ino/tools/static_check.sh
+# Gate A  DO_NOT_TOUCH 文件 SHA-256 manifest（任何 hash 变化立即失败）
+# Gate B  禁止引用 DO_NOT_TOUCH_hong.h（预留文件，不得 include/链接）
+# Gate C  DNT API 只有一个应用层入口（ino/LCR_UI/lcr_api.cpp）
+# Gate D  禁止绕过 API 直接调用 DNT 低层符号（out_freq/lcr_adc_/...）
+# Gate E  禁止恢复错误硬件假设（PCM5102/I2S 激励/自写 ADC 链）
+# Gate F  board_profile UI 引脚不得占用 DNT 测量 GPIO / 受限引脚
+# Gate G  BLE/测量互斥：radio_lock 在编排层与射频层都有接线
+# Gate H  版本/schema 一致（fw_version.h / CSV_SCHEMA_V2 / 前端 fixture）
+# 用法：  bash ino/tools/static_check.sh
+#         DNT_UPDATE_MANIFEST=1 bash ino/tools/static_check.sh  # 硬件团队更新后重锁
 # ============================================================================
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SRC="$HERE/../LCR_UI"
+MANIFEST="$HERE/dnt_manifest.txt"
 FAIL=0
+fail() { echo "** FAIL: $1 **"; FAIL=1; }
 
-echo "== gate 1: no BluetoothSerial in production sources =="
-if grep -rn "BluetoothSerial" "$SRC" 2>/dev/null; then
-    echo "** FAIL: BluetoothSerial reference found **"; FAIL=1
+# 生产源码 = sketch 目录下的 .cpp/.h/.ino（DNT 文件本身除外）
+prod_files() {
+    find "$SRC" -maxdepth 1 -type f \( -name '*.cpp' -o -name '*.h' -o -name '*.ino' \) \
+        ! -name 'DO_NOT_TOUCH_*' ! -name '*.example' | sort
+}
+
+echo "== Gate A: DO_NOT_TOUCH SHA-256 manifest =="
+if [ "${DNT_UPDATE_MANIFEST:-0}" = "1" ]; then
+    (cd "$SRC" && sha256sum DO_NOT_TOUCH_freq_calc.h DO_NOT_TOUCH_hong.h \
+        DO_NOT_TOUCH_lcr_adc.h DO_NOT_TOUCH_lcr_api.h DO_NOT_TOUCH_lcr_calib_core.h \
+        DO_NOT_TOUCH_lcr_calib.h DO_NOT_TOUCH_lcr_diag.h DO_NOT_TOUCH_lcr_measure.h \
+        DO_NOT_TOUCH_lcr_tone.h DO_NOT_TOUCH_sinwave.h \
+        DO_NOT_TOUCH_EXAMPLE.ino.example) > "$MANIFEST"
+    echo "manifest regenerated（硬件团队明确更新流程）"
+fi
+MAN_BAD=$(cd "$SRC" && sha256sum -c "$MANIFEST" 2>&1 >/dev/null | grep -v ': OK' || true)
+if [ -n "$MAN_BAD" ]; then
+    echo "$MAN_BAD"
+    fail "DO_NOT_TOUCH 文件被修改（Gate A manifest 不匹配）"
+else
+    echo "OK (11 files unchanged)"
+fi
+
+echo "== Gate B: no DO_NOT_TOUCH_hong.h references in production code =="
+HONG=$(grep -rl "DO_NOT_TOUCH_hong" "$SRC" --include=*.cpp --include=*.h --include=*.ino || true)
+if [ -n "$HONG" ]; then
+    echo "$HONG"
+    fail "DO_NOT_TOUCH_hong.h 被生产代码引用"
 else
     echo "OK (0 references)"
 fi
 
-echo "== gate 2: raw GPIO numbers only in board_profile.cpp =="
-# 匹配 pinMode(数字… / digitalWrite(数字… / digitalRead(数字… / attachInterrupt(digitalPinToInterrupt(数字…
-PATTERN='(pinMode|digitalWrite|digitalRead|analogRead|ledcAttachPin|attachInterrupt)\s*\(\s*[0-9]'
-VIOL=$(grep -rn -E "$PATTERN" "$SRC" --include='*.cpp' --include='*.h' --include='*.ino' 2>/dev/null \
-       | grep -v 'board_profile\.cpp' || true)
+echo "== Gate C: DNT API has exactly one app-layer include point =="
+CNT=$(prod_files | xargs grep -l '#include "DO_NOT_TOUCH_lcr_api.h"' 2>/dev/null | wc -l)
+if [ "$CNT" -eq 1 ] && grep -q '#include "DO_NOT_TOUCH_lcr_api.h"' "$SRC/lcr_api.cpp"; then
+    echo "OK (only lcr_api.cpp)"
+else
+    fail "DO_NOT_TOUCH_lcr_api.h 的非 DNT include 点必须唯一（lcr_api.cpp），实际 $CNT 处"
+fi
+# 也不允许 include 其它 DNT 头
+OTHERDNT=$(prod_files | xargs grep -n '#include "DO_NOT_TOUCH_' 2>/dev/null \
+           | grep -v 'DO_NOT_TOUCH_lcr_api.h' || true)
+if [ -n "$OTHERDNT" ]; then
+    echo "$OTHERDNT"
+    fail "生产代码直接 include 了 lcr_api.cpp 之外的 DO_NOT_TOUCH 头"
+fi
+
+echo "== Gate D: no low-level DNT symbols outside DO_NOT_TOUCH files =="
+PAT='lcr_adc_|lcr_measure_|out_freq|out_sin|stop_sin|adc_continuous_|lcd_cam|gdma_|HC595_PIN_'
+VIOL=$(prod_files | xargs grep -n -E "$PAT" 2>/dev/null \
+        | grep -v '^ *//' | grep -v ':\s*//' || true)
 if [ -n "$VIOL" ]; then
-    echo "** FAIL: bare GPIO usage outside board_profile.cpp **"
     echo "$VIOL"
-    FAIL=1
+    fail "应用层出现 DNT 低层符号（必须经 lcr_api wrapper）"
 else
-    echo "OK (GPIO only via kBoard)"
+    echo "OK (0 low-level references)"
 fi
 
-echo "== gate 3: no synthetic stubs in production sketch =="
-STUB=$(ls "$SRC"/partner_stubs.cpp "$SRC"/bt_link.cpp "$SRC"/hw_config.h 2>/dev/null || true)
-if [ -n "$STUB" ]; then
-    echo "** FAIL: legacy/stub files present: $STUB **"; FAIL=1
+echo "== Gate E: no stale hardware assumptions (PCM5102/I2S/custom ADC) =="
+PAT2='PCM5102|excitation_driver|adc_capture|I2S excitation'
+VIOL2=$(prod_files | xargs grep -n -E "$PAT2" 2>/dev/null || true)
+if [ -n "$VIOL2" ]; then
+    echo "$VIOL2"
+    fail "生产源码出现已废止的硬件假设"
 else
-    echo "OK (stubs removed from sketch)"
+    echo "OK"
 fi
 
-echo "== gate 4: firmware/protocol/schema version macros =="
+echo "== Gate F: board_profile UI pins avoid DNT/reserved GPIO =="
+python3 - "$SRC/board_profile.cpp" << 'PYG' || fail "board_profile 引脚与 DNT/受限 GPIO 冲突"
+import re, sys
+src = open(sys.argv[1], encoding='utf-8').read()
+# 仅解析“引脚类字段”的赋值（.field = <int>,）——排除 tftSpiHz/宽高/偏移等
+PIN_FIELDS = {'tftCs','tftDc','tftRst','spiSck','spiMosi','spiMiso',
+              'keyUp','keyDown','keyBack','keyOk','encA','encB','encSw'}
+FORBIDDEN = set([1,2,8,9,10,11,12,13,14,15,16,17,18,   # DNT 测量链
+                 0,3,45,46,                              # strapping
+                 19,20,                                  # USB
+                 26,27,28,29,30,31,32,                   # 模组内 Flash/PSRAM
+                 33,34,35,36,37,                         # N16R8 八线 PSRAM
+                 43,44])                                 # UART0
+bad = []
+for m in re.finditer(r'\.(\w+)\s*=\s*(-?\d+)\s*,', src):
+    field, val = m.group(1), int(m.group(2))
+    if field in PIN_FIELDS and val >= 0 and val in FORBIDDEN:
+        bad.append((field, val))
+if bad:
+    print('conflicting pins:', bad)
+    sys.exit(1)
+print('OK (no UI pin on DNT/reserved GPIO)')
+PYG
+
+echo "== Gate G: BLE/measurement mutex wiring =="
+grep -q 'radioLockNotifyMeasurementActive' "$SRC/sweep_engine.cpp" \
+    && grep -q 'radioLockNotifyRadioActive' "$SRC/radio_manager.cpp" \
+    && grep -q 'radioLockInvariantOk' "$SRC/radio_manager.cpp" \
+    && grep -q 'radioLockInvariantOk' "$SRC/sweep_engine.cpp" \
+    && echo "OK (lock wired in orchestration + radio; runtime check in host tests)" \
+    || fail "radio_lock 接线缺失"
+
+echo "== Gate H: firmware/protocol/schema version consistency =="
 grep -q 'define LCR_FW_VERSION' "$SRC/fw_version.h" \
     && grep -q 'define LCR_BLE_PROTOCOL_VERSION 1' "$SRC/fw_version.h" \
-    && grep -q 'define LCR_Z_CSV_SCHEMA_VERSION 1' "$SRC/fw_version.h" \
-    && grep -q 'define LCR_H_CSV_SCHEMA_VERSION 1' "$SRC/fw_version.h" \
-    && echo "OK" || { echo "** FAIL: version macros missing **"; FAIL=1; }
-
-echo "== gate 5: radio/measurement mutex assertion present =="
-grep -q 'radioLockInvariantOk' "$SRC/measurement_engine.cpp" \
-    && grep -q 'radioLockInvariantOk' "$SRC/radio_manager.cpp" \
-    && grep -q 'radioLockNotifyRadioActive' "$SRC/radio_manager.cpp" \
-    && echo "OK" || { echo "** FAIL: radio_lock wiring missing **"; FAIL=1; }
-
-echo "== gate 6: BLE off at boot (setup 不初始化射频) =="
-grep -q 'startBleForSealedDataset' "$SRC/radio_manager.h" \
-    && ! grep -rn 'BLEDevice::init' "$SRC/LCR_UI.ino" \
-    && echo "OK" || { echo "** FAIL: BLE init path violates boot policy **"; FAIL=1; }
+    && grep -q 'define LCR_Z_CSV_SCHEMA_VERSION 2' "$SRC/fw_version.h" \
+    && grep -q 'define LCR_H_CSV_SCHEMA_VERSION 2' "$SRC/fw_version.h" \
+    && [ -f "$HERE/../../protocol/CSV_SCHEMA_V2.md" ] \
+    && grep -q 'schema=lcr-z-csv-v2' "$HERE/../../frontend/src/lib/__tests__/fixtures/golden_oneport.csv" \
+    && echo "OK (fw 4.1.0 / protocol 1 / z-schema v2 / h-schema v2 / docs+fixture)" \
+    || fail "版本或 schema 契约不一致"
 
 exit $FAIL

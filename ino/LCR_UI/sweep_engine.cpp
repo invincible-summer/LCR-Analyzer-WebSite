@@ -1,33 +1,60 @@
 // ============================================================================
-// sweep_engine.cpp —— 扫频状态机实现（host 可编译；mock 驱动下全路径可测）
+// sweep_engine.cpp —— 扫频编排状态机实现（host 可编译；mock service 下全路径可测）
 // ============================================================================
 
 #include "sweep_engine.h"
-#include "radio_lock.h"
 
 #include <math.h>
 #include <string.h>
 
-// 每个频点的测量参数缺省（v1；实板标定后按 §9.5 规则冻结，不悄悄放宽）
-static constexpr uint16_t kSettleCycles = 8;
-static constexpr uint16_t kCaptureCycles = 12;
-static constexpr uint16_t kMinSamples = 200;
-// 封存前静默保护：停激励/ADC 后的射频开启前等待（plan.md §5.2 quiet guard）
-static constexpr uint64_t kQuietGuardUs = 50000;   // 50 ms
+// StopTone 完成后的静默保护：停激励 -> seal 之间的最短间隔
+static constexpr uint32_t kQuietGuardMs = 20;
+// 单口进入网站拟合的最低有效点数（parseZCsv 至少需要 4 点）
+static constexpr size_t kOnePortMinFit = 4;
+// 双口画曲线的最低有效点数（parseHCsv 至少需要 2 点）
+static constexpr size_t kTwoPortMinPlot = 2;
 
-const char* sweepStatusText(SweepStatus s)
+// ---------------------------------------------------------------------------
+// chunk 规划：偶数 N 全 2 点；奇数 N（>=3）为若干 2 点块 + 末块 3 点。
+// 第 k 块的起始网格下标恒为 2k（2 点块各消费 2 个下标）。
+// ---------------------------------------------------------------------------
+// chunk 总数（与 planSweepChunks 的划分一致；独立成函数供 start/poll 计数）
+static size_t sweepChunkCount(size_t nPoints)
 {
-    switch (s) {
-    case SweepStatus::Ok:            return "OK";
-    case SweepStatus::InvalidConfig: return "INVALID CONFIG";
-    case SweepStatus::Busy:          return "BUSY";
-    case SweepStatus::EngineError:   return "ENGINE ERROR";
-    case SweepStatus::Cancelled:     return "CANCELLED";
-    }
-    return "?";
+    if (nPoints < 2) return 0;
+    return (nPoints % 2 == 0) ? nPoints / 2 : (nPoints - 1) / 2;
 }
 
-SweepEngine::SweepEngine(MeasurementEngine& engine) : m_engine(engine) {}
+size_t planSweepChunks(const double* grid, size_t nPoints, SweepChunk* out, size_t cap)
+{
+    if (!grid || !out || nPoints < 2) return 0;
+    const size_t nC = sweepChunkCount(nPoints);
+    if (nC > cap) return 0;
+    for (size_t k = 0; k < nC; ++k) {
+        const size_t first = 2 * k;
+        const bool last = (k + 1 == nC);
+        const size_t nPts = (last && nPoints % 2 == 1) ? 3 : 2;
+        out[k].fStartHz = grid[first];
+        out[k].fStopHz = grid[first + nPts - 1];
+        out[k].nPts = (uint8_t)nPts;
+    }
+    return nC;
+}
+
+SweepEngine::SweepEngine(ILcrService& svc) : m_svc(svc) {}
+
+size_t SweepEngine::chunkCount() const { return sweepChunkCount(m_nPoints); }
+
+void SweepEngine::chunkAt(size_t k, SweepChunk& out) const
+{
+    const size_t nC = (m_nPoints % 2 == 0) ? m_nPoints / 2 : (m_nPoints - 1) / 2;
+    const size_t first = 2 * k;
+    const bool last = (k + 1 == nC);
+    const size_t nPts = (last && m_nPoints % 2 == 1) ? 3 : 2;
+    out.fStartHz = m_freqs[first];
+    out.fStopHz = m_freqs[first + nPts - 1];
+    out.nPts = (uint8_t)nPts;
+}
 
 const OnePortDataset* SweepEngine::sealedOnePortDataset() const
 {
@@ -40,185 +67,233 @@ const TwoPortDataset* SweepEngine::sealedTwoPortDataset() const
 
 double SweepEngine::currentFreqHz() const
 {
-    if (m_nextIdx >= m_nPoints) return 0.0;
-    return m_freqs[m_nextIdx];
+    if (m_nPoints == 0) return 0.0;
+    size_t i = 2 * m_nextChunk;
+    if (i >= m_nPoints) i = m_nPoints - 1;
+    return m_freqs[i];
 }
 
 // ---------------------------------------------------------------------------
 SweepStatus SweepEngine::start(const SweepConfig& cfg)
 {
-    if (m_state == SweepState::Measuring || m_state == SweepState::Sealing)
+    if (m_state == SweepState::Measuring || m_state == SweepState::Stopping)
         return SweepStatus::Busy;
-    if (m_engine.active()) return SweepStatus::EngineError;
-    if (!(cfg.fStartHz > 0.0) || !(cfg.fStopHz > cfg.fStartHz))
-        return SweepStatus::InvalidConfig;
-    if (cfg.fStartHz < INSTRUMENT_F_MIN_HZ || cfg.fStopHz > INSTRUMENT_F_MAX_HZ)
-        return SweepStatus::InvalidConfig;
-    if (cfg.pointsPerDecade == 0 || cfg.maxPoints == 0)
-        return SweepStatus::InvalidConfig;
+    if (m_svc.busy()) return SweepStatus::Busy;
 
     SweepConfig sane = cfg;
-    sane.maxPoints = cfg.maxPoints > SWEEP_MAX_POINTS ? SWEEP_MAX_POINTS : cfg.maxPoints;
+    if (sane.maxPoints == 0 || sane.maxPoints > SWEEP_MAX_POINTS)
+        sane.maxPoints = SWEEP_MAX_POINTS;
     const size_t n = buildFrequencyPlan(sane, m_freqs, SWEEP_MAX_POINTS);
     if (n < 2) return SweepStatus::InvalidConfig;
+    if (sweepChunkCount(n) == 0) return SweepStatus::InvalidConfig;
 
     m_cfg = sane;
     m_nPoints = n;
-    m_nextIdx = 0;
-    m_valid = 0;
+    m_nextChunk = 0;
+    m_processed = 0;
+    m_pendingId = 0;
+    m_cancelReq = false;
+    m_stopDone = false;
+    m_cal = AppCalSummary{};
     m_diag = DatasetDiag{};
     m_diag.plannedPoints = (uint16_t)n;
-    m_cancelReq = false;
     memset(&m_data1, 0, sizeof(m_data1));
     memset(&m_data2, 0, sizeof(m_data2));
+    m_data1.kind = MeasurementKind::OnePortImpedance;
+    m_data2.kind = MeasurementKind::TwoPortTransfer;
+
+    // 测量窗口开启（radio_lock invariant：此期间 RadioState 必须 Off）
+    radioLockNotifyMeasurementActive(true);
+
+    // 先取一次真实校准状态（seal 时写进 v2 头部，不杜撰）
+    if (!submitJob(LcrJobKind::ReadCalibrationStatus, 0, 0, 0)) {
+        radioLockNotifyMeasurementActive(false);
+        return SweepStatus::Error;
+    }
     m_state = SweepState::Measuring;
     return SweepStatus::Ok;
 }
 
+bool SweepEngine::submitJob(LcrJobKind kind, double a, double b, uint8_t nPts)
+{
+    LcrJob job{};
+    job.kind = kind;
+    job.fStartHz = a;
+    job.fStopHz = b;
+    job.pointCount = nPts;
+    job.frequencyHz = a;
+    if (!m_svc.submit(job)) return false;
+    m_pendingId = job.id;
+    return true;
+}
+
 void SweepEngine::cancel()
 {
-    if (m_state != SweepState::Measuring && m_state != SweepState::Sealing) return;
+    if (m_state != SweepState::Measuring && m_state != SweepState::Stopping) return;
     m_cancelReq = true;
-    m_engine.cancel();
+    m_svc.requestCancel();   // Worker 丢弃后续测量类 job；当前 job 正常完成
 }
 
 // ---------------------------------------------------------------------------
-void SweepEngine::poll(uint64_t nowUs)
+void SweepEngine::poll(uint32_t nowMs)
 {
 #ifdef LCR_DEBUG_INVARIANTS
-    if (!radioLockInvariantOk() && m_state == SweepState::Measuring) {
+    if (!radioLockInvariantOk() &&
+        (m_state == SweepState::Measuring || m_state == SweepState::Stopping)) {
         m_state = SweepState::Error;
-        m_engine.cancel();
+        m_cancelReq = false;
         return;
     }
 #endif
 
+    if (m_state == SweepState::Measuring || m_state == SweepState::Stopping) {
+        LcrEvent ev;
+        while (m_svc.takeEvent(ev)) handleEvent(ev, nowMs);
+    }
+
     if (m_state == SweepState::Measuring) {
-        if (m_cancelReq) {
-            if (m_engine.active()) {
-                m_engine.cancel();
-                m_engine.poll(nowUs);
-                return;
-            }
-            m_state = SweepState::Cancelled;
-            m_cancelReq = false;
-            return;
-        }
-
-        if (m_engine.active()) {
-            m_engine.poll(nowUs);
-            if (m_engine.resultReady()) {
-                if (m_cfg.kind == MeasurementKind::OnePortImpedance) {
-                    OnePortPoint p;
-                    if (m_engine.takeResult(p)) { storePointOk(p); m_pointInFlight = false; }
-                } else {
-                    TwoPortPoint p;
-                    if (m_engine.takeResult(p)) { storePointOk(p); m_pointInFlight = false; }
-                }
-                m_engine.poll(nowUs);          // 推过 SafeOff -> Idle（一次有界）
-            }
-            return;
-        }
-
-        // 引擎空闲：若上一点以失败收场，记录诊断（不中止整次扫频）
-        if (m_pointInFlight) {
-            storePointFail(m_freqs[m_nextIdx], m_engine.lastStatus());
-            m_pointInFlight = false;
-            ++m_nextIdx;
-        }
-
-        if (m_nextIdx >= m_nPoints) {
-            beginSeal(nowUs);
-            return;
-        }
-        MeasurementRequest req{};
-        req.kind = m_cfg.kind;
-        req.requestedHz = m_freqs[m_nextIdx];
-        req.driveVrms = m_cfg.driveVrms;
-        req.settleCycles = kSettleCycles;
-        req.captureCycles = kCaptureCycles;
-        req.minSamplesPerChannel = kMinSamples;
-        if (m_engine.start(req) == MeasurementStatus::Ok) {
-            m_pointInFlight = true;
+        if (m_pendingId != 0) return;                 // 等当前 job 的事件
+        if (m_cancelReq) { beginStop(); return; }     // 取消：不再提交新块
+        if (m_nextChunk < chunkCount()) {
+            SweepChunk c;
+            chunkAt(m_nextChunk, c);
+            const LcrJobKind k = (m_cfg.kind == MeasurementKind::OnePortImpedance)
+                                     ? LcrJobKind::SweepZChunk
+                                     : LcrJobKind::SweepWChunk;
+            submitJob(k, c.fStartHz, c.fStopHz, c.nPts);  // 失败下轮重试
         } else {
-            storePointFail(m_freqs[m_nextIdx], MeasurementStatus::InternalError);
-            ++m_nextIdx;
-            if (m_nextIdx >= m_nPoints) beginSeal(nowUs);
+            beginStop();
         }
         return;
     }
 
-    if (m_state == SweepState::Sealing) {
-        if (m_cancelReq) { m_state = SweepState::Cancelled; m_cancelReq = false; return; }
-        if (nowUs >= m_quietDeadlineUs) finishSeal(nowUs);
+    if (m_state == SweepState::Stopping) {
+        if (!m_stopDone && m_pendingId == 0)          // StopTone 提交失败的
+            submitJob(LcrJobKind::StopTone, 0, 0, 0); // 有界重试
+        else if (m_stopDone && nowMs >= m_quietDeadlineMs)
+            finishSeal(nowMs);          // StopTone 完成 + 静默到期 -> seal
         return;
     }
 }
 
 // ---------------------------------------------------------------------------
-void SweepEngine::storePointOk(const OnePortPoint& p)
+void SweepEngine::handleEvent(const LcrEvent& ev, uint32_t nowMs)
 {
-    m_pts1[m_valid] = p;
-    ++m_valid;
-    ++m_nextIdx;
-}
+    if (ev.id != m_pendingId) return;      // 过期/无关事件（如取消丢弃补发）
+    m_pendingId = 0;
 
-void SweepEngine::storePointOk(const TwoPortPoint& p)
-{
-    m_pts2[m_valid] = p;
-    ++m_valid;
-    ++m_nextIdx;
-}
+    switch (ev.kind) {
+    case LcrJobKind::ReadCalibrationStatus:
+        m_cal = ev.cal;
+        break;
 
-void SweepEngine::storePointFail(double requestedHz, MeasurementStatus st)
-{
-    if (m_diag.failedPoints < SWEEP_MAX_POINTS) {
-        m_diag.failures[m_diag.failedPoints].requestedHz = requestedHz;
-        m_diag.failures[m_diag.failedPoints].status = st;
-        ++m_diag.failedPoints;
+    case LcrJobKind::SweepZChunk:
+    case LcrJobKind::SweepWChunk: {
+        const bool z = (ev.kind == LcrJobKind::SweepZChunk);
+        for (uint8_t i = 0; i < ev.pointCount && i < 3; ++i) {
+            bool ok = false;
+            double f = 0, a = 0, b = 0;
+            if (z) {
+                ok = ev.z[i].apiStatus == 0 && isfinite(ev.z[i].fAct) &&
+                     ev.z[i].fAct > 0.0 && isfinite(ev.z[i].reOhm) &&
+                     isfinite(ev.z[i].imOhm);
+                if (ok) { f = ev.z[i].fAct; a = ev.z[i].reOhm; b = ev.z[i].imOhm; }
+                else    { f = ev.z[i].fReq; }
+            } else {
+                ok = ev.w[i].apiStatus == 0 && isfinite(ev.w[i].fAct) &&
+                     ev.w[i].fAct > 0.0 && isfinite(ev.w[i].reH) &&
+                     isfinite(ev.w[i].imH);
+                if (ok) { f = ev.w[i].fAct; a = ev.w[i].reH; b = ev.w[i].imH; }
+                else    { f = ev.w[i].fReq; }
+            }
+            if (ok) {
+                if (z && m_data1.nPoints < SWEEP_MAX_POINTS) {
+                    m_data1.points[m_data1.nPoints] = {f, a, b};
+                    ++m_data1.nPoints;
+                } else if (!z && m_data2.nPoints < SWEEP_MAX_POINTS) {
+                    m_data2.points[m_data2.nPoints] = {f, a, b};
+                    ++m_data2.nPoints;
+                }
+            } else if (m_diag.failedPoints < SWEEP_MAX_POINTS) {
+                m_diag.failures[m_diag.failedPoints].requestedHz = f;
+                m_diag.failures[m_diag.failedPoints].apiStatus =
+                    z ? ev.z[i].apiStatus : ev.w[i].apiStatus;
+                ++m_diag.failedPoints;
+            }
+            ++m_processed;
+        }
+        ++m_nextChunk;      // 当前块已完整返回（无论其中几点失败）
+        break;
+    }
+
+    case LcrJobKind::StopTone:
+        m_stopDone = true;
+        m_quietDeadlineMs = nowMs + kQuietGuardMs;
+        radioLockNotifyMeasurementActive(false);   // 测量窗口结束
+        break;
+
+    default:
+        break;
     }
 }
 
-void SweepEngine::beginSeal(uint64_t nowUs)
+void SweepEngine::beginStop()
 {
-    m_state = SweepState::Sealing;
-    m_quietDeadlineUs = nowUs + kQuietGuardUs;
+    m_state = SweepState::Stopping;
+    m_stopDone = false;
+    if (!submitJob(LcrJobKind::StopTone, 0, 0, 0)) {
+        // 队列满：下一轮 poll 重试（pendingId==0 且 state==Stopping）
+    }
 }
 
-void SweepEngine::finishSeal(uint64_t nowUs)
+// ---------------------------------------------------------------------------
+void SweepEngine::finishSeal(uint32_t nowMs)
 {
-    const uint32_t sessionId = (uint32_t)(nowUs & 0xFFFFFFFFull) ^ (++m_sessionCounter * 2654435761u);
+    m_diag.validPoints = m_cfg.kind == MeasurementKind::OnePortImpedance
+                             ? m_data1.nPoints : m_data2.nPoints;
+
+    if (m_cancelReq) {
+        m_cancelReq = false;
+        m_state = SweepState::Cancelled;       // 取消：不封存
+        return;
+    }
+
+    const uint32_t sessionId =
+        (nowMs & 0xFFFFFFFFul) ^ (++m_sessionCounter * 2654435761u);
+
     if (m_cfg.kind == MeasurementKind::OnePortImpedance) {
         OnePortDataset& d = m_data1;
-        d.kind = MeasurementKind::OnePortImpedance;
-        memcpy(d.points, m_pts1, sizeof(OnePortPoint) * m_valid);
-        d.nPoints = (uint16_t)m_valid;
         d.diag = m_diag;
-        d.diag.validPoints = (uint16_t)m_valid;
         d.sessionId = sessionId;
-        d.driveVrms = 1.05;   // calibrated nominal drive（与 ExcitationDriver 一致）
-        strncpy(d.calibrationId, "factory-none", sizeof(d.calibrationId) - 1);
-        d.csvLen = (uint32_t)formatOnePortCsv(d.points, d.nPoints, d.calibrationId,
-                                             d.driveVrms, d.csv, sizeof(d.csv));
+        formatCalStateString(m_cal.rangesValid, m_cal.openValid, m_cal.shortValid,
+                             d.calibrationState, sizeof(d.calibrationState));
+        strncpy(d.measurementBackend, "DO_NOT_TOUCH_lcr_api",
+                sizeof(d.measurementBackend) - 1);
+        d.csvLen = (uint32_t)formatOnePortCsv(d.points, d.nPoints,
+                                              d.calibrationState, d.csv,
+                                              sizeof(d.csv));
         d.crc32 = (d.csvLen > 0) ? crc32Of((const uint8_t*)d.csv, d.csvLen) : 0;
-        d.sealedUnixMs = nowUs / 1000ull;
+        d.sealedUnixMs = nowMs;
         d.sealed = d.csvLen > 0;
-        m_state = d.sealed ? SweepState::TransferReady : SweepState::Error;
+        if (!d.sealed)                       m_state = SweepState::Error;
+        else if (d.nPoints < kOnePortMinFit) m_state = SweepState::Insufficient;
+        else                                 m_state = SweepState::TransferReady;
     } else {
         TwoPortDataset& d = m_data2;
-        d.kind = MeasurementKind::TwoPortTransfer;
-        memcpy(d.points, m_pts2, sizeof(TwoPortPoint) * m_valid);
-        d.nPoints = (uint16_t)m_valid;
         d.diag = m_diag;
-        d.diag.validPoints = (uint16_t)m_valid;
         d.sessionId = sessionId;
-        d.driveVrms = 1.05;
-        strncpy(d.calibrationId, "factory-none", sizeof(d.calibrationId) - 1);
-        d.csvLen = (uint32_t)formatTwoPortCsv(d.points, d.nPoints, d.calibrationId,
-                                             d.driveVrms, d.csv, sizeof(d.csv));
+        // 双口 W 链在 DNT 中明确为 raw chain / no calib —— 如实标注
+        strncpy(d.calibrationState, "raw_w_path", sizeof(d.calibrationState) - 1);
+        strncpy(d.measurementBackend, "DO_NOT_TOUCH_lcr_api",
+                sizeof(d.measurementBackend) - 1);
+        d.csvLen = (uint32_t)formatTwoPortCsv(d.points, d.nPoints,
+                                              d.calibrationState, d.csv,
+                                              sizeof(d.csv));
         d.crc32 = (d.csvLen > 0) ? crc32Of((const uint8_t*)d.csv, d.csvLen) : 0;
-        d.sealedUnixMs = nowUs / 1000ull;
+        d.sealedUnixMs = nowMs;
         d.sealed = d.csvLen > 0;
-        m_state = d.sealed ? SweepState::TransferReady : SweepState::Error;
+        if (!d.sealed)                       m_state = SweepState::Error;
+        else if (d.nPoints < kTwoPortMinPlot) m_state = SweepState::Insufficient;
+        else                                 m_state = SweepState::TransferReady;
     }
 }

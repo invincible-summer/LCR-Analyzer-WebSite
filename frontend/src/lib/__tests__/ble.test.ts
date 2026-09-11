@@ -96,6 +96,28 @@ describe('parseMetadata / parseStatus', () => {
       parseMetadata(JSON.stringify({ protocol: 1, session_id: 1 })),
     ).toThrow(/缺少字段/)
   })
+  it('v2 元数据：无 calibration_id，含 calibration_state/measurement_backend', () => {
+    const m = parseMetadata(
+      JSON.stringify({
+        protocol: 1, firmware: '4.1.0', session_id: 7, dataset_kind: 'TWO_PORT_H',
+        schema: 'lcr-h-csv-v2', point_count: 7, byte_count: 512, crc32: 'A1B2C3D4',
+        measurement_backend: 'DO_NOT_TOUCH_lcr_api',
+        calibration_state: 'raw_w_path',
+      }),
+    )
+    expect(m.calibration_state).toBe('raw_w_path')
+    expect(m.measurement_backend).toBe('DO_NOT_TOUCH_lcr_api')
+    expect(m.calibration_id).toBeUndefined()
+    expect(() =>
+      parseMetadata(
+        JSON.stringify({
+          protocol: 1, firmware: '4.1.0', session_id: 7, dataset_kind: 'TWO_PORT_H',
+          schema: 'lcr-h-csv-v2', point_count: 7, crc32: 'A1B2C3D4',
+          // 缺 byte_count -> 拒绝
+        }),
+      ),
+    ).toThrow(/缺少字段/)
+  })
   it('Status 15 字节小端布局', () => {
     const st = parseStatus(new DataView(new Uint8Array([1, 4, 7, 0xef, 0xbe, 0xad, 0xde, 100, 0, 0, 0, 0xcc, 0x12, 0, 0]).buffer))
     expect(st.sessionId).toBe(0xdeadbeef)

@@ -34,7 +34,8 @@ Data:     6e6f0005-5f31-4c43-a001-6c63722d7631   NOTIFY
 
 ## 3. Metadata（READ，UTF-8 JSON）
 
-字段固定：
+字段固定（v2 起以 `calibration_state`/`measurement_backend` 取代 v1 杜撰的
+`calibration_id`；浏览器解析器 v1/v2 均接受，见 `frontend/src/lib/ble/protocol.ts`）：
 
 ```json
 {
@@ -42,14 +43,18 @@ Data:     6e6f0005-5f31-4c43-a001-6c63722d7631   NOTIFY
   "firmware": "4.1.0",
   "session_id": 12345678,
   "dataset_kind": "ONE_PORT_Z",
-  "schema": "lcr-z-csv-v1",
+  "schema": "lcr-z-csv-v2",
   "point_count": 121,
   "byte_count": 4812,
   "crc32": "A1B2C3D4",
-  "calibration_id": "factory-none"
+  "measurement_backend": "DO_NOT_TOUCH_lcr_api",
+  "calibration_state": "cal:3/10,open:ok,short:--"
 }
 ```
 
+- `calibration_state` 为固件用 `lcr_api_cal_status()` 得到的真实校准摘要
+  （不杜撰唯一校准 ID）；双端口 W 链在测量核心中为 raw/no-calib，
+  固定为 `raw_w_path`。
 - `dataset_kind` ∈ {`ONE_PORT_Z`, `TWO_PORT_H`}。
 - `crc32` 为 Data 特征将要传输的**整份 CSV 字节流**的 CRC-32/ISO-HDLC
   （zlib 兼容；8 位十六进制大写）。

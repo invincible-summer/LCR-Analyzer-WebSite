@@ -109,7 +109,7 @@ bool RadioManager::startBleForSealedDataset(const OnePortDataset& d)
     char meta[METADATA_JSON_MAX];
     const size_t ml = formatMetadataJson(MeasurementKind::OnePortImpedance,
                                          d.sessionId, d.nPoints, d.csvLen,
-                                         d.crc32, d.calibrationId, meta, sizeof(meta));
+                                         d.crc32, d.calibrationState, meta, sizeof(meta));
     if (ml == 0) return false;
     return bleInitCommon(meta, d.csvLen, d.crc32, d.sessionId,
                          (const uint8_t*)d.csv, d.csvLen,
@@ -122,7 +122,7 @@ bool RadioManager::startBleForSealedDataset(const TwoPortDataset& d)
     char meta[METADATA_JSON_MAX];
     const size_t ml = formatMetadataJson(MeasurementKind::TwoPortTransfer,
                                          d.sessionId, d.nPoints, d.csvLen,
-                                         d.crc32, d.calibrationId, meta, sizeof(meta));
+                                         d.crc32, d.calibrationState, meta, sizeof(meta));
     if (ml == 0) return false;
     return bleInitCommon(meta, d.csvLen, d.crc32, d.sessionId,
                          (const uint8_t*)d.csv, d.csvLen,

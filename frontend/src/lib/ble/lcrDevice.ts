@@ -84,8 +84,13 @@ async function readMetadata(server: BluetoothRemoteGATTServer): Promise<DatasetM
  * 接收一个封存数据集：读 metadata → 订阅 data/status → START →
  * seq 重组 → byte_count/CRC32 校验 → CSV 文本。
  * 中途断线 / seq gap / CRC 错误：抛错（调用方可重连后 RESTART）。
+ * onProgress：assembler 每收到新 payload 后回调（received/total 字节），
+ * 供 store 把 progress 从 0 单调推进到 1（plan.md §14.3）。
  */
-export async function receiveDataset(session: LcrDeviceSession): Promise<DeviceDataset> {
+export async function receiveDataset(
+  session: LcrDeviceSession,
+  onProgress?: (received: number, total: number) => void,
+): Promise<DeviceDataset> {
   const svc = await session.server.getPrimaryService(LCR_SERVICE_UUID)
   const meta = await readMetadata(session.server)
 
@@ -107,7 +112,10 @@ export async function receiveDataset(session: LcrDeviceSession): Promise<DeviceD
     if (!ch.value) return
     try {
       const frame = decodeFrame(ch.value.buffer)
-      if (frame) assembler.push(frame)
+      if (frame) {
+        assembler.push(frame)
+        onProgress?.(assembler.bytesReceived, meta.byte_count)
+      }
     } catch (err) {
       failures.push(err)
     }

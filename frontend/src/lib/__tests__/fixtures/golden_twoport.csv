@@ -1,0 +1,14 @@
+# lcr-dataset=two-port-h
+# schema=lcr-h-csv-v2
+# protocol=1
+# firmware=4.1.0
+# measurement_backend=DO_NOT_TOUCH_lcr_api
+# calibration_state=raw_w_path
+f,re_h,im_h
+100,0.996067,-0.0625867
+193.079,0.985495,-0.119559
+372.759,0.947995,-0.222038
+1389.5,0.567453,-0.495429
+2682.7,0.260322,-0.43881
+5179.47,0.0862701,-0.280763
+10000,0.024703,-0.155219

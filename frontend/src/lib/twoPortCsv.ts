@@ -79,8 +79,11 @@ export function parseHCsv(text: string): TwoPortParseResult {
     points.sort((a, b) => a.f - b.f)
   }
 
-  if (headers['schema'] && headers['schema'] !== 'lcr-h-csv-v1')
-    errors.unshift(`schema 不受支持：${headers['schema']}（本站支持 lcr-h-csv-v1）`)
+  // 兼容 v1（历史）与 v2（4.1.0 起：measurement_backend/calibration_state 元数据，
+  // 数据列仍为 3 列 f,re_h,im_h，派生量推导不变）——plan.md §9.4
+  const okSchemas = ['lcr-h-csv-v1', 'lcr-h-csv-v2']
+  if (headers['schema'] && !okSchemas.includes(headers['schema']))
+    errors.unshift(`schema 不受支持：${headers['schema']}（本站支持 ${okSchemas.join(' / ')}）`)
 
   return { points, warnings, errors, headers }
 }

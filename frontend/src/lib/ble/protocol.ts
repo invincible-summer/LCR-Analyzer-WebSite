@@ -31,7 +31,13 @@ export enum BleCommand {
 
 export type DatasetKind = 'ONE_PORT_Z' | 'TWO_PORT_H'
 
-/** metadata 特征的 JSON 形状（字段固定，见 protocol/BLE_PROTOCOL_V1.md） */
+/**
+ * metadata 特征的 JSON 形状（见 protocol/BLE_PROTOCOL_V1.md / CSV_SCHEMA_V2.md）。
+ * v1（历史）：含 calibration_id/drive_vrms 语义（固件曾杜撰 factory-none）。
+ * v2（4.1.0 起）：calibration_id 移除，改为诚实的 calibration_state
+ * （lcr_api_cal_status 摘要；双端口为 raw_w_path）+ measurement_backend。
+ * v1 字段在 v2 元数据中不存在，因此设为可选。
+ */
 export interface DatasetMetadata {
   protocol: number
   firmware: string
@@ -41,7 +47,12 @@ export interface DatasetMetadata {
   point_count: number
   byte_count: number
   crc32: string
-  calibration_id: string
+  /** v1 历史字段；v2 起不再发送（固件不再杜撰校准 ID） */
+  calibration_id?: string
+  /** v2：DNT 校准状态摘要（cal:3/10,open:ok,short:-- 或 raw_w_path） */
+  calibration_state?: string
+  /** v2：测量后端标识（DO_NOT_TOUCH_lcr_api） */
+  measurement_backend?: string
 }
 
 /** Status 特征负载（15 字节）解析结果 */
@@ -80,9 +91,10 @@ export function parseMetadata(text: string): DatasetMetadata {
   } catch {
     throw new ProtocolError('Metadata 不是合法 JSON')
   }
+  // v1/v2 共同必需字段（calibration_id 仅 v1 存在，v2 用 calibration_state）
   const need = [
     'protocol', 'firmware', 'session_id', 'dataset_kind', 'schema',
-    'point_count', 'byte_count', 'crc32', 'calibration_id',
+    'point_count', 'byte_count', 'crc32',
   ] as const
   for (const k of need) if (!(k in raw)) throw new ProtocolError(`Metadata 缺少字段 ${k}`)
   const kind = raw['dataset_kind']

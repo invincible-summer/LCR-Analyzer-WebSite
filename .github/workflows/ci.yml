@@ -108,10 +108,10 @@ jobs:
         run: bash ino/tools/static_check.sh
       - name: ESP32-S3 production compile
         run: bash ino/tools/build_check.sh
-      - name: Host unit tests + golden CSV fixture must match rebuild
+      - name: Host unit tests + golden CSV fixtures must match rebuild
         run: |
           bash ino/tools/run_tests.sh
-          git diff --exit-code -- frontend/src/lib/__tests__/fixtures/golden_oneport.csv
+          git diff --exit-code -- frontend/src/lib/__tests__/fixtures/golden_oneport.csv frontend/src/lib/__tests__/fixtures/golden_twoport.csv
 
   browser:
     name: browser smoke

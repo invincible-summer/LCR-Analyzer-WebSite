@@ -160,7 +160,7 @@ const hNyqOpt = computed(() => {
             <span class="badge">
               设备 · fw {{ deviceH.headers['firmware'] || device.dataset?.metadata.firmware }}
               · {{ deviceH.points.length }} 点
-              · cal {{ deviceH.headers['calibration_id'] || device.dataset?.metadata.calibration_id }}
+              · cal {{ deviceH.headers['calibration_state'] || deviceH.headers['calibration_id'] || device.dataset?.metadata.calibration_state || device.dataset?.metadata.calibration_id || 'raw' }}
             </span>
             <span v-for="w in deviceH.warnings" :key="w" class="qpill warn">{{ w }}</span>
           </div>

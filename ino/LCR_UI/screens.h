@@ -2,14 +2,16 @@
 // screens.h —— 界面框架：Screen 基类 / 屏幕栈 / 三个产品界面 + 隐藏诊断页
 // ----------------------------------------------------------------------------
 // * Screen：一个功能界面。onEnter 全量重绘；onEvent 处理输入；
-//   onTick 在主循环空闲时被周期调用（后台任务、状态刷新）。
-// * ScreenManager：屏幕栈。push 进子界面、pop 返回上层（BACK 键的默认语义）。
+//   onTick 在主循环空闲时被周期调用（推进编排状态机、消费测量事件、
+//   刷新进度）。
+// * v4.1.0 起界面层不再知道任何物理测量细节（ADC/sine fit/校准都已删除）；
+//   它只与 ILcrService（lcr_api.h）和 SweepEngine（编排）交互。
 //
-// v4.1 顶层只有三个用户模式（plan.md §5）：
+// 顶层三个用户模式（plan.md §0/§2.4）：
 //   1. ComponentScreen  单元件 R/C/L 自动识别与测量（不启动 BLE）
-//   2. OnePortScreen    单端口阻抗扫频 -> 采样完成后 BLE 上传网站拟合
-//   3. TwoPortScreen    双端口扫频（H=Vout/Vin）-> BLE 上传网站显示曲线
-//   （SigGenScreen 移入隐藏 diagnostics 页，不占顶层入口）
+//   2. OnePortScreen    单端口扫频 -> seal -> BLE 上传网站拟合
+//   3. TwoPortScreen    双端口扫频（H=Vout/Vin）-> BLE 上传网站画曲线
+//   （SigGenScreen 诊断页，不占顶层入口）
 // ============================================================================
 
 #pragma once
@@ -17,7 +19,7 @@
 #include "component_meter.h"
 #include "display.h"
 #include "input.h"
-#include "measurement_engine.h"
+#include "lcr_api.h"
 #include "plot.h"
 #include "sweep_engine.h"
 
@@ -80,6 +82,8 @@ private:
 
 // ----------------------------------------------------------------------------
 // 模式 1：单元件 R/C/L 自动识别与测量（不启动 BLE）
+// 5 个几何频点，每点一个 MeasureAndCalcZ job；结果交给
+// summarizeComponent 做 apiType 一致性判型 + 中位数聚合。
 // ----------------------------------------------------------------------------
 class ComponentScreen : public Screen {
 public:
@@ -90,9 +94,12 @@ public:
 private:
     enum class Phase { Config, Run, Result };
     bool startMeasure();
+    bool submitNext();
+    void pumpEvents();
+    void finishRun();
     void drawConfig();
     void drawRun();
-    void updateRunProgress();
+    void updateRunProgress(bool stopping);
     void drawResult();
 
     DigitEditor m_f0;                         // 频段起点（默认 100 Hz）
@@ -102,8 +109,11 @@ private:
     double m_plan[5];
     uint8_t m_nPlan = 0;
     uint8_t m_nextIdx = 0;
-    OnePortPoint m_pts[5];
+    uint32_t m_pendingId = 0;                 // 等待中的 job（0=无）
+    AppZPoint m_z[5];
+    AppCalcResult m_calc[5];
     uint8_t m_nPts = 0;
+    bool m_cancelReq = false;
     ComponentEstimate m_est{};
     uint32_t m_errUntilMs = 0;
 };
@@ -122,7 +132,7 @@ private:
     bool startSweep();
     void drawConfig();
     void drawRun();
-    void updateRun();
+    void updateRun(bool stopping);
     void drawReady();
     void drawBle();
 
@@ -146,7 +156,7 @@ private:
     bool startSweep();
     void drawConfig();
     void drawRun();
-    void updateRun();
+    void updateRun(bool stopping);
     void drawReady();
     void drawBle();
     void drawPreview();
@@ -159,7 +169,7 @@ private:
 };
 
 // ----------------------------------------------------------------------------
-// 隐藏诊断页：信号发生器（I2S 激励直接输出；调试用途，不进顶层菜单）
+// 隐藏诊断页：信号发生器（经 lcr_api wrapper 调 DNT set_freq；不进顶层菜单）
 // ----------------------------------------------------------------------------
 class SigGenScreen : public Screen {
 public:
@@ -173,9 +183,11 @@ private:
     void drawStatic();
     void drawFreq();
     void drawStatus();
+    void pumpEvents();
 
     DigitEditor m_freq;                       // 频率 5 位（10~10000 Hz）
     bool m_running = false;
+    bool m_pending = false;                   // 有 SetTone/StopTone 事件未回
     double m_actualHz = 0;
     uint32_t m_errUntilMs = 0;
 };
@@ -191,5 +203,4 @@ extern TwoPortScreen screenTwoPort;
 extern SigGenScreen screenSigGen;
 
 // 引擎装配（LCR_UI.ino 中定义；screen 只通过引擎/射频管理器工作）
-extern MeasurementEngine engine;
 extern SweepEngine sweep;

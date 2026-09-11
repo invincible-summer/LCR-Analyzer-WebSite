@@ -73,7 +73,10 @@ export const useDeviceStore = defineStore('device', {
         this.phase = 'ready'
 
         this.phase = 'receiving'
-        const ds = await receiveDataset(session)
+        const ds = await receiveDataset(session, (received, total) => {
+          // 字节级进度（0..1，单调）；total<=0 时不更新避免除零
+          if (total > 0) this.progress = Math.min(1, received / total)
+        })
 
         this.phase = 'validating'
         // 字节流与 CRC 已在 receiveDataset 内校验；此处只留下数据集

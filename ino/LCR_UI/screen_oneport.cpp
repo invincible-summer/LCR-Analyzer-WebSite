@@ -1,11 +1,12 @@
 // ============================================================================
 // screen_oneport.cpp —— 模式 2：单端口扫频 -> seal -> BLE 上传网站拟合
 // ----------------------------------------------------------------------------
-// 硬约束（plan.md §5.2/§6.1）：
-//   * sweep 开始前若 BLE 开启：disconnect -> deinit -> Off 确认后才启动采集；
-//   * 测量窗口内射频静默（SweepEngine 内部 invariant）；
-//   * 全部频点结束 + dataset seal 后，用户按键才 startBleForSealedDataset；
-//   * 上传内容是网站拟合所需的 f,re,im CSV（actualHz），不是原始波形。
+// 硬约束（plan.md §7/§13）：
+//   * sweep 开始前若 BLE 开启：disconnect -> deinit -> Off 确认后才启动；
+//   * 测量窗口（含 chunk 之间）射频完全静默；
+//   * 全部 chunk 完成 + StopTone 完成 + seal 后，用户按键才开 BLE；
+//   * 上传内容是网站拟合所需的 f,re,im CSV（f_act），不是原始波形；
+//   * 有效点 <4 不进入 BLE（DATA INSUFFICIENT，允许重新测量）。
 // ============================================================================
 
 #include "screens.h"
@@ -19,7 +20,7 @@ OnePortScreen screenOnePort;
 namespace {
 constexpr int kCfgX = 8;
 constexpr int kCfgY0 = 30, kCfgDY = 30;
-}  // namespace
+}
 
 // ---------------------------------------------------------------------------
 void OnePortScreen::onEnter()
@@ -71,17 +72,15 @@ bool OnePortScreen::startSweep()
     // 强 invariant：已连接 BLE 时开始新测量，先 disconnect/deinit 再采集
     if (radio.state() != RadioState::Off) {
         radio.stopBle();
-        if (radio.state() != RadioState::Off) return false;   // 确认 Off 才继续
+        if (radio.state() != RadioState::Off) return false;
     }
 
     SweepConfig cfg{};
     cfg.kind = MeasurementKind::OnePortImpedance;
-    cfg.driveVrms = 0;                 // 意向值（硬件为固定幅度）
     cfg.fStartHz = (double)f0;
     cfg.fStopHz = (double)f1;
     cfg.pointsPerDecade = (uint16_t)m_ppd.value();
     cfg.maxPoints = SWEEP_MAX_POINTS;
-    cfg.logSpacing = true;
     if (sweep.start(cfg) != SweepStatus::Ok) {
         m_errUntilMs = millis() + 2000;
         drawConfig();
@@ -103,12 +102,12 @@ void OnePortScreen::drawRun()
     tft.drawString("pts:", 8, 54);
     tft.drawString("err:", 8, 68);
     ui::progressBar(8, 88, tft.width() - 16, 10, 0.0, ui::C_ACCENT);
-    ui::bottomHint("BACK:ABORT");
+    ui::bottomHint("BACK:STOP AFTER BLOCK");
 }
 
-void OnePortScreen::updateRun()
+void OnePortScreen::updateRun(bool stopping)
 {
-    char buf[24];
+    char buf[28];
     tft.setTextFont(1);
     tft.setTextColor(ui::C_FG, ui::C_BG);
     snprintf(buf, sizeof(buf), "%.6g", sweep.currentFreqHz());
@@ -118,6 +117,11 @@ void OnePortScreen::updateRun()
     tft.drawString(buf, 34, 54);
     snprintf(buf, sizeof(buf), "%d", (int)sweep.errorCount());
     tft.drawString(buf, 40, 68);
+    if (stopping) {
+        tft.fillRect(8, 22, tft.width() - 16, 12, ui::C_BG);
+        tft.setTextColor(ui::C_CH2, ui::C_BG);
+        tft.drawString("STOPPING AFTER BLOCK", 8, 22);
+    }
     ui::progressBar(8, 88, tft.width() - 16, 10,
                     sweep.totalPoints()
                         ? (double)sweep.completedPoints() / sweep.totalPoints()
@@ -128,7 +132,7 @@ void OnePortScreen::updateRun()
 void OnePortScreen::drawReady()
 {
     const OnePortDataset* d = sweep.sealedOnePortDataset();
-    char buf[28];
+    char buf[30];
     tft.fillScreen(ui::C_BG);
     ui::topBar("SWEEP  SEALED", false);
     tft.setTextFont(1);
@@ -136,15 +140,15 @@ void OnePortScreen::drawReady()
     if (d) {
         snprintf(buf, sizeof(buf), "points %d  err %d", d->nPoints,
                  d->diag.failedPoints);
-        tft.drawString(buf, 8, 26);
+        tft.drawString(buf, 8, 24);
         snprintf(buf, sizeof(buf), "bytes %lu  CRC %08lX",
                  (unsigned long)d->csvLen, (unsigned long)d->crc32);
-        tft.drawString(buf, 8, 38);
+        tft.drawString(buf, 8, 36);
+        tft.drawString(d->calibrationState, 8, 48);
     } else {
-        tft.drawString("NO DATASET", 8, 26);
+        tft.drawString("NO DATASET", 8, 24);
     }
-    tft.setTextColor(ui::C_DIM, ui::C_BG);
-    tft.drawString("CSV: f,re,im (actualHz)", 8, 56);
+    tft.drawString("CSV: f,re,im (f_act)", 8, 62);
     ui::bottomHint("OK:BLE UPLOAD  BACK:CONFIG");
 }
 
@@ -173,12 +177,20 @@ void OnePortScreen::drawBle()
 void OnePortScreen::onTick()
 {
     if (m_phase == Phase::Run) {
-        sweep.poll(micros());
-        updateRun();
+        sweep.poll(millis());       // 内部消费测量事件并推进 chunk/StopTone
         const SweepState st = sweep.state();
+        updateRun(st == SweepState::Stopping);
         if (st == SweepState::TransferReady) {
             m_phase = Phase::Ready;
             drawReady();
+        } else if (st == SweepState::Insufficient) {
+            // 有效点 <4：不生成可供网站拟合的数据集（plan.md §7.4）
+            m_errUntilMs = millis() + 4000;
+            m_phase = Phase::Config;
+            drawConfig();
+            tft.setTextFont(1);
+            tft.setTextColor(ui::C_ERR, ui::C_BG);
+            tft.drawCentreString("DATA INSUFFICIENT (<4 PTS)", tft.width() / 2, 108, 1);
         } else if (st == SweepState::Cancelled || st == SweepState::Error) {
             m_phase = Phase::Config;
             drawConfig();
@@ -187,7 +199,7 @@ void OnePortScreen::onTick()
     }
     if (m_phase == Phase::Ble) {
         radio.poll();
-        // 轻量刷新（状态/进度行变化才重绘整屏之外的区域）
+        // 轻量刷新（200ms 节流）
         static uint32_t lastDraw = 0;
         if (millis() - lastDraw > 200) {
             lastDraw = millis();
@@ -217,7 +229,7 @@ void OnePortScreen::onTick()
 void OnePortScreen::onEvent(InputEvent e)
 {
     if (m_phase == Phase::Run) {
-        if (e == InputEvent::Back) sweep.cancel();
+        if (e == InputEvent::Back) sweep.cancel();   // 当前块完成后停止
         return;
     }
     if (m_phase == Phase::Ready) {

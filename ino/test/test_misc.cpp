@@ -1,78 +1,76 @@
 // ============================================================================
-// test_misc.cpp —— sine_plan（精确有理频率）+ calibration（复校准查表）
+// test_misc.cpp —— BLE 帧/seq/status + radio_lock 互斥 + 状态文本
+// （plan.md §17.1 第 17 项 + Gate G 的 host 侧运行时验证）
 // ============================================================================
 #include "check.h"
-#include "calibration.h"
-#include "sine_plan.h"
 
-#include <cstring>
-#include <math.h>
+#include "ble_protocol.h"
+#include "measurement_types.h"
+#include "radio_lock.h"
+
+#include <string.h>
 
 int main()
 {
-    // ---- 1. sine_plan：精确性与约束 ------------------------------------------
+    radioLockReset();
+
+    // ---- 17. BLE 帧 seq（LE）+ 编解码往返 --------------------------------
     {
-        const double freqs[] = {10, 50, 100, 123, 1000, 1234, 2000, 5000, 9999};
-        for (double f : freqs) {
-            const SinePlan p = planSineExact(f);
-            CHECK(p.ok);
-            // 误差上界：0.5%（远低于引擎 1% 频率门限）
-            CHECK(fabs(p.actualHz - f) / f <= 0.005);
-            // 有理重建：actualHz == Fs·K/L（浮点重算一致）
-            CHECK_NEAR(p.actualHz,
-                       (double)p.sampleRateHz * p.cyclesK / p.tableLenL, 1e-6);
-            // DAC 重建质量：每周期样本数 ≥ 8
-            CHECK((double)p.tableLenL / p.cyclesK >= 8.0);
-            CHECK(p.tableLenL <= 4096);
-            // Fs 必须属于精确分频档（128·Fs 整除 160 MHz）
-            bool inSet = false;
-            for (size_t i = 0; i < exactFsSetSize(); ++i)
-                if (exactFsAt(i) == p.sampleRateHz) { inSet = true; break; }
-            CHECK(inSet);
-            CHECK(fmod(160000000.0 / (128.0 * p.sampleRateHz), 1.0) == 0.0);
-        }
-        // 非法输入
-        CHECK(!planSineExact(0.0).ok);
-        CHECK(!planSineExact(-5.0).ok);
+        uint8_t buf[64];
+        const uint8_t payload[4] = {1, 2, 3, 4};
+        const size_t n = lcrBleEncodeFrame(buf, sizeof(buf),
+                                           LCR_BLE_PROTOCOL_VERSION,
+                                           kLcrBleKindTwoPort, 0x0034,
+                                           payload, 4);
+        CHECK(n == 12);
+        CHECK(buf[0] == 'L' && buf[1] == 'C');
+        uint8_t proto, kind; uint16_t seq, plen;
+        const uint8_t* pl = nullptr;
+        CHECK(lcrBleDecodeFrame(buf, n, proto, kind, seq, plen, pl));
+        CHECK(proto == 1);
+        CHECK(kind == kLcrBleKindTwoPort);
+        CHECK(seq == 0x0034);                       // seq LE 往返
+        CHECK(plen == 4);
+        CHECK(memcmp(pl, payload, 4) == 0);
+        // seq 高字节在 buf[5]（>255 的 seq）
+        lcrBleEncodeFrame(buf, sizeof(buf), 1, 0, 1000, payload, 4);
+        CHECK(buf[4] == 0xE8 && buf[5] == 0x03);
+        // 非法帧
+        CHECK(!lcrBleDecodeFrame(buf, 5, proto, kind, seq, plen, pl));
+        buf[0] = 'X';
+        CHECK(!lcrBleDecodeFrame(buf, 12, proto, kind, seq, plen, pl));
     }
 
-    // ---- 2. calibration：恒等/插值/带外/畸形表 ---------------------------------
+    // ---- Status 负载（15B：state/err/session/sent/total）-------------------
     {
-        const CalibrationProfile& fac = factoryCalibration();
-        ComplexCorrection c;
-        CHECK(fac.isIdentity());
-        CHECK(fac.voltagePath(1234.0, c) == CalPathStatus::Ok);
-        CHECK_NEAR(c.gain, 1.0, 1e-12);
-        CHECK_NEAR(c.phaseRad, 0.0, 1e-12);
-        CHECK(strcmp(fac.id, "factory-none") == 0);
-
-        // 两节点表：log-f 中点插值
-        CalPathTable t{};
-        t.n = 2;
-        t.f[0] = 100; t.gain[0] = 1.0; t.phaseRad[0] = 0.0;
-        t.f[1] = 10000; t.gain[1] = 2.0; t.phaseRad[1] = 0.1;
-        CHECK(pathLookup(t, 100.0, c) == CalPathStatus::Ok);
-        CHECK_NEAR(c.gain, 1.0, 1e-12);
-        CHECK(pathLookup(t, 10000.0, c) == CalPathStatus::Ok);
-        CHECK_NEAR(c.gain, 2.0, 1e-12);
-        CHECK(pathLookup(t, 1000.0, c) == CalPathStatus::Ok);    // log 中点
-        CHECK_NEAR(c.gain, 1.5, 1e-9);
-        CHECK_NEAR(c.phaseRad, 0.05, 1e-9);
-        // 带外拒绝（不无提示外推）
-        CHECK(pathLookup(t, 99.0, c) == CalPathStatus::OutOfRange);
-        CHECK(pathLookup(t, 10001.0, c) == CalPathStatus::OutOfRange);
-        CHECK(pathLookup(t, 0.0, c) == CalPathStatus::OutOfRange);
-
-        // 频率非升序 → MalformedTable
-        CalPathTable bad{};
-        bad.n = 2;
-        bad.f[0] = 1000; bad.f[1] = 100;
-        CHECK(pathLookup(bad, 500.0, c) == CalPathStatus::MalformedTable);
-        // 单点表 → MalformedTable（无法插值）
-        CalPathTable one{};
-        one.n = 1; one.f[0] = 1000;
-        CHECK(pathLookup(one, 1000.0, c) == CalPathStatus::MalformedTable);
+        uint8_t st[kLcrBleStatusLen];
+        CHECK(lcrBleEncodeStatus(st, sizeof(st), 4, 0, 0x11223344, 100, 512)
+              == kLcrBleStatusLen);
+        CHECK(st[1] == 4);
+        CHECK(st[3] == 0x44 && st[4] == 0x33 && st[5] == 0x22 && st[6] == 0x11);
+        uint32_t sent = st[7] | (st[8] << 8) | (st[9] << 16) | ((uint32_t)st[10] << 24);
+        CHECK(sent == 100);
     }
 
+    // ---- radio_lock：测量与射频互斥（Gate G 运行时半边）--------------------
+    {
+        CHECK(radioLockInvariantOk());
+        radioLockNotifyMeasurementActive(true);
+        CHECK(radioLockInvariantOk());              // 测量中射频仍 Off：成立
+        radioLockNotifyRadioActive(true);
+        CHECK(!radioLockInvariantOk());             // 测量+射频同时活动：违反
+        radioLockNotifyMeasurementActive(false);    // seal 完成
+        CHECK(radioLockInvariantOk());              // 射频可开
+        radioLockNotifyRadioActive(false);
+        CHECK(radioLockInvariantOk());
+        radioLockReset();
+        CHECK(radioLockInvariantOk());
+    }
+
+    // ---- 状态文本非空 -------------------------------------------------------
+    CHECK(strlen(sweepStateText(SweepState::TransferReady)) > 0);
+    CHECK(strcmp(sweepStateText(SweepState::Insufficient), "DATA INSUFFICIENT") == 0);
+    CHECK(strcmp(measurementKindText(MeasurementKind::OnePortImpedance),
+                 "ONE_PORT_Z") == 0);
     return testSummary("test_misc");
 }
