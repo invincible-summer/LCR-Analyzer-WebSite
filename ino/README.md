@@ -62,10 +62,10 @@ LCR_UI/
   radio_lock.*          「测量窗口内射频静默」invariant
   input/display/screens/plot + screen_*.cpp   UI 框架与界面
   Attention/ATTENTION.md  硬件约束警示（与 AGENTS.md 同源）
-test/                   host 单测（mock LcrService）+ golden fixture 生成
+test/                   host 单测（mock LcrService）+ golden fixture + rollover
 tools/build_check.sh    arduino-cli ESP32-S3 编译门禁（FQBN/TFT 注入）
 tools/run_tests.sh      host 单测 + golden CSV（oneport + twoport）生成
-tools/static_check.sh   Gate A–H 静态门禁（DNT 边界/硬件假设/GPIO/版本）
+tools/static_check.sh   Gate A–J（DNT/硬件/GPIO/TFT host/Worker 契约）
 tools/dnt_manifest.txt  DO_NOT_TOUCH 文件 SHA-256 清单（Gate A）
 tools/bt_bridge.py      （Deprecated）旧 Classic BT→HTTP 桥，正常路径不使用
 ```
@@ -73,18 +73,40 @@ tools/bt_bridge.py      （Deprecated）旧 Classic BT→HTTP 桥，正常路径
 ## 构建与烧录
 
 ```sh
-bash ino/tools/build_check.sh     # CI 式编译（不烧录）
-bash ino/tools/static_check.sh    # Gate A–H 静态门禁
-bash ino/tools/run_tests.sh       # host 单测（编排/格式化/协议）
+arduino-cli core install esp32:esp32@3.3.11
+arduino-cli lib install TFT_eSPI@2.5.43
+bash ino/tools/static_check.sh
+bash ino/tools/build_check.sh
+bash ino/tools/run_tests.sh
 ```
 
 - FQBN：`esp32:esp32:esp32s3:PSRAM=opi,FlashSize=16M,CDCOnBoot=default,
   PartitionScheme=app3M_fat9M_16MB`（脚本内固定）。
 - **USB CDC On Boot 必须 Disabled**：本板 Micro USB 经 CH340X 隔离接
-  GPIO43/44；开启 CDC 会把 Serial 引到 GPIO19/20 导致串口无输出。
-- TFT_eSPI 引脚经编译期 `-D` 注入（SCK=4 MOSI=5 CS=6 DC=7 RST=21，
-  10 MHz；与 board_profile.cpp 一致）。
+  GPIO43/44；开启 CDC 会把 Serial 引到 GPIO19/20，板载 Micro USB 收不到该 CDC。
+- **TFT_eSPI 2.5.43 在 ESP32-S3 上必须定义 `USE_FSPI_PORT`**。该发布版的
+  S3 默认分支把 `SPI_PORT` 设为 Arduino 的 `FSPI`，而 Arduino-ESP32 3.3.11
+  在 S3 上把 `FSPI` 定义为逻辑 bus index 0；TFT_eSPI 的 S3 direct-register
+  路径需要外设号 SPI2=2。默认组合可在 `tft.init()` 触发
+  `StoreProhibited / EXCVADDR=0x00000010`。`build_check.sh` 显式注入
+  `-DUSE_FSPI_PORT`，TFT_eSPI 2.5.43 对应路径会选择 `SPI_PORT=2`；
+  `display.cpp` 再做 compile-time `SPI_PORT==2` 门禁。不要删除这一约束。
+- TFT 引脚经编译期 `-D` 注入：SCK=4、MOSI=5、CS=6、DC=7、RST=21、MISO 未用。
+  `static_check.sh` 强制这些值与 `board_profile.cpp` 一致。
+- ST7735S v1.3 4-line serial write timing 要求 `TSCYCW >= 66 ns`，即理论
+  SCL 上限约 15.15 MHz；产品固定 **10 MHz**，编译和静态门禁均拒绝更高值。
 - 烧录速率 115200；一键下载电路兼容 Arduino 默认 RTS/DTR 时序。
+
+烧录修复版后，串口在 `tft.init()` 前应首先看到类似：
+
+```text
+LCR-UI v4.1.0 booting (BLE protocol 1, z-schema v2, h-schema v2)
+TFT init: TFT_eSPI 2.5.43, SPI_PORT=2, SCLK=4 MOSI=5 CS=6 DC=7 RST=21 @ 10000000 Hz
+```
+
+如果第二行中的 `SPI_PORT` 不是 2，当前受控构建本应在编译阶段失败；如果第二行出现后
+仍发生 panic，则必须保存新的 ELF + backtrace 重新解码，不能继续把旧的 FSPI=0
+根因套用到新故障。
 
 ## 关键设计规则（违反即 bug）
 
@@ -99,12 +121,18 @@ bash ino/tools/run_tests.sh       # host 单测（编排/格式化/协议）
 4. **取消有界且诚实**：UI 显示 STOPPING AFTER BLOCK；当前块完成 →
    StopTone 事件 → 才解除 measurement lock / 返回。
 5. **actual f 全链路**：CSV `f` 用 DNT `f_act`（不用 requested）；
-   失败点不进 CSV、不伪造 0。
+   失败点不进 CSV、不伪造 0；DNT 未写出参的失败路径也不得读取局部对象。
 6. **无二次校准**：measure 链已校准，`lcr_api_calc(..., false)`；
    双端口如实标注 `raw_w_path`，不复用单端口校准。
 7. **GPIO 集中**：UI 引脚只在 `board_profile.cpp`（Gate F 检查不与
    DNT 保留集 {1,2,8–18} / strap / PSRAM 冲突）；测量 GPIO 全在 DNT。
-8. **队列有界**：job/event 队列 4/4，测量期间无 heap 分配。
+8. **队列有界且 completion 可靠**：job/event 队列 4/4；job submit 对 UI
+   非阻塞。completion event 是状态机控制面，不能静默丢弃；队列满时只能让专用
+   Worker 等待 UI 消费，不能让 `m_pendingId` 永久悬空。
+9. **跨 task 状态不是 volatile 同步**：ready/busy/cancel 等使用 C++ atomic；
+   FreeRTOS queue 负责 job/event 对象跨 task 传递。
+10. **时间是 uptime**：`millis()` 为 `uint32_t` 回绕计数，不是 Unix epoch；
+    deadline 比较必须使用回绕安全差值，内部 seal 字段名为 `sealedUptimeMs`。
 
 ## 数据流（模式 2/3）
 
@@ -120,4 +148,5 @@ UI 配置 → SweepEngine：网格 → 2/3 点块 job
 
 Schema/协议契约：`protocol/CSV_SCHEMA_V2.md`（v1 兼容）、
 `protocol/BLE_PROTOCOL_V1.md`。硬件映射与实板验收清单：
-`docs/HARDWARE_MAPPING.md`（TFT 新映射待实物 continuity 确认）。
+`docs/HARDWARE_MAPPING.md`（TFT GPIO4/5/6/7/21 映射仍需实物 continuity；
+控制器数据手册不能替代具体模组的 offset/invert/color 实测）。
