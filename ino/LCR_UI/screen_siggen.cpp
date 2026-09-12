@@ -1,15 +1,14 @@
 // ============================================================================
-// screen_siggen.cpp —— 隐藏诊断页：信号发生器（经 lcr_api wrapper 调 DNT）
+// screen_siggen.cpp —— Signal Generator：诊断正弦输出（经 lcr_api wrapper 调 DNT）
 // ----------------------------------------------------------------------------
-// v4.1.0 重构：旧激励链已删除。本页只向测量服务提交
-// SetTone / StopTone job（Worker 内 = lcr_api_set_freq(f) / (0)），
-// LCD_CAM+电阻网络 DAC 由 DNT 驱动。离开页面必停激励。
+// 本页只向测量服务提交 SetTone / StopTone job（Worker 内 =
+// lcr_api_set_freq(f) / (0)），LCD_CAM+电阻网络 DAC 由 DNT 驱动。主菜单可见，
+// 离开页面必停激励。
 //
 // 运行时约束：UI 不得同步等待硬件 completion。Back 只置退出请求；若
 // SetTone 正在执行，先等其 completion，再异步提交 StopTone。只有收到
 // 与当前 pending job 的 id+kind 都匹配的 StopTone completion 后，才解除
 // radio lock 并退出页面。任何超时都不得把“未确认停机”伪装成已停机。
-// 测量业务不经过本页（仅诊断用途）。
 // ============================================================================
 
 #include "screens.h"
@@ -45,14 +44,14 @@ void SigGenScreen::onEnter()
 void SigGenScreen::drawStatic()
 {
     tft.fillScreen(ui::C_BG);
-    ui::topBar("DIAG  SIGNAL GEN", false);
+    ui::topBar("SIGNAL GENERATOR", false);
 
     tft.setTextFont(1);
     tft.setTextColor(ui::C_DIM, ui::C_BG);
     tft.drawString("FREQ Hz", kCfgX, kFreqY - 12);
     drawFreq();
     drawStatus();
-    ui::bottomHint("ENC:EDIT OK:TOGGLE BACK:EXIT");
+    ui::bottomHint("ENC:EDIT OK:TOGGLE");
 }
 
 void SigGenScreen::drawFreq()
@@ -62,7 +61,8 @@ void SigGenScreen::drawFreq()
 
 void SigGenScreen::drawStatus()
 {
-    char buf[36];
+    char buf[28];
+    char fbuf[20];
     tft.fillRect(0, 80, tft.width(), 30, ui::C_BG);
     tft.setTextFont(1);
 
@@ -76,7 +76,7 @@ void SigGenScreen::drawStatus()
         tft.drawString("STARTING...", kCfgX, 84);
     } else if (m_running) {
         tft.setTextColor(ui::C_OK, ui::C_BG);
-        snprintf(buf, sizeof(buf), "OUT  actual %.6g Hz", m_actualHz);
+        snprintf(buf, sizeof(buf), "OUT %s", ui::fmtFreq(m_actualHz, fbuf, sizeof(fbuf)));
         tft.drawString(buf, kCfgX, 84);
     } else {
         tft.setTextColor(ui::C_DIM, ui::C_BG);
@@ -171,7 +171,7 @@ void SigGenScreen::onTick()
         return;
     }
 
-    // 无 pending 且确认没有输出，才允许离开诊断页。
+    // 无 pending 且确认没有输出，才允许离开页面。
     screens.pop();
 }
 

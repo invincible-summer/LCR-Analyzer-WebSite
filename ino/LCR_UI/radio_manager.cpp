@@ -1,15 +1,21 @@
 // ============================================================================
-// radio_manager.cpp —— BLE GATT v1 服务 + 分片发送（Arduino-ESP32 3.x BLE）
+// radio_manager.cpp —— BLE GATT v1 服务 + 稳健分片发送（Arduino-ESP32 3.3.11）
 // ----------------------------------------------------------------------------
-// 实现 notes：
-//   * 使用核心自带 BLE wrapper（NimBLE 后端）。GATT 协议与 RadioManager
-//     接口固定；若 wrapper 吞吐/内存不稳，切 ESP-IDF/NimBLE 时只改本文件
-//     （plan.md §6.3）。
-//   * 通知负载 = min(negotiated ATT payload, 128) − 帧头；MTU 未协商时用
-//     保守值 20（ATT）→ 12 字节 CSV/帧。onMtuChanged 后自动升级。
-//   * v1 无复杂重传：seq gap / 断线 / CRC 错误由浏览器发 RESTART_TRANSFER，
-//     整份 sealed dataset 从 seq 0 重发（数据不可变，重发必然一致）。
-//   * BLE 回调与 loop 并发：回调只置命令字节/状态标志，重活全在 poll()。
+// 关键约束：
+//   * BLE callback 只写 atomic mailbox，不做 advertising/notify/deinit 等重活；
+//   * stopBle 使用 BLEDevice::deinit(false)，禁止 deinit(true)。Arduino-ESP32
+//     3.3.11 的 BLEDevice API 明确说明 release_memory=true 会阻止再次初始化；
+//   * 每次新连接/session 都把 ATT 数据负载复位到 MTU=23 的保守值，只有收到
+//     本连接 onMtuChanged 后才扩大，避免第二次连接沿用上次 MTU；
+//   * 单个 notification 永远服从 negotiated ATT_MTU-3；CSV 分片上限 128 B，
+//     大数据集自动拆成多帧，seq 以 uint16 modulo 2^16 连续递增；
+//   * 主 loop 是唯一 poll() owner；单次 pump 最多发 1 帧，并按 15 ms pacing，
+//     防止连续 notify 淹没 NimBLE host/controller queue；
+//   * Data characteristic 的底层 notify error 通过 atomic mailbox 回到主 loop，
+//     即使错误发生在最后一帧排队之后也必须进入 Error，允许浏览器发
+//     RESTART_TRANSFER 自动重传；
+//   * 初始化失败路径必须回到真正的 Off 状态，禁止留下“Error 但 BLE 已 deinit”
+//     的伪状态，否则下一次 start/stop 会访问已经失效的 advertising 对象。
 // ============================================================================
 
 #include "radio_manager.h"
@@ -22,6 +28,7 @@
 #include <BLEServer.h>
 #include <BLEService.h>
 
+#include <atomic>
 #include <string.h>
 
 const char* const kLcrBleServiceUuid  = "6e6f0001-5f31-4c43-a001-6c63722d7631";
@@ -33,7 +40,7 @@ const char* const kLcrBleDataUuid     = "6e6f0005-5f31-4c43-a001-6c63722d7631";
 RadioManager radio;
 
 // ---------------------------------------------------------------------------
-// GATT 对象（单服务）
+// GATT 对象（每次 BLE init 创建；deinit(false) 后全部作废并置空）
 // ---------------------------------------------------------------------------
 static BLEServer* s_server = nullptr;
 static BLECharacteristic* s_chControl = nullptr;
@@ -41,31 +48,47 @@ static BLECharacteristic* s_chStatus = nullptr;
 static BLECharacteristic* s_chMetadata = nullptr;
 static BLECharacteristic* s_chData = nullptr;
 static bool s_streamActive = false;
-static volatile uint8_t s_pendingCmd = 0;
-static volatile bool s_clientConnected = false;
+static bool s_clientConnected = false;
+
+// BLE callback 与 Arduino loop 运行在不同 FreeRTOS task 上。volatile 不能构成
+// C++ 跨线程同步，因此 mailbox 必须用 atomic；callback store，poll exchange。
+static std::atomic<uint8_t> s_pendingCmd{0};
+static std::atomic<bool> s_connectEvent{false};
+static std::atomic<bool> s_disconnectEvent{false};
+static std::atomic<uint16_t> s_mtuAttPayloadEvent{0};
+static std::atomic<uint8_t> s_notifyErrorEvent{0};
+
+static void clearGattPointers()
+{
+    s_server = nullptr;
+    s_chControl = nullptr;
+    s_chStatus = nullptr;
+    s_chMetadata = nullptr;
+    s_chData = nullptr;
+}
 
 class LcrServerCallbacks : public BLEServerCallbacks {
 public:
     void onConnect(BLEServer*) override
     {
-        s_clientConnected = true;
-        radio.noteClientConnected();          // state: Advertising -> Connected
+        s_connectEvent.store(true, std::memory_order_release);
     }
     void onDisconnect(BLEServer*) override
     {
-        s_clientConnected = false;
-        radio.noteClientDisconnected();       // 停流 + 重新 advertising
+        s_disconnectEvent.store(true, std::memory_order_release);
     }
 #if defined(CONFIG_NIMBLE_ENABLED)
     void onMtuChanged(BLEServer*, ble_gap_conn_desc*, uint16_t mtu) override
     {
-        if (mtu > 23) radio.noteAttPayload((uint16_t)(mtu - 3));
+        if (mtu > 23)
+            s_mtuAttPayloadEvent.store((uint16_t)(mtu - 3), std::memory_order_release);
     }
 #elif defined(CONFIG_BLUEDROID_ENABLED)
     void onMtuChanged(BLEServer*, esp_ble_gatts_cb_param_t* param) override
     {
         if (param && param->mtu.mtu > 23)
-            radio.noteAttPayload((uint16_t)(param->mtu.mtu - 3));
+            s_mtuAttPayloadEvent.store((uint16_t)(param->mtu.mtu - 3),
+                                       std::memory_order_release);
     }
 #endif
 };
@@ -75,12 +98,33 @@ public:
     void onWrite(BLECharacteristic* ch) override
     {
         const String v = ch->getValue();
-        if (v.length() > 0) s_pendingCmd = (uint8_t)v[0];
+        if (v.length() > 0)
+            s_pendingCmd.store((uint8_t)v[0], std::memory_order_release);
+    }
+};
+
+class LcrDataCallbacks : public BLECharacteristicCallbacks {
+public:
+    void onStatus(BLECharacteristic*, Status s, uint32_t code) override
+    {
+        (void)code;
+        if (s == BLECharacteristicCallbacks::SUCCESS_NOTIFY) return;
+        // error code 5 = local notify submission/transport failure. 不在 callback
+        // 中直接修改 RadioManager 状态，避免 BLE task 与 Arduino loop 重入。
+        s_notifyErrorEvent.store(5, std::memory_order_release);
     }
 };
 
 static LcrServerCallbacks s_srvCbs;
 static LcrControlCallbacks s_ctlCbs;
+static LcrDataCallbacks s_dataCbs;
+
+static constexpr uint16_t kConservativeDataPayload =
+    kLcrBleConservativeAttPayload - kLcrBleFrameHeaderLen;
+// 185 足够容纳 8-byte header + 128-byte CSV frame；若 peer 不协商，仍自动
+// 回退到 MTU23。选择 185 而非 517 是为了减少通知数同时控制 host 内存压力。
+static constexpr uint16_t kPreferredMtu = 185;
+static constexpr uint32_t kTxIntervalMs = 15;
 
 // ---------------------------------------------------------------------------
 const char* radioStateText(RadioState s)
@@ -135,40 +179,82 @@ bool RadioManager::bleInitCommon(const char* metadataJson, uint32_t byteCount,
                                  MeasurementKind kind)
 {
     (void)crc32;
-    // 强 invariant：测量进行中绝不开射频（正常路径 + debug 断言双保险）
     if (!radioLockInvariantOk()) return false;
 
     if (m_state != RadioState::Off) stopBle();
+    if (m_state != RadioState::Off) return false;
+
+    // 新 session 必须清理上次连接留下的协商状态/mailbox。
+    m_attPayload = kConservativeDataPayload;
+    m_nextTxMs = 0;
+    s_pendingCmd.store(0, std::memory_order_release);
+    s_connectEvent.store(false, std::memory_order_release);
+    s_disconnectEvent.store(false, std::memory_order_release);
+    s_mtuAttPayloadEvent.store(0, std::memory_order_release);
+    s_notifyErrorEvent.store(0, std::memory_order_release);
+    s_clientConnected = false;
+    s_streamActive = false;
+    clearGattPointers();
+
     m_state = RadioState::StartingBle;
     radioLockNotifyRadioActive(true);
 
-    BLEDevice::init("LCR-Analyzer");
+    if (!BLEDevice::init("LCR-Analyzer")) {
+        m_errorCode = 1;
+        m_state = RadioState::Off;
+        radioLockNotifyRadioActive(false);
+        return false;
+    }
+
+    // 只设置本机 preferred MTU，不假定 peer 一定接受。真正发送尺寸仍只由
+    // 当前连接 onMtuChanged 结果决定；失败时继续使用默认 MTU23。
+    const esp_err_t mtuRc = BLEDevice::setMTU(kPreferredMtu);
+    if (mtuRc != ESP_OK)
+        Serial.printf("# BLE setMTU(%u) failed rc=%d; using negotiated/default MTU\n",
+                      (unsigned)kPreferredMtu, (int)mtuRc);
+
     s_server = BLEDevice::createServer();
+    if (!s_server) {
+        BLEDevice::deinit(false);
+        clearGattPointers();
+        m_errorCode = 1;
+        m_state = RadioState::Off;
+        radioLockNotifyRadioActive(false);
+        return false;
+    }
     s_server->setCallbacks(&s_srvCbs);
 
     BLEService* svc = s_server->createService(kLcrBleServiceUuid);
+    if (!svc) {
+        BLEDevice::deinit(false);
+        clearGattPointers();
+        m_errorCode = 1;
+        m_state = RadioState::Off;
+        radioLockNotifyRadioActive(false);
+        return false;
+    }
+
     s_chControl = svc->createCharacteristic(
         kLcrBleControlUuid, BLECharacteristic::PROPERTY_WRITE);
-    s_chControl->setCallbacks(&s_ctlCbs);
-
     s_chStatus = svc->createCharacteristic(
         kLcrBleStatusUuid,
         BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_NOTIFY);
-    // NimBLE 后端在开启 notify 属性时自动添加 CCCD（2902），无需手动添加
-
     s_chMetadata = svc->createCharacteristic(kLcrBleMetadataUuid,
                                              BLECharacteristic::PROPERTY_READ);
-    s_chMetadata->setValue((uint8_t*)metadataJson, (uint16_t)strlen(metadataJson));
-
     s_chData = svc->createCharacteristic(kLcrBleDataUuid,
                                          BLECharacteristic::PROPERTY_NOTIFY);
-
+    if (!s_chControl || !s_chStatus || !s_chMetadata || !s_chData) {
+        BLEDevice::deinit(false);
+        clearGattPointers();
+        m_errorCode = 1;
+        m_state = RadioState::Off;
+        radioLockNotifyRadioActive(false);
+        return false;
+    }
+    s_chControl->setCallbacks(&s_ctlCbs);
+    s_chData->setCallbacks(&s_dataCbs);
+    s_chMetadata->setValue((uint8_t*)metadataJson, (uint16_t)strlen(metadataJson));
     svc->start();
-
-    BLEAdvertising* adv = BLEDevice::getAdvertising();
-    adv->addServiceUUID(kLcrBleServiceUuid);
-    adv->setScanResponse(true);
-    adv->start();
 
     m_csv = csv;
     m_csvLen = csvLen;
@@ -178,12 +264,24 @@ bool RadioManager::bleInitCommon(const char* metadataJson, uint32_t byteCount,
     m_sessionId = sessionId;
     m_kind = kind;
     m_errorCode = 0;
-    s_streamActive = false;
-    m_state = RadioState::Advertising;
 
     uint8_t st[kLcrBleStatusLen];
-    lcrBleEncodeStatus(st, sizeof(st), 1 /*Advertising*/, 0, sessionId, 0, byteCount);
+    lcrBleEncodeStatus(st, sizeof(st), 1 /*Starting*/, 0, sessionId, 0, byteCount);
     s_chStatus->setValue(st, kLcrBleStatusLen);
+
+    BLEAdvertising* adv = BLEDevice::getAdvertising();
+    if (!adv) {
+        stopBle();
+        return false;
+    }
+    adv->addServiceUUID(kLcrBleServiceUuid);
+    adv->setScanResponse(true);
+    adv->start();
+    m_state = RadioState::Advertising;
+
+    Serial.printf("# BLE session start id=%lu bytes=%lu heap=%lu psram=%lu\n",
+                  (unsigned long)m_sessionId, (unsigned long)m_bytesTotal,
+                  (unsigned long)ESP.getFreeHeap(), (unsigned long)ESP.getFreePsram());
     return true;
 }
 
@@ -193,17 +291,29 @@ void RadioManager::stopBle()
     if (m_state == RadioState::Off) return;
     m_state = RadioState::StoppingBle;
     s_streamActive = false;
-    if (s_server) {
+
+    // 只有 stack 真正 initialized 时才允许解引用其 advertising singleton。
+    // 这也保护未来的初始化失败重构，不让 stop path 去访问半初始化/已释放对象。
+    if (BLEDevice::getInitialized()) {
         BLEAdvertising* adv = BLEDevice::getAdvertising();
         if (adv) adv->stop();
+        BLEDevice::deinit(false);
     }
-    // deinit 释放协议栈与连接（radio-off 的确认点 = 本调用返回）
-    BLEDevice::deinit(true);
-    s_server = nullptr;
-    s_chControl = s_chStatus = s_chMetadata = s_chData = nullptr;
+
+    clearGattPointers();
     s_clientConnected = false;
+    s_pendingCmd.store(0, std::memory_order_release);
+    s_connectEvent.store(false, std::memory_order_release);
+    s_disconnectEvent.store(false, std::memory_order_release);
+    s_mtuAttPayloadEvent.store(0, std::memory_order_release);
+    s_notifyErrorEvent.store(0, std::memory_order_release);
+    m_attPayload = kConservativeDataPayload;
+    m_nextTxMs = 0;
     m_state = RadioState::Off;
     radioLockNotifyRadioActive(false);
+
+    Serial.printf("# BLE stopped heap=%lu psram=%lu\n",
+                  (unsigned long)ESP.getFreeHeap(), (unsigned long)ESP.getFreePsram());
 }
 
 // ---------------------------------------------------------------------------
@@ -216,6 +326,8 @@ void RadioManager::handleCommand(uint8_t cmd)
         m_bytesSent = 0;
         m_nextSeq = 0;
         m_errorCode = 0;
+        m_nextTxMs = millis();
+        s_notifyErrorEvent.store(0, std::memory_order_release);
         s_streamActive = true;
         m_state = RadioState::Sending;
         break;
@@ -224,39 +336,58 @@ void RadioManager::handleCommand(uint8_t cmd)
         if (m_state == RadioState::Sending) m_state = RadioState::Connected;
         break;
     case BleCommand::GetStatus:
-        break;                      // 状态在 sendSomeFrames/命令后统一 notify
+        break;
     default:
-        m_errorCode = 2;            // 未知命令
+        m_errorCode = 2;
         break;
     }
     notifyStatus();
 }
 
-// poll() 单次上界：最多 4 帧 / 每次调用（12–128 字节 CSV / 帧）
-static constexpr int kFramesPerPoll = 4;
-
 void RadioManager::sendSomeFrames()
 {
     if (!s_streamActive || !s_clientConnected || !s_chData) return;
-    uint8_t frame[8 + 128];
-    for (int i = 0; i < kFramesPerPoll; ++i) {
-        if (m_bytesSent >= m_bytesTotal) {
-            s_streamActive = false;                 // 整份 sealed dataset 发完
-            m_state = RadioState::Connected;
-            notifyStatus();
-            return;
-        }
-        uint16_t chunk = m_attPayload;
-        if ((uint32_t)chunk > m_bytesTotal - m_bytesSent) chunk = (uint16_t)(m_bytesTotal - m_bytesSent);
-        const size_t n = lcrBleEncodeFrame(frame, sizeof(frame),
-                                           LCR_BLE_PROTOCOL_VERSION,
-                                           lcrBleKindByte(m_kind), m_nextSeq,
-                                           m_csv + m_bytesSent, chunk);
-        if (n == 0) { m_errorCode = 4; s_streamActive = false; return; }
-        s_chData->setValue(frame, (uint16_t)n);
-        s_chData->notify();
-        m_bytesSent += chunk;
-        ++m_nextSeq;
+
+    const uint32_t now = millis();
+    if ((int32_t)(now - m_nextTxMs) < 0) return;
+    m_nextTxMs = now + kTxIntervalMs;
+
+    if (m_bytesSent >= m_bytesTotal) {
+        s_streamActive = false;
+        m_state = RadioState::Connected;
+        notifyStatus();
+        return;
+    }
+
+    uint8_t frame[kLcrBleFrameHeaderLen + kLcrBleMaxCsvPayload];
+    uint16_t chunk = m_attPayload;
+    if (chunk > kLcrBleMaxCsvPayload) chunk = kLcrBleMaxCsvPayload;
+    if ((uint32_t)chunk > m_bytesTotal - m_bytesSent)
+        chunk = (uint16_t)(m_bytesTotal - m_bytesSent);
+
+    const size_t n = lcrBleEncodeFrame(frame, sizeof(frame),
+                                       LCR_BLE_PROTOCOL_VERSION,
+                                       lcrBleKindByte(m_kind), m_nextSeq,
+                                       m_csv + m_bytesSent, chunk);
+    if (n == 0) {
+        m_errorCode = 4;
+        s_streamActive = false;
+        m_state = RadioState::Error;
+        notifyStatus();
+        return;
+    }
+    s_chData->setValue(frame, n);
+    s_chData->notify();
+    m_bytesSent += chunk;
+    ++m_nextSeq;  // uint16_t 自然 modulo 2^16；前端必须使用相同 wrap 语义。
+
+    if (m_bytesSent >= m_bytesTotal) {
+        // “全部已提交给 BLE stack”与“客户端已经收到”不是同一个语义。这里可以
+        // 停止继续排队，但 Data onStatus 若随后报告最后一帧失败，poll() 必须仍
+        // 把 Connected 翻到 Error；前端最终 byte_count/CRC 或 error status 会重传。
+        s_streamActive = false;
+        m_state = RadioState::Connected;
+        notifyStatus();
     }
 }
 
@@ -277,48 +408,83 @@ void RadioManager::notifyStatus()
     lcrBleEncodeStatus(st, sizeof(st), stateByte, m_errorCode, m_sessionId,
                        m_bytesSent, m_bytesTotal);
     s_chStatus->setValue(st, kLcrBleStatusLen);
-    s_chStatus->notify();
+    if (s_clientConnected) s_chStatus->notify();
 }
 
 void RadioManager::poll()
 {
     if (m_state == RadioState::Off) return;
-    if (s_pendingCmd) {
-        const uint8_t cmd = s_pendingCmd;
-        s_pendingCmd = 0;
-        handleCommand(cmd);
+
+    // Disconnect wins over connect if both were posted before this tick. atomic
+    // exchange also closes the callback/main-task data race that volatile leaves.
+    if (s_disconnectEvent.exchange(false, std::memory_order_acq_rel)) {
+        s_connectEvent.store(false, std::memory_order_release);
+        noteClientDisconnected();
+    } else if (s_connectEvent.exchange(false, std::memory_order_acq_rel)) {
+        noteClientConnected();
     }
-    if (m_state == RadioState::Sending || s_streamActive) sendSomeFrames();
+
+    const uint16_t att = s_mtuAttPayloadEvent.exchange(0, std::memory_order_acq_rel);
+    if (att) noteAttPayload(att);
+
+    const uint8_t notifyErr = s_notifyErrorEvent.exchange(0, std::memory_order_acq_rel);
+    if (notifyErr &&
+        (m_state == RadioState::Sending || m_state == RadioState::Connected)) {
+        m_errorCode = notifyErr;
+        s_streamActive = false;
+        m_state = RadioState::Error;
+        notifyStatus();
+        return;
+    }
+
+    const uint8_t cmd = s_pendingCmd.exchange(0, std::memory_order_acq_rel);
+    if (cmd) handleCommand(cmd);
+
+    if (m_state == RadioState::Sending && s_streamActive) sendSomeFrames();
 }
 
-// BLE 回调侧的状态迁移（只做标志/状态位，重活在 poll）
 void RadioManager::noteClientConnected()
 {
+    s_clientConnected = true;
+    // A fresh connection begins at the BLE default MTU until this connection's
+    // onMtuChanged proves otherwise. Never inherit the previous client's MTU.
+    m_attPayload = kConservativeDataPayload;
+    s_notifyErrorEvent.store(0, std::memory_order_release);
     if (m_state == RadioState::Advertising) {
         m_state = RadioState::Connected;
         BLEAdvertising* adv = BLEDevice::getAdvertising();
-        if (adv) adv->stop();          // 一对一连接：连上即停广播
+        if (adv) adv->stop();
         notifyStatus();
     }
 }
 
 void RadioManager::noteClientDisconnected()
 {
-    s_streamActive = false;            // 中断的流：等待重连 + RESTART_TRANSFER
+    s_clientConnected = false;
+    s_streamActive = false;
     m_bytesSent = 0;
     m_nextSeq = 0;
-    if (m_state == RadioState::Connected || m_state == RadioState::Sending) {
+    m_attPayload = kConservativeDataPayload;
+    s_mtuAttPayloadEvent.store(0, std::memory_order_release);
+    s_notifyErrorEvent.store(0, std::memory_order_release);
+
+    if (m_state == RadioState::Connected || m_state == RadioState::Sending ||
+        m_state == RadioState::Error) {
         m_state = RadioState::Advertising;
         BLEAdvertising* adv = BLEDevice::getAdvertising();
-        if (adv) adv->start();         // 重新可连接
+        if (adv) adv->start();
     }
 }
 
 void RadioManager::noteAttPayload(uint16_t attPayload)
 {
-    // 帧头 8 字节；单帧 CSV 负载上限 128（RAM/吞吐平衡）
-    if (attPayload < 12) return;
-    uint16_t p = attPayload - kLcrBleFrameHeaderLen;
-    if (p > 128) p = 128;
+    // attPayload = negotiated ATT_MTU - 3. Remove our own 8-byte frame header;
+    // cap CSV data for deterministic stack/RAM pressure. 大数据集靠多帧完成。
+    if (attPayload <= kLcrBleFrameHeaderLen) return;
+    uint16_t p = (uint16_t)(attPayload - kLcrBleFrameHeaderLen);
+    if (p > kLcrBleMaxCsvPayload) p = kLcrBleMaxCsvPayload;
+    if (p < kConservativeDataPayload) return;
     m_attPayload = p;
+    Serial.printf("# BLE ATT payload=%u, csv/frame=%u\n",
+                  (unsigned)attPayload, (unsigned)m_attPayload);
 }

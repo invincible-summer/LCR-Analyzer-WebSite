@@ -2,11 +2,12 @@
 # ============================================================================
 # run_tests.sh —— 在 PC（WSL/Ubuntu）上运行固件编排层/纯逻辑模块的本机单测
 # ----------------------------------------------------------------------------
-# v4.1.0：host 测试不再模拟另一套 ADC —— 物理测量全部在 DO_NOT_TOUCH API
+# v4.1.x：host 测试不再模拟另一套 ADC —— 物理测量全部在 DO_NOT_TOUCH API
 # 之后的真实硬件上。host 侧只测“编排 + 纯数学/格式化”，测量后端用
 # MockLcrService（ino/test/test_mocks.h）注入。
 # 覆盖频率网格/chunk/取消/seal/CSV/CRC/BLE 帧/metadata v2/H 换算/
-# 单元件判型与聚合，并覆盖 StopTone quiet-guard 跨 millis() 回绕。
+# 单元件判型与聚合、StopTone quiet-guard 跨 millis() 回绕，以及 EC11
+# quadrature 状态机的正反向/触点抖动/非法跳变回归。
 # 用法：  bash ino/tools/run_tests.sh
 # ============================================================================
 set -euo pipefail
@@ -28,7 +29,7 @@ PURE_SRC=()
 for f in "${PURE[@]}"; do PURE_SRC+=("$SRC/$f"); done
 
 FAIL=0
-for t in test_sweep test_rollover test_component test_csv test_misc; do
+for t in test_sweep test_rollover test_component test_csv test_misc test_input; do
     echo "== build+run $t =="
     g++ -std=c++17 -O2 -Wall -Wextra -Werror=return-type \
         -I"$SRC" -I"$TEST" \
@@ -38,6 +39,40 @@ for t in test_sweep test_rollover test_component test_csv test_misc; do
         FAIL=1
     fi
 done
+
+# Repeat-upload/fragmentation regression is partly a lifecycle invariant rather
+# than a host-executable BLE test. Lock the source contract so irreversible
+# deinit, unbounded notify bursts, MTU inheritance or missing notify-error
+# recovery cannot silently return during later refactors.
+echo "== static BLE lifecycle + fragmentation invariants =="
+RADIO="$SRC/radio_manager.cpp"
+PROTO="$SRC/ble_protocol.h"
+if grep -q 'BLEDevice::deinit(true)' "$RADIO"; then
+    echo "** BLE lifecycle FAILED: deinit(true) prevents reinitialization **"
+    FAIL=1
+fi
+if ! grep -q 'BLEDevice::deinit(false)' "$RADIO" \
+   || ! grep -q 'm_attPayload = kConservativeDataPayload' "$RADIO" \
+   || ! grep -q 'std::atomic<bool> s_connectEvent' "$RADIO" \
+   || ! grep -q 'std::atomic<uint8_t> s_notifyErrorEvent' "$RADIO" \
+   || ! grep -q 'exchange(false, std::memory_order_acq_rel)' "$RADIO" \
+   || ! grep -q 'BLEDevice::setMTU(kPreferredMtu)' "$RADIO" \
+   || ! grep -q 'kPreferredMtu = 185' "$RADIO" \
+   || ! grep -q 'kTxIntervalMs = 15' "$RADIO" \
+   || ! grep -q 'kLcrBleMaxCsvPayload' "$RADIO" \
+   || ! grep -q 'kLcrBleMaxCsvPayload = 128' "$PROTO" \
+   || ! grep -q 'kLcrBleSeqSpace = 65536UL' "$PROTO"; then
+    echo "** BLE lifecycle FAILED: missing repeat-session/MTU/fragment/pacing/retry guard **"
+    FAIL=1
+fi
+if grep -q -E 'static volatile (bool|uint8_t|uint16_t) s_(connectEvent|disconnectEvent|pendingCmd|mtuAttPayloadEvent|notifyErrorEvent)' "$RADIO"; then
+    echo "** BLE lifecycle FAILED: volatile is not cross-task synchronization **"
+    FAIL=1
+fi
+if grep -R -n -E '^[[:space:]]*radio\.poll\(\);' "$SRC"/screen_*.cpp; then
+    echo "** BLE lifecycle FAILED: screen must not double-pump radio.poll() **"
+    FAIL=1
+fi
 
 FIXDIR="$HERE/../../frontend/src/lib/__tests__/fixtures"
 echo "== emit golden CSV fixtures (v2) =="

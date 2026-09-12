@@ -10,7 +10,8 @@
 // Data 帧布局：
 //   [0]=’L’ [1]=’C’ [2]=protocol [3]=kind [4..5]=seq LE [6..7]=payload_len LE
 //   [8..]=CSV bytes
-// v1 无复杂重传：seq gap / 断线 / CRC 错误 → 发 RESTART_TRANSFER 整份重发。
+// seq 为 uint16，在线上按 modulo 2^16 连续递增：0xffff 的下一帧是 0。
+// v1 不改变帧布局；丢帧/CRC/停滞由接收层自动 ABORT + RESTART 整份重传。
 
 import { crc32 } from './crc32'
 
@@ -21,6 +22,11 @@ export const LCR_METADATA_UUID = '6e6f0004-5f31-4c43-a001-6c63722d7631'
 export const LCR_DATA_UUID = '6e6f0005-5f31-4c43-a001-6c63722d7631'
 
 export const PROTOCOL_VERSION = 1
+export const BLE_SEQ_SPACE = 0x1_0000
+
+export function nextBleSeq(seq: number): number {
+  return (seq + 1) & 0xffff
+}
 
 export enum BleCommand {
   StartTransfer = 0x01,
@@ -105,6 +111,10 @@ export function parseMetadata(text: string): DatasetMetadata {
     throw new ProtocolError(
       `设备协议版本 ${m.protocol} 不被支持（本站支持 v${PROTOCOL_VERSION}，请升级固件）`,
     )
+  if (!Number.isSafeInteger(m.byte_count) || m.byte_count <= 0)
+    throw new ProtocolError(`Metadata byte_count 非法：${String(m.byte_count)}`)
+  if (!Number.isSafeInteger(m.point_count) || m.point_count < 0)
+    throw new ProtocolError(`Metadata point_count 非法：${String(m.point_count)}`)
   return m
 }
 
@@ -133,7 +143,8 @@ export function decodeFrame(buffer: ArrayBufferLike): DataFrame | null {
 
 /**
  * 按序重组 Data 帧为字节流（纯逻辑，vitest 直接覆盖）。
- * seq 必须从 0 连续递增；gap → ProtocolError（调用方发 RESTART_TRANSFER）。
+ * seq 必须从 0 连续递增并按 uint16 wrap；gap → ProtocolError，接收层自动
+ * ABORT + RESTART_TRANSFER。这样不会把 65535→0 的合法回绕误判成丢包。
  */
 export class DatasetAssembler {
   private chunks: Uint8Array[] = []
@@ -147,7 +158,7 @@ export class DatasetAssembler {
       throw new ProtocolError(`seq 断裂：期望 ${this.nextSeq}，收到 ${frame.seq}`)
     this.chunks.push(frame.payload)
     this.received += frame.payload.length
-    this.nextSeq++
+    this.nextSeq = nextBleSeq(this.nextSeq)
   }
 
   reset(): void {

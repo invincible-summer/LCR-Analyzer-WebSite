@@ -1,517 +1,176 @@
-# ino 模块最终接线合并、运行时修复与实板验收计划
+# ESP32-S3 LCR 固件 2026-09-12 运行时 / UI / BLE 修复与验收计划
 
-状态：**最终测量接线已从 `main@6c46ebfdd6a937515fe9fa4ce27ff1b38313c4f3` 安全合入修复分支；UI/TFT 接线、构建门禁和 DNT manifest 已据此重新收敛。只有最新 head 的完整 CI 全绿并完成最终 diff review 后才 squash merge 到 `main`。实板验收仍是独立发布门禁。**
+状态：**实现位于 `fix/ino-ui-ble-20260912` / PR #5。本文件是实现后的最终架构 review 与验收规范；只有最新 head 的六个 CI job 全部成功后才允许合并 `main`。实体开发板验证是独立发布门禁。不得创建 Tag。**
 
-修复分支：`fix/ino-runtime-20260912`  
-评审入口：PR #3 `Fix ESP32-S3 TFT boot crash and harden ino runtime paths`
+审计基线：`main@56504745a4a010f940996d6efb83ad281e4b3f3e`。修改边界限定于输入/UI/BLE transport、测试、静态门禁与文档；`DO_NOT_TOUCH_*` 测量实现、CSV schema、Try1/Try2/Try3 数学算法均不得被本轮改写。BLE 本轮增强保持 protocol v1 **wire format 不变**：UUID、8-byte Data header、START/RESTART/ABORT/STATUS、整份 CSV CRC32 均保持兼容。
 
-本文是本次 `ino/` 软件集成的最终执行与验收计划。它同时记录两类事实：一类是用户已经冻结的测量硬件接线，必须原样保留；另一类是应用层/运行时修复，可以修改但不能突破 DNT API 边界。任何后续实现与本计划冲突时，优先级为：**用户确认的最终 `DO_NOT_TOUCH_*` 接线 > 当前 `board_profile.cpp` UI 接线 > 构建/静态门禁 > 旧文档或旧候选 pin。**
+## 1. 本轮问题与落实结论
 
----
+| 报告项 | 根因 | 最终实现 |
+|---|---|---|
+| 编码器旋转抖动 | 旧实现只监听 A 相 CHANGE、瞬时读取 B 判向，不能可靠过滤 B 相反跳/漏边 | A/B 双相 CHANGE + 完整 2-bit Gray 状态机；4 quarter-step 归一成一个 UI detent；非法双比特跳变清半格；host tests 覆盖 CW/CCW/bounce/glitch |
+| TFT UI 错位 | 面板是 128×160，却按 rotation=1 的 160×128 横屏设计 | 产品 UI 固定 portrait 128×160 / rotation=0；Menu/Component/One-Port/Two-Port/Signal Generator 全部按真实几何重排 |
+| StoreProhibited / 第二次 BLE 稳定崩溃 | 旧 `BLEDevice::deinit(true)` 会释放 BT stack memory，之后 reinit 不受支持；另有 double-pump、突发 notify、MTU 残留等风险 | `deinit(false)`；GATT pointer 清理；atomic mailbox；主 loop 唯一 radio pump；连接级 MTU reset；notify error 回主 loop；heap/PSRAM 观测 |
+| Component 最低 50 Hz | UI 局部硬编码，核心频率下限实际是 10 Hz | 统一使用 `INSTRUMENT_F_MIN_HZ=10` |
+| Two-Port 增益单位/相位 | H 是无量纲复比，TFT 旧实现只画幅值且语义混乱 | canonical CSV 保持 `f,re_h,im_h`；TFT 显示 gain[dB] + phase[deg]，phase 只在显示侧 unwrap |
+| Signal Generator 难以进入 | 页面本身状态机可用，但菜单入口被隐藏 | 成为第四个正式菜单项；保留异步 SetTone/StopTone 与 completion 驱动退出 |
+| BLE 大数据/上传不稳定 | BLE notification 有 MTU 单包上限；旧前端没有真正自动重传/重连 | MTU-aware fragmentation + 128 B cap + 15 ms pacing + seq/CRC + 自动 ABORT/RESTART + 自动 GATT rebuild/reconnect |
 
-## 1. 合并目标、边界与完成定义
+## 2. 硬件与显示约束
 
-本次合并要同时满足六个目标：
+开发板为 ESP32-S3-WROOM-1-N16R8。最终 DNT 测量引脚真源为：ADC GPIO1/2；LCD_CAM DAC D0..D7=`6,7,15,16,17,18,8,9`；74HC595=`21,19,20`。TFT 使用被 DNT 释放的 GPIO10..14：CS10、MOSI11、SCLK12、RST13、DC14，write-only，10 MHz。ST7735S 产品坐标固定为 128×160 portrait。
 
-1. 消除 ESP32-S3 在 `tft.init()` 的已知 `StoreProhibited / EXCVADDR=0x00000010` 失效路径，固定 TFT_eSPI 2.5.43 的正确 SPI2 direct-register 配置。
-2. **完整保留主分支最终测量接线**，不得因旧 UI 映射或旧静态白名单把 GPIO 改回去。
-3. 让 TFT/UI 迁移到与最终测量链无冲突的 GPIO，并让 `board_profile.cpp`、TFT 编译宏和 Gate F 三方完全一致。
-4. 保留已完成的 `lcr_api`/Worker、SweepEngine、Signal Generator 非阻塞/StopTone、`millis()` rollover、错误出参保护等运行时修复。
-5. 重新锁定 DNT manifest，使 Gate A 只接受本次用户批准的最终硬件版本，后续任何意外 DNT 漂移继续硬失败。
-6. 最新 head 完整 CI 六个 job 全绿、最终 diff review 通过后，通过 PR #3 **squash merge** 到 `main`；不 force-push，不绕过失败 CI。
+本轮没有修改任何 `DO_NOT_TOUCH_*` 文件。CI 曾发现 `dnt_manifest.txt` 中 `DO_NOT_TOUCH_lcr_diag.h` / `DO_NOT_TOUCH_lcr_measure.h` 两条 hash 已经落后于 PR **基线自身**；核对 branch blob 与 `main@56504745...` 相同后，仅重新锁定 manifest 到基线既有 DNT 内容，恢复“之后不允许漂移”的 Gate A 语义，而不是借机改测量代码。
 
-软件合并门禁与硬件发布门禁严格分离。CI 可以证明源代码、接口、静态约束、host regression 和 ESP32-S3 production compile；不能证明具体线束 continuity、TFT 面板 offset/invert/RGB、模拟精度或 StopTone 的真实模拟输出已经通过实板验证。
+## 3. 输入/UI 的接口约束
 
----
+`Input` 是 EC11 唯一归一化层，screen 永远只消费 `EncInc/EncDec`。当前一完整 Gray cycle 对应一个 UI detent；若实体 EC11 具体料号的 pulse/detent 比与该假设不同，只能在输入层统一调整，不得在各页面分别补偿。
 
-## 2. 最终测量接线：不可回退的硬件真源
+UI 唯一逻辑几何为 128×160。新增控件必须从 `tft.width()/height()` 与控件实际宽度推导位置，禁止恢复 160×128 magic coordinate。Two-Port 数据唯一真源仍是复 H，TFT/网站都只做显示派生。
 
-主分支提交 `6c46ebfdd6a937515fe9fa4ce27ff1b38313c4f3` 修改了两份硬件拥有的 DNT 文件。本次分支通过 merge parent + 原 blob 引用保留它们的实际内容，而不是人工重写。
+## 4. BLE 上限的确定结论
 
-### 2.1 ADC
+BLE 的关键上限是**单个 ATT notification 的 characteristic value 长度**，不是“整份数据只能传这么多”。ESP32 默认 ATT MTU=23；MTU 可配置至 517，但连接实际 MTU由双方协商，不能假定客户端一定接受请求值。GATT notification 的最大 value 为 `negotiated ATT_MTU - 3`。
 
-`DO_NOT_TOUCH_lcr_adc.h` 保持：
-
-```text
-GPIO2 = ADC1_CH1 = 电压
-GPIO1 = ADC1_CH0 = 电流
-```
-
-### 2.2 LCD_CAM 8-bit 正弦 DAC
-
-`DO_NOT_TOUCH_sinwave.h` 最终：
+LCR v1 Data frame 自身有 8-byte header，因此默认 MTU23 时：
 
 ```text
-D0 = GPIO6
-D1 = GPIO7
-D2 = GPIO15
-D3 = GPIO16
-D4 = GPIO17
-D5 = GPIO18
-D6 = GPIO8
-D7 = GPIO9
+ATT MTU                    23 B
+notification value max     20 B (= 23 - 3)
+LCR frame header            8 B
+CSV payload / frame        12 B
 ```
 
-### 2.3 74HC595
+固件现在请求 preferred MTU=185，但**只有本连接实际收到 `onMtuChanged` 后**才使用更大 payload；协商失败/未发生时一直走 12 B/frame 保守路径。即使协商到 185 或更大，项目仍主动把 CSV payload 限为 **128 B/frame**，所以 Data notification 最大 136 B。这样避免把 MTU 517 当作必须追求的吞吐目标，把 RAM、BLE host/controller queue 和 Web Bluetooth event queue 压力控制在可预测范围。
 
-`DO_NOT_TOUCH_lcr_measure.h` 最终：
+当前 `OnePortDataset` / `TwoPortDataset` CSV 静态 buffer 各为 **12 KiB**，Sweep 最大 257 点；因此当前产品首先受 12 KiB dataset buffer 限制，而不是 BLE 总字节数限制。Status 总字节计数使用 uint32；Data `seq` 是 uint16，现已在固件和前端都定义为 modulo 65536，`65535 -> 0` 为合法连续序列。
+
+满 12 KiB 数据流的纯 pacing 量级（不含 connection interval / RF / 浏览器调度）：
 
 ```text
-SRCLK = GPIO21
-SER   = GPIO19
-RCLK  = GPIO20
+MTU23 保守路径: 12288 / 12  = 1024 frames × 15 ms ≈ 15.36 s
+128 B 路径:     12288 / 128 =   96 frames × 15 ms ≈  1.44 s
 ```
 
-因此应用层/UI 的**最终禁止占用集合**至少包含：
+结论：**有单包上限；当前整份 12 KiB 数据集不存在必须一次塞入 BLE 的设计需求。正确实现就是自动分片传输。**
+
+## 5. 发送端 transport 语义
+
+`RadioManager` 是 BLE 生命周期唯一 owner，`LCR_UI.loop()` 是 `radio.poll()` 唯一 caller。测量或 Signal Generator 输出活动期间 BLE 必须 Off；只有真实 StopTone completion、dataset seal 且用户确认后才允许 radio on。
+
+发送状态机的硬约束：
+
+1. session start / connect / disconnect 都把可用 CSV payload 重置为 12 B，绝不继承上一连接 MTU；
+2. `BLEDevice::setMTU(185)` 只设置 preferred MTU，实际尺寸只服从当前连接 MTU event；
+3. `csvPerFrame = min(negotiatedMTU - 3 - 8, 128)`；未协商就是 12；
+4. 整份 sealed CSV 按 `m_bytesSent` 自动切片，调用层不需要计算帧数；
+5. 每次 `poll()` 最多 notify **1 frame**，frame 间隔至少 **15 ms**；禁止 burst while-loop；
+6. Data characteristic 注册 `onStatus`。任何非 `SUCCESS_NOTIFY` 通过 atomic mailbox 报给主 loop，当前 stream 立即进入 Error；
+7. 最后一帧“已提交给 BLE stack”不等于客户端已收到；若最后一帧随后回 notify failure，Connected 也必须翻回 Error，不能误报完成；
+8. `deinit(false)` 是唯一 stop 路径；deinit 后所有 GATT pointer 清空；禁止 `deinit(true)`；
+9. callback 只能 atomic store，禁止在 BLE callback task 内执行 advertising / notify / deinit 等生命周期操作。
+
+## 6. 接收端自动恢复语义
+
+浏览器接收分成“同连接恢复”和“连接重建”两层，所有 attempt 都针对同一 sealed dataset。
+
+### 6.1 同一 GATT 连接自动 ABORT + RESTART
+
+每个连接允许 **4 个 transfer attempt**：1 次 START + 最多 3 次 RESTART。以下任一情况使当前 attempt 立即失效：
+
+- Data magic / frame length 非法；
+- protocol 或 dataset kind 不匹配；
+- seq gap；
+- 实收字节超过 metadata `byte_count`；
+- Status session 不匹配或设备报告 BLE error code；
+- byte_count 到齐但整份 CRC32 不匹配；
+- 连续 15 s 无新增有效字节。
+
+恢复流程固定为：停止接受当前流 → `ABORT_TRANSFER` → 120 ms drain → assembler reset → `RESTART_TRANSFER`。下一 attempt 只接受新的 `seq=0` 作为流起点，在此之前到达的上一轮残留 Data frame 全部丢弃。
+
+### 6.2 同连接重试耗尽后自动重建 GATT
+
+如果同一个 GATT connection 连续 4 个 attempt 仍失败，不能简单把错误丢给用户。即使 Web Bluetooth 仍显示 `gatt.connected=true`，也认为 ATT/GATT 状态可能已卡住：前端主动 `disconnect()`，然后直接对**已经授权的同一 `BluetoothDevice`**执行 `gatt.connect()`；不会再次弹 chooser。
+
+真实 RF/GATT 断线也走同一路径。`receiveDataset()` 最多使用 **2 次 reconnect**。每次重连后必须重新：
 
 ```text
-{1,2,6,7,8,9,15,16,17,18,19,20,21}
+getPrimaryService
+read Metadata
+subscribe Status
+subscribe Data
+START from seq=0
 ```
 
-Gate F 必须把这组值作为硬约束；不得再沿用旧 `{1,2,8..18}` 推导，也不得因为某个 UI 候选已经写进文档就豁免冲突。
+如果两次 GATT rebuild/reconnect 仍不能完成，才向用户暴露最终传输错误。
 
-### 2.4 DNT manifest 重新锁定
+### 6.3 数据提交边界
 
-只有两份用户明确修改的 DNT 文件 hash 改变：
+任何 attempt 的部分数据都不能进入 CSV parser。只有以下条件全部满足才提交：
 
 ```text
-DO_NOT_TOUCH_lcr_measure.h
-1a020e6c55df9d0add824712ae86fda0fac0bfb13d294fa7b06169bc22ec98e6
-
-DO_NOT_TOUCH_sinwave.h
-97944b47bf463496598b908e5ca89b1ab3936b58491c05d674b3bf5c66fe1141
+protocol / dataset kind / session state correct
+AND seq continuous (including uint16 wrap)
+AND bytesReceived == metadata.byte_count
+AND CRC32(full CSV raw bytes) == metadata.crc32
 ```
 
-其余 DNT hash 保持原值。Gate A 后续继续执行 `sha256sum -c`；普通应用层 PR 不允许用 `DNT_UPDATE_MANIFEST=1` 消除意外漂移。只有硬件团队明确批准新的 DNT 版本时，才进入重新锁定流程。
+重传期间内部 assembler 可以 reset；对 UI 的 progress 使用历史最大接收量，使用户看到的进度保持单调，不因自动重试从 80% 倒退到 0%。
 
----
+## 7. StoreProhibited 的定位边界
 
-## 3. UI/TFT 最终映射与冲突消解
+现场 `EXCCAUSE=0x1d StoreProhibited`、`EXCVADDR=0x0000011c` 能证明低地址非法 store，但没有现场同构建 ELF/map 时不能把 `PC=0x42069edf` 猜成具体源码行。本轮能确定并消除的是 BLE `deinit(true)->reinit`、double-pump、突发 notify、MTU 跨连接污染、callback 重操作、notify failure 未反馈与前端没有自动恢复等真实缺陷。
 
-原修复候选曾使用：
+固件记录 session id、byte_count、free heap、free PSRAM，以及 MTU event 后的 ATT payload / csv-per-frame。若实体板仍 panic，必须保存该构建 ELF 和完整 backtrace，用 Xtensa addr2line 符号化。
 
-```text
-SCK=4 MOSI=5 CS=6 DC=7 RST=21
-```
+## 8. 自动化门禁
 
-这组映射在新的最终 DNT 下已经非法：GPIO6/7 被 LCD_CAM DAC 占用，GPIO21 被 74HC595 占用。因此不能把“保留用户 DNT”与“保留旧 TFT 候选”同时成立；硬件真源优先，必须迁移 TFT。
+最新 PR head 必须通过六个 GitHub Actions job。Firmware gate 必须锁住：
 
-历史板卡 profile/排针映射已经确认 H4 的 GPIO10-14 是连续可用的一组，而最终 DNT 正好释放了它们，因此最终 TFT 使用：
+- DNT SHA manifest 与 GPIO/radio-lock 架构；
+- Arduino-ESP32 3.3.11 + TFT_eSPI 2.5.43 的 ESP32-S3 production compile；
+- 禁止 `BLEDevice::deinit(true)`；
+- conservative MTU reset 必须存在；
+- callback mailbox 必须 atomic；
+- Data notify error mailbox 必须存在；
+- preferred MTU=185；CSV payload cap=128；pacing=15 ms；
+- seq space=65536；
+- screen 不得二次调用 `radio.poll()`。
 
-```text
-CS   = GPIO10  H4-16
-MOSI = GPIO11  H4-17
-SCK  = GPIO12  H4-18
-RST  = GPIO13  H4-19
-DC   = GPIO14  H4-20
-MISO = unused
-```
+Frontend Vitest 必须覆盖：正常多帧重组、非法 seq、CRC/byte_count、uint16 seq wrap、首轮 seq gap 后自动 `ABORT -> RESTART -> 成功`。TypeScript type-check 与 production build 同样是硬门禁。
 
-接口约束：
+最终 diff review 要再次确认：PR changed files 中没有任何 `DO_NOT_TOUCH_*`；BLE protocol v1 wire layout / UUID / CRC 范围未改；CSV schema 未改；Try1/2/3 未改；Two-Port 仍从 `re_h/im_h` 派生显示；测量/BLE/Signal Generator 没有新增 busy-wait。
 
-```cpp
-const BoardProfile kBoard = {
-    .tftCs = 10,
-    .tftDc = 14,
-    .tftRst = 13,
-    .spiSck = 12,
-    .spiMosi = 11,
-    .spiMiso = PIN_UNUSED,
-    .tftSpiHz = 10000000,
-    ...
-};
-```
+## 9. 实体板发布门禁
 
-TFT_eSPI 编译宏必须逐项等于 `kBoard`：
+CI 全绿不能代替 RF/硬件验证。实体 ESP32-S3-N16R8 至少执行：
 
-```text
--DTFT_CS=10
--DTFT_MOSI=11
--DTFT_SCLK=12
--DTFT_RST=13
--DTFT_DC=14
--DTFT_MISO=-1
--DSPI_FREQUENCY=10000000
-```
+1. 上电 10 次，完整 128×160 UI；
+2. 编码器 CW/CCW 各 100 detent（慢 50 + 快 50），无多跳/反跳；
+3. Component 从 10 Hz 起始测已知 R/C/L（含 L+DCR）；
+4. One-Port / Two-Port 交替至少 **20 个 BLE session**，每次 sweep→seal→transfer→CRC pass→Back；
+5. 至少验证一次 MTU23 保守路径（12 B/frame）能完整传输接近 12 KiB 数据；有较大 MTU 时确认协商后 frame payload 按实际 MTU 扩大且不超过 128；
+6. 至少 3 次传输中主动断开客户端，确认自动 reconnect、不重新弹 chooser、最终 CRC pass；
+7. 至少 3 次触发 RESTART 路径；若可注入连续错误，验证 4 个同连接 attempt 失败后自动 GATT rebuild；
+8. 第二次、第三次上传重点记录 heap/PSRAM，不能单调下降；
+9. Signal Generator 10 Hz / 1 kHz / 10 kHz start/stop，pending/running 时 Back 都必须 StopTone completion 后退出；
+10. ≥30 分钟 idle/sweep/cancel/BLE/siggen soak，不得 StoreProhibited、WDT、无法恢复断线或 silent stall。
 
-### 3.1 ESP32-S3 平台限制
+每个 BLE session 建议记录：session id、byte_count、ATT payload、csv/frame、总时长、transfer retry 次数、GATT reconnect 次数、CRC、start/stop heap/PSRAM。这样才能区分 RF、MTU、host queue、GATT state 与内存生命周期问题。
 
-除最终 DNT GPIO 外，UI 仍不得使用：
+## 10. 最终 review 结论与合并规则
 
-```text
-GPIO0/3/45/46   strapping
-GPIO26-32       SPI0/1 flash/PSRAM
-GPIO33-37       N16R8 octal PSRAM 条件占用
-GPIO43/44       本板 UART0/CH340X 烧录/日志
-```
+本轮 BLE review 的确定结论是：**BLE 有单 notification 的 MTU 上限；当前产品没有“12 KiB 整份数据超过 BLE 总上限”的问题。最终方案必须是 MTU-aware 自动分片、有界 pacing、seq/byte_count/CRC 端到端校验，以及失败后的自动 retry + GATT rebuild/reconnect。当前实现已按这个模型收敛。**
 
-GPIO19/20 现在由最终 74HC595 接线占用，同时也是 ESP32-S3 原生 USB D-/D+。因此产品 FQBN 必须继续保持 `CDCOnBoot=default/Disabled`，不能启用原生 USB CDC。日志/烧录继续走 GPIO43/44 → CH340X。这个约束属于最终接线的一部分，不能在以后“为了 Serial 方便”单独改开。
+保留不需要修改的正确部分：DNT 测量核心、CSV schema、BLE v1 wire format、Try1/2/3、网站 Two-Port dB/phase 推导、Signal Generator 的异步 SetTone/StopTone。修改只落在真正有问题的 UI/input/BLE transport 与测试门禁。
 
----
+合并规则：**只有 PR #5 最新 head 六个 CI job 全部 success，并完成最终 diff review 后才 squash merge `main`；不创建 Tag。**实体板门禁未完成前只能声明“软件与自动化通过”，不能声明现场 RF/硬件已百分之百无故障。
 
-## 4. TFT boot panic 根因与受支持构建
+### 参考真源
 
-现场故障发生顺序：
-
-```text
-Serial.begin
--> ui::begin
-   -> tft.init
--> input.begin
--> lcrServiceBegin
-```
-
-所以原始 `EXCVADDR=0x10` 首先落在 TFT 初始化窗口。
-
-受支持依赖冻结为：
-
-```text
-Arduino-ESP32 3.3.11
-TFT_eSPI      2.5.43
-ESP32-S3      N16R8
-PSRAM         OPI
-FlashSize     16M
-```
-
-根因链：Arduino-ESP32 在 S3 把 `FSPI` 暴露为逻辑 bus index 0；TFT_eSPI 2.5.43 的 S3 默认 direct-register 路径使用 `SPI_PORT=FSPI`，而寄存器宏需要真实外设号。2.5.43 已提供 `USE_FSPI_PORT`，在 S3 选择 `SPI_PORT=2`。
-
-因此 production compile 必须同时满足：
-
-```text
--DUSE_FSPI_PORT
-SPI_PORT == 2
-```
-
-`display.cpp` 在 S3 上使用 compile-time `#error` 防止配置漂移。启动诊断必须在 `tft.init()` 前打印：
-
-```text
-TFT init: TFT_eSPI 2.5.43, SPI_PORT=2, SCLK=12 MOSI=11 CS=10 DC=14 RST=13 @ 10000000 Hz
-```
-
-若新固件仍 panic，必须保存该次 SHA 对应 ELF、backtrace 和完整串口日志重新符号化；不能把旧 PC 或旧 `FSPI=0` 结论机械套用。
-
-### 4.1 ST7735S 时序
-
-ST7735S v1.3 Table 7 的 4-line serial write：
-
-```text
-TSCYCW >= 66 ns
-```
-
-理论上 `fSCL <= 15.1515 MHz`。产品继续 10 MHz：
-
-- `build_check.sh` 固定 10 MHz；
-- `display.cpp` 编译期拒绝 `>15151515`；
-- Gate F 同样检查 profile 与编译宏。
-
-具体 TFT 模组的 visible offset、RGB/BGR、invert 不由控制器 datasheet 单独决定；没有实屏证据前保持当前参数。
-
----
-
-## 5. `lcr_api`/Worker 接口与并发语义
-
-应用层唯一测量边界保持 `ino/LCR_UI/lcr_api.h`；`lcr_api.cpp` 是非 DNT 生产代码中唯一允许 include `DO_NOT_TOUCH_lcr_api.h` 的编译单元。
-
-### 5.1 task-affinity
-
-DNT ADC init 保存 `xTaskGetCurrentTaskHandle()`，ISR 后续通知该 task。因此：
-
-```text
-lcr_api_init()
-所有 lcr_api_measure/sweep/calc/status/set_freq 调用
-```
-
-必须始终由同一 `lcr_worker` task 执行。UI task 不直接调用 DNT。
-
-### 5.2 job/event 语义
-
-- UI `submit`：零等待、非阻塞；队列满返回 false，状态机下一 tick 决定重试。
-- Worker：一次只执行一个真实硬件 job。
-- `LcrEvent`：控制面 completion，不允许丢弃。
-- event queue 满：允许专用 Worker `xQueueSend(..., portMAX_DELAY)` 等待 UI 消费；不能有限重试后丢包。
-
-### 5.3 跨 task 状态
-
-`ready/initFailed/jobInFlight/cancelRequested` 使用 `std::atomic<bool>`；不能依赖 `volatile` 提供跨 task happens-before。job/event payload 的跨 task 传递由 FreeRTOS queue 完成。
-
-### 5.4 DNT 未写出参
-
-DNT 可能返回错误但不写 `out`。wrapper 规则：
-
-- 局部对象 `{}` 初始化仅防 UB，不代表结果有效；
-- `MeasureAndCalcZ` 测量失败后不读取 `LcrZPoint`、不调用 calc；
-- sweep 只有真实进入逐点循环的返回类型才读取输出数组；
-- 早退参数/缓冲区错误由 wrapper 构造 NaN/`E` 失败槽位；
-- `apiStatus/backendStatus` 保留真实 DNT 错误码。
-
-### 5.5 StopTone completion 发布顺序
-
-严格固定：
-
-```text
-DNT set_freq(0) 返回
--> jobInFlight=false
--> StopTone 时 cancelRequested=false
--> push completion
-```
-
-UI 看到 StopTone completion 时，上一轮 cancel 状态必须已经清理；否则新 job 可能被旧取消标志误伤。Gate J 必须检查此顺序。
-
----
-
-## 6. SweepEngine、时间与数据真实性
-
-Sweep 仍按 2/3 点 chunk 调 DNT，同步硬件调用不可从 UI 中途强杀。取消语义：
-
-```text
-用户取消
--> 当前 chunk 完成
--> 不提交下一个 measurement chunk
--> StopTone job
--> StopTone completion
--> 20 ms quiet guard
--> 解锁/Cancelled 或完成 seal
-```
-
-任何 radio invariant/calibration-status 异常也必须经过 StopTone 收尾，不能只改软件状态为 Error。
-
-数据规则：
-
-- CSV 成功点频率只用 `f_act`；
-- requested frequency 只保留为诊断；
-- 失败点不进入拟合 CSV；
-- `ReadCalibrationStatus` 失败不得生成虚假 `cal:0/10`；
-- Two-Port 保留 `raw_w_path`，不套用 One-Port calibration。
-
-`millis()` 是 `uint32_t` uptime。deadline 使用：
-
-```cpp
-(int32_t)(nowMs - deadlineMs) >= 0
-```
-
-`test_rollover.cpp` 固定覆盖：
-
-```text
-StopTone = 0xfffffff5
-deadline = 0x00000009
-0x00000008 仍 Stopping
-0x00000009 才 TransferReady/seal
-```
-
-内部字段使用 `sealedUptimeMs`，不再冒充 Unix epoch。
-
----
-
-## 7. Signal Generator 非阻塞退出契约
-
-Back 不得 busy-wait、`delay()` 或提前释放 measurement/radio lock。
-
-状态必须至少包含：
-
-```cpp
-bool m_running;
-bool m_pending;
-bool m_exitRequested;
-uint32_t m_pendingId;
-LcrJobKind m_pendingKind;
-```
-
-流程：
-
-```text
-Back -> exitRequested=true
-
-SetTone pending:
-  等 id+kind 匹配 completion
-  成功 -> running=true -> 下一 tick 提交 StopTone
-  失败 -> 确认没有输出 -> 可解锁并退出
-
-running:
-  非阻塞提交 StopTone
-  job queue 暂满 -> 后续 tick 重试
-
-StopTone pending:
-  保持 running=true / lock=true
-  等 id+kind 匹配 completion
-
-StopTone completion:
-  running=false
-  actualHz=0
-  release measurement/radio lock
-  pop screen
-```
-
-Gate K 允许的唯一 `while` 是零等待 drain event queue 的有限消费循环；任何硬件等待 while 或 runtime `delay()` 都失败。
-
----
-
-## 8. 静态门禁 A-K 的最终职责
-
-### Gate A
-
-验证 11 个 DNT 文件的已批准 SHA-256。当前最终 wiring 的两份新 hash 已重新锁定，其余不变。
-
-### Gate B-D
-
-禁止 hong 进入生产；DNT API 只有 `lcr_api.cpp` 一个应用入口；禁止应用层直接调用 `out_freq/lcr_adc_/lcr_measure_/HC595_PIN_` 等低层实现。
-
-### Gate E
-
-禁止恢复 PCM5102/I2S/custom ADC 等已废弃的第二套硬件链。
-
-### Gate F
-
-同时验证：
-
-```text
-UI pins ∩ {1,2,6,7,8,9,15,16,17,18,19,20,21} == ∅
-UI pins ∩ platform_reserved == ∅
-board_profile TFT == build_check TFT macros
-SPI_FREQUENCY == tftSpiHz
-SPI_FREQUENCY <= 15.1515 MHz
-MISO == PIN_UNUSED
-```
-
-任何冲突直接失败，不允许“这是最终接线所以豁免 UI”之类反向逻辑。
-
-### Gate G-H
-
-验证 radio lock 接线和 firmware/protocol/schema 契约。
-
-### Gate I
-
-验证 Arduino-ESP32 3.3.11、TFT_eSPI 2.5.43、`USE_FSPI_PORT`、`SPI_PORT==2` 和 ST7735S timing gate。
-
-### Gate J
-
-验证 atomic、completion reliability、未写出参保护和 StopTone cancel-before-completion。
-
-### Gate K
-
-验证 Signal Generator Back 非阻塞、id+kind completion、StopTone completion 前不提前 unlock。
-
----
-
-## 9. 最新 head CI 门禁
-
-必须以**最后一次代码/文档/manifest 修改后的 head SHA**为准。以下六个 job 全部 `success` 才允许 merge：
-
-```text
-firmware (esp32s3 compile + static gates + host tests)
-native (ctest + real4)
-wasm + frontend
-browser smoke
-backend (pytest)
-sanitizer (ASan + UBSan)
-```
-
-firmware job 内至少必须依次完成：
-
-```text
-static_check.sh A-K
-build_check.sh ESP32-S3 production compile
-run_tests.sh host tests + golden checks
-```
-
-禁止使用较旧 head 的绿灯，禁止删除测试、放宽 gate 或改 golden fixture 来制造成功。
-
----
-
-## 10. 合并前最终 Review 清单
-
-CI 全绿后按以下顺序复审：
-
-1. `main...fix/ino-runtime-20260912` 必须 `behind_by=0`；若 main 又移动，重新合并/评估后再跑最新 CI。
-2. 确认 PR head 与 CI head 完全一致，PR `mergeable=true`。
-3. `DO_NOT_TOUCH_lcr_measure.h` 与 main 最终 wiring blob 完全一致；`DO_NOT_TOUCH_sinwave.h` 同样一致。不得出现为了冲突解决而人工改写 DNT。
-4. 确认 DNT diff 只有用户批准的最终 GPIO 变化，manifest 对应这两个新 hash。
-5. 确认 TFT 最终为 GPIO10-14；不存在 4/5/6/7/21 的生产配置残留。
-6. 确认 `build_check.sh`、`board_profile.cpp/.h`、Gate F 三方相同。
-7. 确认 `display.cpp` 仍保留 `USE_FSPI_PORT/SPI_PORT==2` 和 15.15 MHz timing gate。
-8. 复审 `lcr_api.cpp/.h`：DNT task-affinity、atomic、未写出参、event reliability、StopTone 发布顺序。
-9. 复审 `sweep_engine.cpp`：actual-f、cancel、cal status、rollover、seal。
-10. 复审 `screen_siggen.cpp/screens.h`：Back 纯异步、id+kind、unlock 只在可证明停机之后。
-11. 确认没有 AlgorithmLcr、前后端业务逻辑、临时本机路径、未发布依赖或跳过 sanitizer 的意外修改。
-12. `ino/README.md` 与本计划必须描述最终 GPIO10-14 TFT 和新的 DNT wiring，不能留下旧候选作为当前配置。
-
----
-
-## 11. 合并执行
-
-全部门禁通过后：
-
-```text
-1. PR 从 Draft 标记为 Ready for review
-2. 使用 expected_head_sha 锁定已验证的最新 head
-3. squash merge PR #3
-4. squash title:
-   firmware: fix ESP32-S3 TFT boot crash and harden ino runtime
-5. 读取 main HEAD，确认 GitHub 返回的 merge SHA 已在 main
-6. 检查 push-to-main 触发的新 CI
-7. 若 merge-trigger CI 失败，停止发布；不把“PR CI 通过”当成 main 已发布成功
-```
-
-禁止直接 force-push `main`，禁止绕过 latest-head CI。
-
----
-
-## 12. 合并后实板发布验收
-
-### 12.1 TFT/启动
-
-- 使用 main 同一 SHA 构建/烧录；
-- 串口确认 `SPI_PORT=2`、`SCLK12/MOSI11/CS10/DC14/RST13`、10 MHz；
-- 不再出现原 `EXCVADDR=0x10` 重启循环；
-- 断电 continuity 验证 TFT GPIO10-14 到对应排针/屏脚；
-- 验证与 DNT `{1,2,6,7,8,9,15,16,17,18,19,20,21}` 无短接；
-- 红/绿/蓝/白/黑、1 px 四边框、四角标记验证 rotation/offset/RGB/invert；
-- 连续运行至少 10 分钟无异常复位。
-
-### 12.2 测量链
-
-- Worker 内 `lcr_api_init()` 正常完成；
-- 标准 R/C/L 各至少 5 次；
-- L 同时记录 L 与 DCR；
-- One-Port 10 Hz-10 kHz 全 sweep，检查 `f_act`、失败点、CSV/CRC/schema；
-- Two-Port 完整 W sweep，保持 `raw_w_path`；
-- 示波器验证 StopTone completion 后 DAC 实际停止；
-- 记录 Worker stack high-water mark，在没有数据前不缩 16 KiB stack。
-
-### 12.3 取消/Signal Generator/BLE
-
-专门覆盖：
-
-```text
-2 点 chunk 内取消
-3 点 chunk 内取消
-Signal Generator running 时 Back
-SetTone pending 时立即 Back
-StopTone pending 时重复输入
-BLE 连接/断开 >=20 次
-```
-
-要求 UI 无 busy wait；StopTone completion 前 lock 不释放；测量期间 BLE 静默，seal 后才 advertising；数小时 sweep/cancel/idle 循环无 event queue 卡死、pending-id 永久等待或异常复位。
-
----
-
-## 13. 回滚与允许声明
-
-若 merge 后 main CI 或实板出现新回归，优先 revert 本次 squash commit，再在新分支修复；不要直接在 main 叠加未经门禁的 hotfix。
-
-软件合并完成后可以声明：
-
-- 用户最终 DNT 接线已原样保留并重新 hash 锁定；
-- TFT 已迁移到不与最终测量链冲突的 GPIO10-14；
-- 已封堵 TFT_eSPI 2.5.43 / ESP32-S3 `SPI_PORT=0` 的已知启动崩溃路径；
-- Worker/错误出参/completion/StopTone/rollover/SigGen 非阻塞契约经过代码门禁与 CI；
-- 最新候选通过 production compile、host regression 和仓库全量 CI（仅在真实全绿后声明）。
-
-仍不能仅凭 CI 声明：
-
-- 实体 TFT continuity 已通过；
-- 具体面板 offset/invert/RGB 已实测冻结；
-- 模拟前端达到某个精度指标；
-- StopTone 模拟输出已由示波器确认；
-- 整机已完成硬件发布验收。
-
-项目内当前硬件真源：`DO_NOT_TOUCH_lcr_adc.h`、`DO_NOT_TOUCH_sinwave.h`、`DO_NOT_TOUCH_lcr_measure.h`、`board_profile.cpp`、`build_check.sh`、`dnt_manifest.txt`。ST7735S 时序、ESP32-S3 GPIO/SPI/FreeRTOS 约束分别以所附控制器数据手册、开发板资料和 Espressif 官方文档为依据。
+- Espressif ESP-FAQ / ESP-AT BLE：默认 MTU=23、可设置到 517、连接实际值取协商结果；notification 单次 data length 最大 `MTU-3`。
+- Espressif Arduino-ESP32 `BLEDevice.cpp`：`setMTU()` 范围语义；`deinit(false)` / release-memory 生命周期语义。
+- Espressif Arduino-ESP32 `BLECharacteristic`：notify 与 `SUCCESS_NOTIFY` / GATT error callback 状态。
+- 仓库 `ino/LCR_UI/{ble_protocol.h,radio_manager.cpp,dataset.h}`：本项目帧、分片、12 KiB dataset、Status/CRC 真源。
+- 仓库 `frontend/src/lib/ble/{protocol.ts,lcrDevice.ts}`：seq wrap、自动 restart、自动 GATT rebuild/reconnect 真源。
+- Sitronix ST7735S Datasheet、课程开发板手册、仓库 `DO_NOT_TOUCH_*` 与 EC11 数据手册：显示、板卡与测量硬件真源。
