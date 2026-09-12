@@ -1,7 +1,8 @@
-// deviceProgress.test.ts —— receiveDataset 的字节进度 + 自动重传
+// deviceProgress.test.ts —— receiveDataset 的字节进度 + 自动重传/重连
 //
 // 用手写假 GATT session 驱动完整接收流程：验证 progress 单调、CRC 后 CSV
-// 完整一致；并注入一次 seq gap，确认前端自动 ABORT + RESTART 后恢复。
+// 完整一致；注入 seq gap 验证同连接 ABORT+RESTART；连续耗尽 4 个 attempt
+// 验证前端主动断开并重建 GATT 后可自动恢复。
 import { describe, expect, it } from 'vitest'
 import { receiveDataset, type LcrDeviceSession } from '../ble/lcrDevice'
 import {
@@ -25,7 +26,6 @@ class FakeChar {
   startNotifications(): Promise<void> { return Promise.resolve() }
   stopNotifications(): Promise<void> { return Promise.resolve() }
   writeValueWithResponse(v: Uint8Array): Promise<void> { this.written.push(v[0]!); return Promise.resolve() }
-  // 测试侧注入一帧（模拟 characteristicvaluechanged）
   emit(frame: Uint8Array): void {
     const h = this.listeners['data']
     if (!h) throw new Error('no listener')
@@ -34,7 +34,15 @@ class FakeChar {
 }
 
 interface FakeOptions {
-  gapFirstAttempt?: boolean
+  /** 前 N 个 START/RESTART stream 故意制造 seq 0 -> 2 gap。 */
+  gapAttempts?: number
+}
+
+interface FakeHarness {
+  session: LcrDeviceSession
+  controlCh: FakeChar
+  reconnectCount: () => number
+  disconnectCount: () => number
 }
 
 function makeFrame(kind: 'ONE_PORT_Z' | 'TWO_PORT_H', seq: number, payload: Uint8Array): Uint8Array {
@@ -51,7 +59,7 @@ function makeFakeSession(
   csv: string,
   kind: 'ONE_PORT_Z' | 'TWO_PORT_H',
   options: FakeOptions = {},
-): { session: LcrDeviceSession; controlCh: FakeChar } {
+): FakeHarness {
   const bytes = new TextEncoder().encode(csv)
   const meta = {
     protocol: 1,
@@ -73,20 +81,46 @@ function makeFakeSession(
   const controlCh = new FakeChar(LCR_CONTROL_UUID)
   const chars = [metaCh, dataCh, statusCh, controlCh]
 
+  const server = {
+    getPrimaryService: (_uuid: string) =>
+      Promise.resolve({
+        getCharacteristic: (uuid: string) =>
+          Promise.resolve(chars.find((c) => c.uuid === uuid) ?? statusCh),
+      }),
+  } as unknown as LcrDeviceSession['server']
+
+  let disconnectHandler: ((e: Event) => void) | undefined
+  let reconnects = 0
+  let disconnects = 0
+  const gatt = {
+    connected: true,
+    connect: async () => {
+      ++reconnects
+      gatt.connected = true
+      return server
+    },
+    disconnect: () => {
+      ++disconnects
+      gatt.connected = false
+      disconnectHandler?.(new Event('gattserverdisconnected'))
+    },
+  }
+  const device = {
+    gatt,
+    addEventListener: (type: string, h: EventListenerOrEventListenerObject) => {
+      if (type === 'gattserverdisconnected' && typeof h === 'function')
+        disconnectHandler = h
+    },
+    removeEventListener: (type: string, h: EventListenerOrEventListenerObject) => {
+      if (type === 'gattserverdisconnected' && disconnectHandler === h)
+        disconnectHandler = undefined
+    },
+  } as unknown as LcrDeviceSession['device']
+
   const session: LcrDeviceSession = {
-    device: {
-      addEventListener: () => undefined,
-      removeEventListener: () => undefined,
-      gatt: undefined,
-    } as unknown as LcrDeviceSession['device'],
-    server: {
-      getPrimaryService: () =>
-        Promise.resolve({
-          getCharacteristic: (uuid: string) =>
-            Promise.resolve(chars.find((c) => c.uuid === uuid) ?? statusCh),
-        }),
-    } as unknown as LcrDeviceSession['server'],
-    disconnect: () => undefined,
+    device,
+    server,
+    disconnect: () => gatt.disconnect(),
   }
 
   let streamAttempt = 0
@@ -113,13 +147,19 @@ function makeFakeSession(
   controlCh.writeValueWithResponse = (v: Uint8Array) => {
     const cmd = v[0]
     if (cmd === BleCommand.StartTransfer || cmd === BleCommand.RestartTransfer) {
-      const injectGap = options.gapFirstAttempt === true && streamAttempt === 0
+      const injectGap = streamAttempt < (options.gapAttempts ?? 0)
       streamAttempt++
       startDelivering(injectGap)
     }
     return origWrite(v)
   }
-  return { session, controlCh }
+
+  return {
+    session,
+    controlCh,
+    reconnectCount: () => reconnects,
+    disconnectCount: () => disconnects,
+  }
 }
 
 function sampleCsv(): string {
@@ -150,12 +190,11 @@ describe('receiveDataset BLE fragmented transfer', () => {
     const last = seen[seen.length - 1]
     expect(last.received).toBe(last.total)
     expect(last.total).toBe(new TextEncoder().encode(csv).length)
-    expect(last.received / last.total).toBe(1)
   })
 
   it('首轮 seq gap 后自动 ABORT + RESTART，用户无需重新点击', async () => {
     const csv = sampleCsv()
-    const { session, controlCh } = makeFakeSession(csv, 'ONE_PORT_Z', { gapFirstAttempt: true })
+    const { session, controlCh } = makeFakeSession(csv, 'ONE_PORT_Z', { gapAttempts: 1 })
     const seen: Array<{ received: number; total: number }> = []
     const ds = await receiveDataset(session, (received, total) => seen.push({ received, total }))
 
@@ -163,11 +202,22 @@ describe('receiveDataset BLE fragmented transfer', () => {
     expect(controlCh.written).toContain(BleCommand.StartTransfer)
     expect(controlCh.written).toContain(BleCommand.AbortTransfer)
     expect(controlCh.written).toContain(BleCommand.RestartTransfer)
-
-    // 对 UI 暴露的进度必须保持单调，即使内部 assembler 在重传时 reset。
     for (let i = 1; i < seen.length; ++i)
       expect(seen[i].received).toBeGreaterThanOrEqual(seen[i - 1].received)
     const last = seen[seen.length - 1]
     expect(last.received).toBe(last.total)
+  })
+
+  it('4 个同连接 attempt 全部 seq gap 后自动重建 GATT，再次 START 后成功', async () => {
+    const csv = sampleCsv()
+    const harness = makeFakeSession(csv, 'ONE_PORT_Z', { gapAttempts: 4 })
+    const ds = await receiveDataset(harness.session)
+
+    expect(ds.csvText).toBe(csv)
+    expect(harness.disconnectCount()).toBe(1)
+    expect(harness.reconnectCount()).toBe(1)
+    // 第一个连接 START + 3*RESTART，重连后的新 connection 再从 START 开始。
+    expect(harness.controlCh.written.filter((x) => x === BleCommand.StartTransfer).length).toBe(2)
+    expect(harness.controlCh.written.filter((x) => x === BleCommand.RestartTransfer).length).toBe(3)
   })
 })
