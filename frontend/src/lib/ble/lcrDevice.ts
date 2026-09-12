@@ -1,12 +1,13 @@
 // lcrDevice.ts — Web Bluetooth 设备会话（仅负责 BLE，不做拟合）
 //
-// 职责边界（plan.md §7.1）：
+// 职责边界（plan.md）：
 //   1. 用户点击触发 requestDevice()（service filter 用 v1 UUID）；
 //   2. GATT connect → 读 Metadata → 订阅 Status/Data notifications；
 //   3. 发送 START_TRANSFER；
 //   4. 按 seq 重组字节流，校验 byte_count + CRC32 + protocol/schema；
-//   5. seq gap / 非法帧 / CRC / 停滞自动 ABORT + RESTART；GATT 断线自动重连；
-//   6. TextDecoder('utf-8') 得到 CSV，返回 dataset —— 拟合交给 parseZCsv。
+//   5. seq gap / 非法帧 / CRC / 设备 notify error / 停滞自动 ABORT + RESTART；
+//   6. 同连接重试耗尽或 GATT 真断线时自动断开/重连；
+//   7. TextDecoder('utf-8') 得到 CSV，返回 dataset —— 拟合交给上层 parser。
 //
 // BLE 单 notification 有 ATT_MTU-3 上限，因此固件自动把整份 CSV 分成许多
 // 小帧；前端不假定一次通知能装完整数据集。浏览器能力检测在页面加载时进行：
@@ -22,9 +23,11 @@ import {
   LCR_METADATA_UUID,
   LCR_SERVICE_UUID,
   LCR_STATUS_UUID,
+  PROTOCOL_VERSION,
   ProtocolError,
   decodeFrame,
   parseMetadata,
+  parseStatus,
 } from './protocol'
 
 export type DeviceDataset =
@@ -42,6 +45,13 @@ class GattDisconnectedError extends ProtocolError {
   constructor() {
     super('GATT 连接中断')
     this.name = 'GattDisconnectedError'
+  }
+}
+
+class TransferAttemptsExhaustedError extends ProtocolError {
+  constructor(message: string) {
+    super(message)
+    this.name = 'TransferAttemptsExhaustedError'
   }
 }
 
@@ -108,8 +118,8 @@ function errorText(err: unknown): string {
 
 /**
  * 在一个已经建立的 GATT connection 上接收整份数据。通知分帧由 seq 重组；
- * seq gap、坏帧、CRC 错误或 15 s 无新增字节都会在同一连接内自动
- * ABORT_TRANSFER → drain → RESTART_TRANSFER，最多 3 次重试。
+ * seq gap、坏帧、设备 notify error、CRC 错误或 15 s 无新增字节都会在同一
+ * 连接内自动 ABORT_TRANSFER → drain → RESTART_TRANSFER，最多 3 次重试。
  */
 async function receiveDatasetOnConnection(
   session: LcrDeviceSession,
@@ -164,7 +174,28 @@ async function receiveDatasetOnConnection(
       attemptFailure = err
     }
   }
+
+  const onStatus = (e: Event) => {
+    if (!acceptingData || attemptFailure || linkFailure) return
+    const ch = e.target as BluetoothRemoteGATTCharacteristic
+    if (!ch.value) return
+    try {
+      const status = parseStatus(ch.value)
+      if (status.protocol !== PROTOCOL_VERSION)
+        throw new ProtocolError(`设备 Status 协议版本异常：${status.protocol}`)
+      if (status.sessionId !== meta.session_id)
+        throw new ProtocolError(
+          `Status session 不匹配：期望 ${meta.session_id}，收到 ${status.sessionId}`,
+        )
+      if (status.errorCode !== 0)
+        throw new ProtocolError(`设备 BLE 发送错误码 ${status.errorCode}`)
+    } catch (err) {
+      attemptFailure = err
+    }
+  }
+
   dataCh.addEventListener('characteristicvaluechanged', onData)
+  statusCh.addEventListener('characteristicvaluechanged', onStatus)
   await dataCh.startNotifications()
   await statusCh.startNotifications()
 
@@ -207,8 +238,8 @@ async function receiveDatasetOnConnection(
         lastAttemptError = err
         if (linkFailure) throw linkFailure
         if (attempt + 1 >= MAX_TRANSFER_ATTEMPTS) {
-          throw new ProtocolError(
-            `BLE 数据传输在自动重试 ${MAX_TRANSFER_ATTEMPTS - 1} 次后仍失败：${errorText(err)}`,
+          throw new TransferAttemptsExhaustedError(
+            `同连接内自动重试 ${MAX_TRANSFER_ATTEMPTS - 1} 次后仍失败：${errorText(err)}`,
           )
         }
 
@@ -235,6 +266,7 @@ async function receiveDatasetOnConnection(
     await dataCh.stopNotifications().catch(() => undefined)
     await statusCh.stopNotifications().catch(() => undefined)
     dataCh.removeEventListener('characteristicvaluechanged', onData)
+    statusCh.removeEventListener('characteristicvaluechanged', onStatus)
     session.device.removeEventListener('gattserverdisconnected', onDisconnected)
   }
 }
@@ -243,9 +275,10 @@ async function receiveDatasetOnConnection(
  * 接收一个封存数据集：读 metadata → 订阅 notifications → 自动分帧重组与重试。
  *
  * 稳定性策略分两层：
- * 1. 同一 GATT 连接内：seq/CRC/停滞自动 RESTART，最多 3 次；
- * 2. 真实 GATT 断线：不重新弹设备 chooser，使用已经授权的 BluetoothDevice
- *    自动 reconnect，最多 2 次，再重新读 metadata 并从 seq 0 开始。
+ * 1. 同一 GATT 连接内：seq/CRC/设备发送错误/停滞自动 RESTART，最多 3 次；
+ * 2. 真实 GATT 断线，或同连接连续 4 个 attempt 都失败：不重新弹 chooser，
+ *    自动 disconnect/connect 重建 GATT，最多 2 次；重连后重新读 metadata、
+ *    重新订阅并从 seq 0 开始。
  *
  * onProgress 对重传/重连保持单调，不会因为内部 assembler reset 让 UI 进度倒退。
  */
@@ -264,28 +297,44 @@ export async function receiveDataset(
     onProgress?.(reportedReceived, total)
   }
 
-  let lastError: unknown = null
-  for (let reconnectAttempt = 0; reconnectAttempt <= MAX_RECONNECT_ATTEMPTS; ++reconnectAttempt) {
+  let reconnectsUsed = 0
+  while (true) {
     try {
       return await receiveDatasetOnConnection(session, monotonicProgress)
     } catch (err) {
-      lastError = err
       const gatt = session.device.gatt
-      const disconnected = err instanceof GattDisconnectedError || gatt?.connected === false
-      if (!disconnected || reconnectAttempt >= MAX_RECONNECT_ATTEMPTS || !gatt) throw err
+      const recoverable =
+        err instanceof GattDisconnectedError ||
+        err instanceof TransferAttemptsExhaustedError ||
+        gatt?.connected === false
+      if (!recoverable || !gatt || reconnectsUsed >= MAX_RECONNECT_ATTEMPTS) throw err
 
-      await sleep(RECONNECT_BASE_DELAY_MS * (reconnectAttempt + 1))
-      try {
-        session.server = await gatt.connect()
-      } catch (reconnectErr) {
-        lastError = reconnectErr
-        if (reconnectAttempt >= MAX_RECONNECT_ATTEMPTS - 1)
-          throw new ProtocolError(
-            `GATT 自动重连失败：${errorText(reconnectErr)}`,
-          )
+      // 同一连接重试耗尽通常说明 ATT/GATT 状态本身需要重建。先主动断开，
+      // 再用已授权 device 重连；不会再次触发 requestDevice chooser。
+      if (gatt.connected) {
+        try {
+          gatt.disconnect()
+        } catch {
+          /* 已在断线过程中 */
+        }
       }
+
+      let connected = false
+      let lastReconnectError: unknown = err
+      while (!connected && reconnectsUsed < MAX_RECONNECT_ATTEMPTS) {
+        ++reconnectsUsed
+        await sleep(RECONNECT_BASE_DELAY_MS * reconnectsUsed)
+        try {
+          session.server = await gatt.connect()
+          connected = true
+        } catch (reconnectErr) {
+          lastReconnectError = reconnectErr
+        }
+      }
+      if (!connected)
+        throw new ProtocolError(
+          `GATT 自动重连 ${MAX_RECONNECT_ATTEMPTS} 次后仍失败：${errorText(lastReconnectError)}`,
+        )
     }
   }
-
-  throw lastError ?? new ProtocolError('BLE 数据接收失败')
 }
