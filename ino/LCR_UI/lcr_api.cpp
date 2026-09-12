@@ -12,7 +12,8 @@
 //     task-affinity：ISR 通知 init 时保存的 task handle）；
 //   * 正常模式 lcr_api_set_diagnostics(false)（测量路径零打印）；
 //   * job/event 均为定长 FreeRTOS 队列（4/4），测量期间无 heap 分配；
-//   * 事件在 DNT 调用完全返回后才入队 —— 收到事件即代表硬件动作结束。
+//   * completion event 不允许静默丢失：event queue 满时只阻塞专用 Worker，
+//     UI/loop task 仍可运行并取走事件；收到事件即代表硬件动作已经结束。
 //
 // 取消语义（chunk-bounded）：requestCancel() 只置标志；Worker 在当前
 // job 完成后丢弃后续“测量类”job 并补发 Cancelled 事件（等待方不会
@@ -20,6 +21,8 @@
 // ============================================================================
 
 #include <Arduino.h>
+
+#include <atomic>
 
 #include "lcr_api.h"
 
@@ -29,18 +32,22 @@
 // ---------------------------------------------------------------------------
 // Worker 配置
 // ---------------------------------------------------------------------------
-static constexpr int      kWorkerPrio  = 3;      // 高于 loop(1)，测量及时
-static constexpr uint32_t kWorkerStack = 16384;  // DNT 测量链栈余量
-static constexpr BaseType_t kWorkerCore = 1;     // 与 loop 同核；BLE 栈在核 0
+static constexpr int        kWorkerPrio  = 3;      // 高于 loop(1)，测量及时
+static constexpr uint32_t   kWorkerStack = 16384;  // ESP-IDF FreeRTOS: bytes
+static constexpr BaseType_t kWorkerCore  = 1;      // 与 loop 同核；BLE 栈在核 0
 static constexpr UBaseType_t kJobQueueLen = 4;
 static constexpr UBaseType_t kEventQueueLen = 4;
 
 static QueueHandle_t s_jobQ = nullptr;
 static QueueHandle_t s_eventQ = nullptr;
-static volatile bool s_ready = false;
-static volatile bool s_initFailed = false;
-static volatile bool s_jobInFlight = false;
-static volatile bool s_cancelReq = false;
+static TaskHandle_t s_workerTask = nullptr;
+
+// 这些 flag 跨 Arduino loop task 与 lcr_worker task 访问。volatile 不能提供
+// C++ 跨 task 同步；使用 atomic 明确发布 READY / cancel / busy 状态。
+static std::atomic<bool> s_ready{false};
+static std::atomic<bool> s_initFailed{false};
+static std::atomic<bool> s_jobInFlight{false};
+static std::atomic<bool> s_cancelReq{false};
 static uint32_t s_nextId = 0;        // 仅在 loop task（submit）侧递增
 
 // ---------------------------------------------------------------------------
@@ -50,14 +57,95 @@ static bool isMeasurementKind(LcrJobKind k)
            k == LcrJobKind::MeasureAndCalcZ || k == LcrJobKind::SetTone;
 }
 
+static double requestedFrequency(const LcrJob& job, int i)
+{
+    if (job.pointCount < 2 || i < 0 || i >= job.pointCount ||
+        !isfinite(job.fStartHz) || !isfinite(job.fStopHz) ||
+        !(job.fStartHz > 0.0) || !(job.fStopHz > 0.0))
+        return NAN;
+    if (i == 0) return job.fStartHz;
+    if (i + 1 == job.pointCount) return job.fStopHz;
+    return job.fStartHz *
+           pow(job.fStopHz / job.fStartHz,
+               (double)i / (double)(job.pointCount - 1));
+}
+
+static void failZPoint(AppZPoint& p, double fReq, int status)
+{
+    p.fReq = fReq;
+    p.fAct = NAN;
+    p.reOhm = p.imOhm = p.magOhm = p.phaseDeg = NAN;
+    p.D = p.Q = NAN;
+    p.apiType = 'E';
+    p.apiStatus = status;
+}
+
+static void failWPoint(AppWPoint& p, double fReq, int status)
+{
+    p.fReq = fReq;
+    p.fAct = NAN;
+    p.hMag = p.hDb = p.phaseDeg = NAN;
+    p.reH = p.imH = NAN;
+    p.apiStatus = status;
+}
+
+static void failCalc(AppCalcResult& c, int status)
+{
+    c.type = 'E';
+    c.rs = c.cs = c.ls = c.rp = c.cp = c.lp = NAN;
+    c.D = c.Q = NAN;
+    c.apiStatus = status;
+}
+
+static void copyZPoint(const LcrZPoint& src, AppZPoint& dst)
+{
+    dst.fReq = src.f_req;       dst.fAct = src.f_act;
+    dst.reOhm = src.z_re;       dst.imOhm = src.z_im;
+    dst.magOhm = src.z_mag;     dst.phaseDeg = src.phi_z_deg;
+    dst.D = src.D;              dst.Q = src.Q;
+    dst.apiType = src.type;
+    const bool bad = src.type == 'E' || !isfinite(src.f_act) ||
+                     !(src.f_act > 0.0) || !isfinite(src.z_re) ||
+                     !isfinite(src.z_im);
+    dst.apiStatus = bad ? LCR_API_ERR_MEASURE : LCR_API_OK;
+}
+
+static void copyWPoint(const LcrWPoint& src, AppWPoint& dst)
+{
+    dst.fReq = src.f_req;       dst.fAct = src.f_act;
+    dst.hMag = src.h_mag;       dst.hDb = src.h_db;
+    dst.phaseDeg = src.phase_deg;
+    const bool bad = !isfinite(src.f_act) || !(src.f_act > 0.0) ||
+                     !isfinite(src.h_mag) || !isfinite(src.phase_deg);
+    dst.apiStatus = bad ? LCR_API_ERR_MEASURE : LCR_API_OK;
+    if (bad) {
+        dst.reH = NAN;
+        dst.imH = NAN;
+    } else {
+        const double rad = dst.phaseDeg * M_PI / 180.0;
+        dst.reH = dst.hMag * cos(rad);
+        dst.imH = dst.hMag * sin(rad);
+    }
+}
+
 static void pushEvent(const LcrEvent& ev)
 {
-    // UI loop 每圈取事件；队列满时短超时重试（有界），极端情况下放弃
-    // 该事件并计数（不阻塞 Worker 的测量节奏）。
-    for (int i = 0; i < 20; ++i) {
-        if (xQueueSend(s_eventQ, &ev, pdMS_TO_TICKS(10)) == pdTRUE) return;
+    // Completion 是状态机的可靠控制面，不能像 telemetry 一样丢包。
+    // Worker 是专用 task；队列满时在这里阻塞会让出 CPU，loop task 可继续
+    // takeEvent() 并释放队列空间，因此不会把 UI 主循环变成阻塞调用。
+    (void)xQueueSend(s_eventQ, &ev, portMAX_DELAY);
+}
+
+static void destroyQueues()
+{
+    if (s_jobQ) {
+        vQueueDelete(s_jobQ);
+        s_jobQ = nullptr;
     }
-    // 放弃：理论上 UI 存活时不发生
+    if (s_eventQ) {
+        vQueueDelete(s_eventQ);
+        s_eventQ = nullptr;
+    }
 }
 
 // Worker task entry：init 与全部测量严格同 task（见文件头）
@@ -69,7 +157,8 @@ static void lcrWorkerTask(void*)
     // 2. DNT 整体初始化（ADC/LCD_CAM/74HC595/校准装载，内部打印已门控）
     const bool ok = lcr_api_init();
 
-    // 3. 发布 READY / INIT_FAILED
+    // 3. 发布 READY / INIT_FAILED。先入队事件，再 release-store 状态；setup
+    // acquire-load READY 后，能看到 Worker 初始化完成前的全部写入。
     {
         LcrEvent ev{};
         ev.id = 0;
@@ -78,20 +167,21 @@ static void lcrWorkerTask(void*)
         pushEvent(ev);
     }
     if (ok) {
-        s_ready = true;
+        s_ready.store(true, std::memory_order_release);
     } else {
-        s_initFailed = true;
+        s_initFailed.store(true, std::memory_order_release);
+        s_workerTask = nullptr;
         vTaskDelete(nullptr);      // init 失败：Worker 退出，服务不可用
         return;
     }
 
     // 4. 串行执行 job（单消费者：物理测量天然互斥）
     for (;;) {
-        LcrJob job;
+        LcrJob job{};
         if (xQueueReceive(s_jobQ, &job, portMAX_DELAY) != pdTRUE) continue;
 
         // 取消生效点：当前 job 已完成，后续测量类 job 直接丢弃
-        if (s_cancelReq && isMeasurementKind(job.kind)) {
+        if (s_cancelReq.load(std::memory_order_acquire) && isMeasurementKind(job.kind)) {
             LcrEvent ev{};
             ev.id = job.id;
             ev.kind = job.kind;
@@ -100,7 +190,7 @@ static void lcrWorkerTask(void*)
             continue;
         }
 
-        s_jobInFlight = true;
+        s_jobInFlight.store(true, std::memory_order_release);
         LcrEvent ev{};
         ev.id = job.id;
         ev.kind = job.kind;
@@ -109,81 +199,82 @@ static void lcrWorkerTask(void*)
         switch (job.kind) {
         case LcrJobKind::SweepZChunk: {
             if (job.pointCount != 2 && job.pointCount != 3) {
-                ev.backendStatus = -1;              // LCR_API_ERR_PARAM
+                ev.backendStatus = LCR_API_ERR_PARAM;
                 break;
             }
-            LcrZPoint t[3];
+            LcrZPoint t[3]{};
             const int r = lcr_api_sweep_z(job.fStartHz, job.fStopHz,
                                           job.pointCount, t, 3);
             ev.backendStatus = r;
             ev.pointCount = job.pointCount;
+
+            // DNT sweep_z only guarantees all output slots after it enters the
+            // measurement loop. ERR_PARAM/ERR_BUF_TOO_SMALL return before any
+            // output write; never read t[] on those paths. ERR_MEASURE_ALL is
+            // different: every slot was written as type='E'+NaN, so preserve it.
+            const bool outputsWritten = r > 0 || r == LCR_API_ERR_MEASURE_ALL;
             for (int i = 0; i < job.pointCount; ++i) {
-                AppZPoint& p = ev.z[i];
-                p.fReq = t[i].f_req;   p.fAct = t[i].f_act;
-                p.reOhm = t[i].z_re;   p.imOhm = t[i].z_im;
-                p.magOhm = t[i].z_mag; p.phaseDeg = t[i].phi_z_deg;
-                p.D = t[i].D;          p.Q = t[i].Q;
-                p.apiType = t[i].type;
-                // LcrZPoint 无状态字：DNT sweep 失败点以 type='E'+NaN 标记，
-                // 此处只翻译为 MEASURE 错误码（见 lcr_api.h 文件头说明）
-                const bool bad = (t[i].type == 'E') || isnan(t[i].z_re) ||
-                                 isnan(t[i].z_im) || !(t[i].f_act > 0.0);
-                p.apiStatus = bad ? -3 : 0;
+                if (outputsWritten)
+                    copyZPoint(t[i], ev.z[i]);
+                else
+                    failZPoint(ev.z[i], requestedFrequency(job, i), r);
             }
             break;
         }
 
         case LcrJobKind::SweepWChunk: {
             if (job.pointCount != 2 && job.pointCount != 3) {
-                ev.backendStatus = -1;              // LCR_API_ERR_PARAM
+                ev.backendStatus = LCR_API_ERR_PARAM;
                 break;
             }
-            LcrWPoint t[3];
+            LcrWPoint t[3]{};
             const int r = lcr_api_sweep_w(job.fStartHz, job.fStopHz,
                                           job.pointCount, t, 3);
             ev.backendStatus = r;
             ev.pointCount = job.pointCount;
+            const bool outputsWritten = r > 0 || r == LCR_API_ERR_MEASURE_ALL;
             for (int i = 0; i < job.pointCount; ++i) {
-                AppWPoint& p = ev.w[i];
-                p.fReq = t[i].f_req;    p.fAct = t[i].f_act;
-                p.hMag = t[i].h_mag;    p.hDb = t[i].h_db;
-                p.phaseDeg = t[i].phase_deg;
-                const bool bad = isnan(t[i].h_mag) || isnan(t[i].phase_deg) ||
-                                 !(t[i].f_act > 0.0);
-                p.apiStatus = bad ? -3 : 0;
-                // 纯数学换算（不是新测量）：复 H = |H|·e^{jφ}
-                if (bad) { p.reH = NAN; p.imH = NAN; }
-                else {
-                    const double rad = p.phaseDeg * M_PI / 180.0;
-                    p.reH = p.hMag * cos(rad);
-                    p.imH = p.hMag * sin(rad);
-                }
+                if (outputsWritten)
+                    copyWPoint(t[i], ev.w[i]);
+                else
+                    failWPoint(ev.w[i], requestedFrequency(job, i), r);
             }
             break;
         }
 
         case LcrJobKind::MeasureAndCalcZ: {
-            LcrZPoint p;
-            const int r1 = lcr_api_measure_z(job.frequencyHz, &p);
-            ev.z[0].fReq = p.f_req;     ev.z[0].fAct = p.f_act;
-            ev.z[0].reOhm = p.z_re;     ev.z[0].imOhm = p.z_im;
-            ev.z[0].magOhm = p.z_mag;   ev.z[0].phaseDeg = p.phi_z_deg;
-            ev.z[0].D = p.D;            ev.z[0].Q = p.Q;
-            ev.z[0].apiType = p.type;
-            ev.z[0].apiStatus = r1;
             ev.pointCount = 1;
+            LcrZPoint p{};
+            const int r1 = lcr_api_measure_z(job.frequencyHz, &p);
             ev.backendStatus = r1;
-            if (r1 == LCR_API_OK) {
-                // apply_calib=false 强约束：measure 链已完成校准，
-                // 再校准一次等于二次校准（plan.md §6.1）
-                LcrCalcResult c;
-                const int r2 = lcr_api_calc(p.f_act, p.z_re, p.z_im, false, &c);
+            if (r1 != LCR_API_OK) {
+                // lcr_api_measure_z() explicitly returns before writing *out
+                // when lcr_derive_z() fails. Do not read p on that path.
+                failZPoint(ev.z[0], job.frequencyHz, r1);
+                failCalc(ev.calc, r1);   // calc was not attempted
+                break;
+            }
+
+            copyZPoint(p, ev.z[0]);
+            if (ev.z[0].apiStatus != LCR_API_OK) {
+                ev.backendStatus = LCR_API_ERR_MEASURE;
+                failCalc(ev.calc, LCR_API_ERR_MEASURE);
+                break;
+            }
+
+            // apply_calib=false 强约束：measure 链已完成校准，
+            // 再校准一次等于二次校准（plan.md §6.1）
+            LcrCalcResult c{};
+            const int r2 = lcr_api_calc(p.f_act, p.z_re, p.z_im, false, &c);
+            if (r2 == LCR_API_OK) {
                 ev.calc.type = c.type;
                 ev.calc.rs = c.rs;  ev.calc.cs = c.cs;  ev.calc.ls = c.ls;
                 ev.calc.rp = c.rp;  ev.calc.cp = c.cp;  ev.calc.lp = c.lp;
                 ev.calc.D = c.D;    ev.calc.Q = c.Q;
                 ev.calc.apiStatus = r2;
-                if (r2 != LCR_API_OK) ev.backendStatus = r2;
+            } else {
+                failCalc(ev.calc, r2);
+                ev.backendStatus = r2;
             }
             break;
         }
@@ -212,7 +303,7 @@ static void lcrWorkerTask(void*)
             break;
 
         case LcrJobKind::ReadCalibrationStatus: {
-            LcrCalStatus st;
+            LcrCalStatus st{};
             const int r = lcr_api_cal_status(&st);
             ev.backendStatus = r;
             if (r == LCR_API_OK) {
@@ -227,14 +318,14 @@ static void lcrWorkerTask(void*)
         }
 
         default:
-            ev.backendStatus = -1;          // LCR_API_ERR_PARAM
+            ev.backendStatus = LCR_API_ERR_PARAM;
             break;
         }
 
-        s_jobInFlight = false;
+        s_jobInFlight.store(false, std::memory_order_release);
         pushEvent(ev);
         if (job.kind == LcrJobKind::StopTone)
-            s_cancelReq = false;            // 取消流程的收尾 job 已执行
+            s_cancelReq.store(false, std::memory_order_release);
     }
 }
 
@@ -245,7 +336,7 @@ class LcrWorkerService : public ILcrService {
 public:
     bool submit(LcrJob& job) override
     {
-        if (!s_ready || !s_jobQ) return false;
+        if (!s_ready.load(std::memory_order_acquire) || !s_jobQ) return false;
         job.id = ++s_nextId;               // loop task 单写者，无需锁；回写
         if (xQueueSend(s_jobQ, &job, 0) != pdTRUE) return false;
         return true;
@@ -256,10 +347,13 @@ public:
     }
     bool busy() const override
     {
-        return s_jobInFlight ||
+        return s_jobInFlight.load(std::memory_order_acquire) ||
                (s_jobQ && uxQueueMessagesWaiting(s_jobQ) > 0);
     }
-    void requestCancel() override { s_cancelReq = true; }
+    void requestCancel() override
+    {
+        s_cancelReq.store(true, std::memory_order_release);
+    }
 };
 
 static LcrWorkerService s_service;
@@ -268,22 +362,47 @@ ILcrService& lcrService() { return s_service; }
 
 bool lcrServiceBegin()
 {
-    if (s_jobQ) return true;                       // 幂等
+    if (s_workerTask) return true;                 // 已创建并运行
+
+    // 清理任何一次失败创建留下的半初始化对象，保证幂等语义真实。
+    destroyQueues();
+    s_ready.store(false, std::memory_order_relaxed);
+    s_initFailed.store(false, std::memory_order_relaxed);
+    s_jobInFlight.store(false, std::memory_order_relaxed);
+    s_cancelReq.store(false, std::memory_order_relaxed);
+    s_nextId = 0;
+
     s_jobQ = xQueueCreate(kJobQueueLen, sizeof(LcrJob));
     s_eventQ = xQueueCreate(kEventQueueLen, sizeof(LcrEvent));
-    if (!s_jobQ || !s_eventQ) return false;
-    s_ready = false;
-    s_initFailed = false;
-    s_cancelReq = false;
-    s_nextId = 0;
+    if (!s_jobQ || !s_eventQ) {
+        destroyQueues();
+        return false;
+    }
+
     // ★ init 与全部测量都在这个新 task 内执行（ADC task-affinity 约束）
-    return xTaskCreatePinnedToCore(lcrWorkerTask, "lcr_worker", kWorkerStack,
-                                   nullptr, kWorkerPrio, nullptr,
-                                   kWorkerCore) == pdPASS;
+    const BaseType_t created =
+        xTaskCreatePinnedToCore(lcrWorkerTask, "lcr_worker", kWorkerStack,
+                                nullptr, kWorkerPrio, &s_workerTask,
+                                kWorkerCore);
+    if (created != pdPASS) {
+        s_workerTask = nullptr;
+        destroyQueues();
+        return false;
+    }
+    return true;
 }
 
-bool lcrServiceReady() { return s_ready; }
-int  lcrServiceInitError() { return s_initFailed ? (int)AppLcrStatus::BackendError : 0; }
+bool lcrServiceReady()
+{
+    return s_ready.load(std::memory_order_acquire);
+}
+
+int lcrServiceInitError()
+{
+    return s_initFailed.load(std::memory_order_acquire)
+               ? (int)AppLcrStatus::BackendError
+               : 0;
+}
 
 bool lcrServiceSubmit(LcrJob& job) { return s_service.submit(job); }
 bool lcrServiceTakeEvent(LcrEvent& ev) { return s_service.takeEvent(ev); }
