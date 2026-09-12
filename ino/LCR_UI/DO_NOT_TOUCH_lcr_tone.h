@@ -34,6 +34,9 @@ static ToneResult lcr_tone_extract(const uint16_t *buf, uint32_t N, double fs, d
 }
 
 static double lcr_tone_apparent_freq(const uint16_t *buf, uint32_t N, double fs, double f_known) {
+    // ★ bugfix(问题3)：退化输入（样本过少 / fs、f 非法或 NaN）直接返回已知频率，
+    //   避免 T_sub=0 等 0 除产生 NaN 向上传播。
+    if (N < 4 || !(fs > 0.0) || !(f_known > 0.0)) return f_known;
     uint32_t Nh = N / 2;
     ToneResult r1 = lcr_tone_extract(buf, Nh, fs, f_known, false);
     ToneResult r2 = lcr_tone_extract(buf + (N - Nh), Nh, fs, f_known, false);
@@ -49,6 +52,17 @@ static MeasResult lcr_tone_analyze(const uint16_t *buf_a, uint32_t n_a,
                                    const uint16_t *buf_b, uint32_t n_b,
                                    double f_known, double fs) {
     uint32_t N = (n_a < n_b) ? n_a : n_b;
+    // ★ bugfix(问题3)：无有效样本或参数非法时跳过拟合，返回 ratio=0 的无效
+    //   结果（上层按 ratio 有效性判失败），防止 N=0 时 mean/0 等 0 除的
+    //   NaN 从本层扩散到测量结果。
+    if (N == 0 || !(fs > 0.0) || !(f_known > 0.0)) {
+        MeasResult r;
+        r.f_used = f_known;
+        r.ratio_raw = 0.0;
+        r.ratio_corr = 0.0;
+        r.dphi_deg = 0.0;
+        return r;
+    }
     double f_app_A = lcr_tone_apparent_freq(buf_a, N, fs, f_known);
     double f_app_B = lcr_tone_apparent_freq(buf_b, N, fs, f_known);
     ToneResult ra = lcr_tone_extract(buf_a, N, fs, f_app_A, true);
