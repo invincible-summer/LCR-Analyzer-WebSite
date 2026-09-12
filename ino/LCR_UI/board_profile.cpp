@@ -16,8 +16,10 @@
 #include "board_profile.h"
 
 const BoardProfile kBoard = {
-    // ---- Display: ST7735S 128x160, 4-wire SPI, 横屏 160x128 ----------------
-    // 最终测量接线释放 GPIO10-14，因此恢复经 H4 连续排针的 TFT 映射：
+    // ---- Display: ST7735S 128x160, 4-wire SPI, 原生竖屏 128x160 ------------
+    // ST7735S GM=11 的可见 RAM 地址是 128 columns x 160 rows。用户界面以
+    // 这一原生几何为唯一布局坐标系，不再把 160x128 横屏当作面板分辨率。
+    // 最终测量接线释放 GPIO10-14，因此 TFT 使用 H4 连续排针：
     //   CS=H4-16(GPIO10) MOSI=H4-17(GPIO11) SCK=H4-18(GPIO12)
     //   RST=H4-19(GPIO13) DC=H4-20(GPIO14)；MISO 不使用。
     .tftCs   = 10,
@@ -31,9 +33,9 @@ const BoardProfile kBoard = {
     .tftSpiHz = 10000000,
     .tftWidth  = 128,
     .tftHeight = 160,
-    .tftXOffset = 0,         // 面板可见区属性；实屏校准只改这里
+    .tftXOffset = 0,
     .tftYOffset = 0,
-    .tftRotation = 1,        // 横屏 160x128
+    .tftRotation = 0,        // portrait: tft.width()==128, tft.height()==160
     .tftInvert = false,
 
     // ---- Human input: 4 按键 + EC11（全部经 H5 外接，按下接地 + 内部上拉）---
