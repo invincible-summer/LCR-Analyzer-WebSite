@@ -12,12 +12,11 @@
 #     产品构建必须定义 USE_FSPI_PORT；display.cpp 再以 SPI_PORT==2 做
 #     compile-time gate。上游后续代码也已把 S3 默认值直接修为 2。
 #   * FQBN：esp32:esp32:esp32s3，PSRAM=opi（N16R8 八线 PSRAM）、
-#     FlashSize=16M、CDCOnBoot=default（Disabled——本板 Micro USB 经 CH340X
-#     隔离接 GPIO43/44，USB CDC 会把 Serial 引到 GPIO19/20 导致无输出；
-#     见 docs/HARDWARE_MAPPING.md）。
+#     FlashSize=16M、CDCOnBoot=default（Disabled）。最终测量接线占用
+#     GPIO19/20 作为 74HC595 SER/RCLK，因此产品构建不得启用原生 USB CDC。
 #   * TFT_eSPI 引脚经编译期 -D 注入（ST7735S，与 board_profile.cpp 的
-#     kBoard 一致）。TFT 已移出 GPIO10-14（LCD_CAM 并行 DAC 总线冲突），
-#     映射 SCK=4 MOSI=5 CS=6 DC=7 RST=21（待实物 continuity）。
+#     kBoard 一致）。最终测量接线已释放 GPIO10-14，TFT 固定为
+#     CS=10 MOSI=11 SCK=12 RST=13 DC=14，MISO 未用。
 #   * ST7735S v1.3 Table 7：4-line serial write TSCYCW >= 66ns，理论上限
 #     约 15.15MHz；产品构建固定 10MHz。
 #   * 任何 multiple definition / driver conflict 都是架构错误，不用链接器
@@ -50,14 +49,14 @@ fi
 # TFT_eSPI 配置（与 board_profile.cpp 的 kBoard 保持一致）：
 #   USE_FSPI_PORT is mandatory on TFT_eSPI 2.5.43 + ESP32-S3: it makes the
 #   library's S3 direct-register path select SPI_PORT=2 instead of default FSPI=0.
-#   SCK=GPIO4 MOSI=GPIO5 CS=GPIO6 DC=GPIO7 RST=GPIO21；MISO 未用。
+#   CS=GPIO10 MOSI=GPIO11 SCK=GPIO12 RST=GPIO13 DC=GPIO14；MISO 未用。
 #   ST7735S 写时钟周期 >=66ns -> 10MHz 留出时序余量。
 TFT_FLAGS="-DUSER_SETUP_LOADED \
 -DUSE_FSPI_PORT \
 -DST7735_DRIVER \
 -DTFT_WIDTH=128 -DTFT_HEIGHT=160 \
--DTFT_CS=6 -DTFT_DC=7 -DTFT_RST=21 \
--DTFT_MOSI=5 -DTFT_MISO=-1 -DTFT_SCLK=4 \
+-DTFT_CS=10 -DTFT_DC=14 -DTFT_RST=13 \
+-DTFT_MOSI=11 -DTFT_MISO=-1 -DTFT_SCLK=12 \
 -DTFT_BL=-1 \
 -DTOUCH_CS=-1 \
 -DSPI_FREQUENCY=10000000 \
