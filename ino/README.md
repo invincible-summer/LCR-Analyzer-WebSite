@@ -23,7 +23,7 @@ UI / SweepEngine / ComponentScreen / Dataset / BLE
    LCD_CAM 8bit → 电阻网络 DAC；74HC595 → 增益/双端口；两路 ADC → Z/H
 ```
 
-为什么必须这样（详见 `lcr_api.h` 文件头中文说明与仓库 `plan.md`）：
+为什么必须这样（详见 `lcr_api.h` 文件头中文说明与 `ino/plan.md`）：
 
 1. DNT ADC 的 ISR 只通知 `lcr_api_init()` 时保存的 task —— init 与全部
    测量必须在同一个 Worker task（否则死锁）；
@@ -42,7 +42,9 @@ UI / SweepEngine / ComponentScreen / Dataset / BLE
 | 3 Two-Port H Sweep | 双端口复 H=Vout/Vin（raw W 链，如实标注 raw_w_path）→ `f,re_h,im_h` | 同上 |
 
 隐藏诊断页（信号发生器）：主菜单 3 秒内连按 3 次 `Up` 进入；经 wrapper
-调 DNT `lcr_api_set_freq`；离开页面必停激励。
+调 DNT `lcr_api_set_freq`。离开页面采用异步状态机：Back 不阻塞 UI；若
+SetTone 正在执行则先等其 completion，再提交 StopTone；只有 StopTone
+completion 到达后才解除 measurement/radio lock 并返回上级页面。
 
 ## 目录
 
@@ -65,7 +67,7 @@ LCR_UI/
 test/                   host 单测（mock LcrService）+ golden fixture + rollover
 tools/build_check.sh    arduino-cli ESP32-S3 编译门禁（FQBN/TFT 注入）
 tools/run_tests.sh      host 单测 + golden CSV（oneport + twoport）生成
-tools/static_check.sh   Gate A–J（DNT/硬件/GPIO/TFT host/Worker 契约）
+tools/static_check.sh   Gate A–K（DNT/硬件/GPIO/TFT host/Worker/UI-stop 契约）
 tools/dnt_manifest.txt  DO_NOT_TOUCH 文件 SHA-256 清单（Gate A）
 tools/bt_bridge.py      （Deprecated）旧 Classic BT→HTTP 桥，正常路径不使用
 ```
@@ -133,6 +135,14 @@ TFT init: TFT_eSPI 2.5.43, SPI_PORT=2, SCLK=4 MOSI=5 CS=6 DC=7 RST=21 @ 10000000
    FreeRTOS queue 负责 job/event 对象跨 task 传递。
 10. **时间是 uptime**：`millis()` 为 `uint32_t` 回绕计数，不是 Unix epoch；
     deadline 比较必须使用回绕安全差值，内部 seal 字段名为 `sealedUptimeMs`。
+11. **UI 不等待硬件**：运行时界面不得用 busy-wait/`delay()` 等待 completion。
+    信号发生器的 SetTone/StopTone completion 必须按 `id + kind` 匹配；只有
+    SetTone 明确失败或 StopTone completion 到达后，才允许解除 measurement lock。
+    Back 发生在 SetTone pending 时，必须先异步等 SetTone 返回，再 StopTone，
+    禁止“页面已退出但激励仍在输出”的状态。
+12. **completion 是发布边界**：StopTone 的内部 cancel 状态必须在发布
+    StopTone completion 之前清除。UI 一旦看到 completion，就应能安全开始下一次
+    测量，而不会被上一轮的取消标志误伤。
 
 ## 数据流（模式 2/3）
 
