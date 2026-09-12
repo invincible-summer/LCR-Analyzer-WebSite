@@ -12,16 +12,13 @@
   生产源码引用数为 0，CI 静态门禁锁定）。Wi-Fi 不使用。
 - 固件**启动时不初始化 BLE**。只有当一次扫频完成、激励停止、ADC/DMA
   释放、数据集封存（seal）之后，用户在设备上确认才开启 BLE advertising。
-- 测量窗口（`MeasurementEngine PREPARE..RESULT_READY`）内 `RadioState`
-  必须为 Off：该 invariant 由 `radio_lock` 承载，debug 构建轮询断言，
-  host 状态机单测覆盖。
-- 已连接 BLE 时用户开始新测量：先 `disconnect → BLE deinit → radio-off
-  confirmed`，然后才允许启动采集。
-- 传输失败绝不回头修改测量值：封存数据集不可变，重传必然逐字节一致。
+- 测量窗口内 `RadioState` 必须为 Off：该 invariant 由 `radio_lock` 承载。
+- 已连接 BLE 时用户开始新测量：先断开并完成 BLE deinit，再允许采集。
+- 传输失败绝不回头修改测量值：sealed dataset 不可变，重传逐字节一致。
 
 ## 2. GATT 服务
 
-固定 128-bit UUID（不随文件/分支改变）：
+固定 128-bit UUID：
 
 ```text
 Service:  6e6f0001-5f31-4c43-a001-6c63722d7631
@@ -31,12 +28,9 @@ Metadata: 6e6f0004-5f31-4c43-a001-6c63722d7631   READ
 Data:     6e6f0005-5f31-4c43-a001-6c63722d7631   NOTIFY
 ```
 
-设备广播名：`LCR-Analyzer`；广播包含 Service UUID（浏览器按此过滤）。
+设备广播名：`LCR-Analyzer`；广播包含 Service UUID。
 
 ## 3. Metadata（READ，UTF-8 JSON）
-
-字段固定（v2 起以 `calibration_state`/`measurement_backend` 取代历史的
-`calibration_id`；浏览器解析器 v1/v2 均接受）：
 
 ```json
 {
@@ -53,26 +47,23 @@ Data:     6e6f0005-5f31-4c43-a001-6c63722d7631   NOTIFY
 }
 ```
 
-- `calibration_state` 为固件用 `lcr_api_cal_status()` 得到的真实校准摘要；
-  双端口 W 链为 `raw_w_path`。
 - `dataset_kind` ∈ {`ONE_PORT_Z`, `TWO_PORT_H`}。
-- `crc32` 为 Data 特征将要传输的**整份 CSV 字节流**的 CRC-32/ISO-HDLC。
-- `protocol` ≠ 1 时前端必须拒绝并提示升级固件。
-- `byte_count` 必须为正安全整数；前端在开始接收前校验，异常元数据不能驱动
-  无限等待或异常内存申请。
+- `crc32` 覆盖 Data 将传输的**整份 CSV 原始字节流**。
+- `protocol != 1` 时前端拒绝。
+- `byte_count` 必须是正安全整数，`point_count` 必须是非负安全整数。
+- 双端口 W 链的 `calibration_state` 为 `raw_w_path`。
 
-## 4. Control（WRITE WITH RESPONSE，定长命令字节）
+## 4. Control（WRITE WITH RESPONSE）
 
 | 字节 | 含义 |
 |---|---|
-| 0x01 | START_TRANSFER（从 seq 0 开始发送） |
-| 0x02 | RESTART_TRANSFER（从 seq 0 重发整份 sealed dataset） |
-| 0x03 | ABORT_TRANSFER（停止当前发送，保持连接） |
-| 0x04 | GET_STATUS（请求一次 Status notify） |
+| 0x01 | START_TRANSFER：从 seq 0 开始 |
+| 0x02 | RESTART_TRANSFER：从 seq 0 重发整份 sealed dataset |
+| 0x03 | ABORT_TRANSFER：停止当前流，保持连接 |
+| 0x04 | GET_STATUS：请求一次 Status |
 
-v1 不在 MCU 上解析 JSON；未知命令回错误码 2。浏览器现在会在 seq gap、坏帧、
-CRC 失败或接收停滞时自动发送 `ABORT_TRANSFER`，短暂 drain 后发送
-`RESTART_TRANSFER`，用户无需手动重新点击。
+浏览器在 seq gap、坏帧、设备发送错误、CRC 失败或停滞时自动执行
+`ABORT_TRANSFER -> drain -> RESTART_TRANSFER`，用户不需要手动重复点击。
 
 ## 5. Status（READ + NOTIFY，15 字节）
 
@@ -88,12 +79,11 @@ offset  size  field
 ```
 
 错误码：0 无；1 BLE 初始化失败；2 未知命令；3 未连接即传输；4 帧编码失败；
-5 本地 notify 提交/transport 失败。错误码 5 会停止当前 stream，但连接保留时
-仍允许 `RESTART_TRANSFER` 重新开始。
+5 Data notify 本地提交/transport 失败。Data characteristic 的底层 status callback
+出现非 `SUCCESS_NOTIFY` 时，固件把 error 5 通过 atomic mailbox 发布给主 loop；
+即使是最后一帧排队后才收到失败 callback，也不得把传输误认为成功。
 
 ## 6. Data（NOTIFY，自动分帧 CSV）与上限
-
-帧布局（小端）：
 
 ```text
 offset  size  field
@@ -102,80 +92,79 @@ offset  size  field
 3       1     dataset kind（0 = ONE_PORT_Z，1 = TWO_PORT_H）
 4       2     seq，uint16 little-endian（modulo 2^16）
 6       2     payload_len，uint16 little-endian
-8       N     CSV 字节
+8       N     CSV bytes
 ```
 
-BLE **确实有单次 notification 上限**，但不是“整份数据只能这么大”。ATT
-notification 的 characteristic value 最多为 `negotiated ATT_MTU - 3`：默认
-MTU=23 时最多 20 字节；Arduino-ESP32 API 支持的 MTU 范围为 23..517，理论
-单通知 characteristic value 上限为 514 字节。项目不依赖最大 MTU：
+BLE **有单次 notification 上限**，但不是“整份文件上限”。ATT notification 的
+characteristic value 最大为 `negotiated ATT_MTU - 3`。ESP32 默认 MTU=23，
+Arduino-ESP32/ESP-IDF 可配置至 517，但实际值由双方协商且可能小于请求值。
 
-- 未协商时按 20-byte ATT payload 工作，扣 8-byte LCR header 后每帧只传
-  **12 byte CSV**；这是最保守、兼容性最高的路径。
-- 固件 preferred MTU 设为 185；只有当前连接实际 `onMtuChanged` 后才使用更大
-  payload，peer 不接受时自动保持 MTU23。
-- 即使协商到很大 MTU，项目仍把 CSV 数据限制为 **128 byte/frame**，所以
-  一条 Data notification 最大 136 字节。更大的数据集自动拆成多帧，而不是
-  继续增大单包。
-- 固件每次 `poll()` 最多发一帧，间隔 **15 ms**。这样牺牲少量峰值吞吐，
-  换取 ESP32 host/controller queue 与 Web Bluetooth 事件队列的稳定余量。
-- `seq` 在线上是 uint16，按 modulo 65536 递增：`65535 → 0` 是合法回绕。
-  固件原本就自然回绕；前端现已使用同一规则，不会把长流的合法回绕误判成 gap。
-- Status 的 `byte_count/bytes_sent/bytes_total` 使用 uint32。当前产品数据集更早
-  受到固件静态 CSV buffer 限制：One-Port 与 Two-Port 各 **12 KiB**，因此
-  当前真实应用上限远小于任何 seq/uint32 协议边界。
+本项目固定策略：
 
-换言之：**当前 12 KiB 数据集没有“BLE 总传输大小上限”问题；真正需要自动
-处理的是每通知 MTU 上限、队列压力和偶发丢通知/断线。**这些现在都由分帧、
-pacing、seq/CRC 与自动重试处理。
+- 未协商时 ATT value=20 B；扣除 8 B LCR header 后每帧 **12 B CSV**。
+- 固件请求 preferred MTU=185；只有当前连接 `onMtuChanged` 到达后才扩大。
+- 无论 MTU 多大，CSV payload 最多 **128 B/frame**，Data notification 总长最多
+  136 B；更大 dataset 自动连续分片。
+- 每个 `radio.poll()` 最多发一帧，帧间至少 **15 ms**，避免压满 BLE
+  host/controller 与浏览器 notification 队列。
+- `seq` 按 uint16 modulo 65536 连续，`65535 -> 0` 合法；前后端一致。
+- Status 的总字节计数使用 uint32。
+- 当前 One-Port/Two-Port CSV 静态 buffer 各 **12 KiB**，所以当前产品的实际
+  dataset 上限早于 BLE seq/uint32 边界。
+
+满 12 KiB 数据集的纯软件 pacing 量级：默认 MTU23 时 1024 帧，15 ms 间隔约
+15.36 s；能使用 128 B CSV/frame 时 96 帧，约 1.44 s。实际总时间还受连接
+interval、浏览器调度和 RF 环境影响。
 
 ## 7. 稳定传输与自动恢复
 
-接收端使用两层恢复机制，均不改变 sealed dataset：
+恢复有三层，全部重发同一份 immutable sealed dataset：
 
-1. **同一 GATT 连接内自动重传**：发现 seq gap、非法/截断帧、dataset kind
-   错误、CRC32 错误或连续 15 s 没有新增字节时，前端先 ABORT，等待 120 ms
-   让旧 notification 排空，再 RESTART。最多 3 次自动重试。
-2. **GATT 断线自动重连**：如果链路真正断开，浏览器不重新弹 chooser，而是
-   用已授权的 `BluetoothDevice.gatt.connect()` 自动重连，最多 2 次；重连后
-   重新读取 metadata、重新订阅 notifications，并从 seq 0 重传。
+1. **同一 GATT 连接内自动重传**：seq gap、非法/截断帧、kind/protocol 不匹配、
+   设备 Status error、收到字节超过 `byte_count`、CRC32 错误或连续 15 s 无新增
+   有效字节时，前端写 ABORT，等待 120 ms 排空旧 notification，再 RESTART。
+   一个连接内最多 4 个 attempt（1 START + 3 RESTART）。
+2. **同连接 attempt 全部失败时重建 GATT**：如果连续 4 个 attempt 仍失败，
+   即使浏览器仍认为 `gatt.connected=true`，也主动 disconnect，然后用已经授权的
+   `BluetoothDevice.gatt.connect()` 重连。这样可以清理卡住的 ATT/GATT 状态，
+   不需要再次弹 chooser。
+3. **真实 GATT 断线自动重连**：物理/浏览器断线走同一个 reconnect 路径。
+   整个 `receiveDataset()` 最多使用 2 次 reconnect；每次重连后重新读 Metadata、
+   重新订阅 Status/Data，并从 seq 0 开始。
 
-每一轮 RESTART 开始时，接收端只接受新的 `seq=0` 作为流起点；重启前残留在
-host/controller/browser queue 的旧帧全部忽略。最终只有同时满足以下条件才把
-CSV 交给解析/拟合：
+每轮 RESTART 只接受新的 `seq=0` 作为流起点；在此之前到达的残留 Data frame
+直接忽略。最终只有同时满足以下条件才把 CSV 交给 parser/拟合：
 
-- 帧协议版本正确、dataset kind 正确；
-- seq 连续（含 uint16 wrap）；
-- 实收字节数严格等于 metadata `byte_count`；
-- 整份 CRC32 与 metadata 完全一致。
+- protocol / dataset kind / session status 合法；
+- seq 连续（包含 uint16 wrap）；
+- `bytesReceived == metadata.byte_count`；
+- `CRC32(full CSV bytes) == metadata.crc32`。
 
-重传时内部 assembler 会 reset，但 UI 暴露的进度使用历史最大接收量，因此
-不会从 80% 突然倒退到 0%。
+内部 assembler 重传时 reset；UI progress 使用历史最大接收量，避免可见进度
+从 80% 倒退到 0%。如果两次 GATT reconnect 也无法恢复，才向用户暴露最终错误。
 
 ## 8. 前端接收流程（Web Bluetooth）
 
-1. 用户点击触发 `navigator.bluetooth.requestDevice({filters:[{services:[UUID]}]})`；
-2. GATT connect → 读 Metadata（版本/schema/长度校验）；
-3. 订阅 Status/Data notifications → 写 `START_TRANSFER`；
-4. 分帧接收并按 seq 重组；异常按 §7 自动恢复；
-5. `byte_count` + CRC32 最终校验；
-6. `TextDecoder('utf-8')` 得到 CSV 文本；
-7. 单端口：`parseZCsv()` → `loadPoints()` → WASM 拟合；双端口：
-   `parseHCsv()` → 复 H 曲线；
-8. “保存收到的 CSV”下载的是通过 CRC 校验后的原始字节。
+1. 用户手势触发 `requestDevice()`；
+2. GATT connect → 读 Metadata；
+3. 订阅 Status/Data → START；
+4. MTU-aware 多帧接收、seq 重组；
+5. 异常按 §7 自动 retry/reconnect；
+6. byte_count + CRC32 最终校验；
+7. `TextDecoder('utf-8')` 还原 CSV；
+8. One-Port 进入 `parseZCsv()`/拟合；Two-Port 进入 `parseHCsv()`/曲线；
+9. 保存功能使用 CRC 通过后的原始字节。
 
-浏览器要求：桌面 Chrome/Edge + secure context（HTTPS 或 localhost）。
+浏览器要求：桌面 Chrome/Edge + HTTPS/localhost。
 
 ## 9. 兼容性规则
 
-改变以下任何一项都必须 bump `LCR_BLE_PROTOCOL_VERSION`（并同时更新本文档、
-固件 `fw_version.h`、前端 `protocol.ts` 与双侧测试）：
+以下变化必须 bump `LCR_BLE_PROTOCOL_VERSION`：
 
-- `Z = V/I`、`H = Vout/Vin` 定义或 phase 正方向；
-- CSV 单位或列语义（属 schema version，与协议版本联动声明）；
+- Z/H 定义或 phase 正方向；
+- CSV 列/单位语义与协议联动改变；
 - BLE frame layout、CRC 覆盖范围；
-- 数据集完成/封存语义（何时允许开射频、何时可重传）。
+- seal/完成语义发生不兼容变化。
 
-以下属于 **v1 兼容实现策略**，不要求 bump：MTU preferred value、单帧 payload
-cap、notification pacing、自动 retry/reconnect 次数，只要帧格式与 sealed dataset
-语义不变。
+以下属于 v1 兼容 transport policy，不要求 bump：preferred MTU、payload cap、pacing、
+retry/reconnect 次数与超时，只要线格式、UUID 和 sealed dataset 语义保持不变。
