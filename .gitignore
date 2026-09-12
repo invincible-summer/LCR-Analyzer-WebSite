@@ -12,6 +12,7 @@ __pycache__/
 *.egg-info/
 .venv/
 venv/
+.idea/
 
 # ---- data / runtime ----
 backend/data/*.db
@@ -34,4 +35,4 @@ AlgorithmLcr/build*/
 
 # ---- windows NTFS zone identifier junk ----
 *:Zone.Identifier
-.idea/
+
