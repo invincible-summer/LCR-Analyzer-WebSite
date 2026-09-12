@@ -2,13 +2,15 @@
 // radio_manager.cpp —— BLE GATT v1 服务 + 稳健分片发送（Arduino-ESP32 3.3.11）
 // ----------------------------------------------------------------------------
 // 关键约束：
-//   * BLE callback 只写 mailbox 标志，不做 advertising/notify/deinit 等重活；
+//   * BLE callback 只写 atomic mailbox，不做 advertising/notify/deinit 等重活；
 //   * stopBle 使用 BLEDevice::deinit(false)，禁止 deinit(true)。Arduino-ESP32
 //     3.3.11 的 BLEDevice API 明确说明 release_memory=true 会阻止再次初始化；
 //   * 每次新连接/session 都把 ATT 数据负载复位到 MTU=23 的保守值，只有收到
 //     本连接 onMtuChanged 后才扩大，避免第二次连接沿用上次 MTU；
 //   * 主 loop 是唯一 poll() owner；单次 pump 最多发 1 帧，并按 8 ms pacing，
-//     防止连续 notify 淹没 NimBLE host/controller queue。
+//     防止连续 notify 淹没 NimBLE host/controller queue；
+//   * 初始化失败路径必须回到真正的 Off 状态，禁止留下“Error 但 BLE 已 deinit”
+//     的伪状态，否则下一次 start/stop 会访问已经失效的 advertising 对象。
 // ============================================================================
 
 #include "radio_manager.h"
@@ -21,6 +23,7 @@
 #include <BLEServer.h>
 #include <BLEService.h>
 
+#include <atomic>
 #include <string.h>
 
 const char* const kLcrBleServiceUuid  = "6e6f0001-5f31-4c43-a001-6c63722d7631";
@@ -42,33 +45,44 @@ static BLECharacteristic* s_chData = nullptr;
 static bool s_streamActive = false;
 static bool s_clientConnected = false;
 
-// BLE callback -> main-loop mailbox。单连接/单控制命令协议，因此 latest-value
-// mailbox 足够；所有 GATT 状态迁移都延后到 RadioManager::poll()。
-static volatile uint8_t s_pendingCmd = 0;
-static volatile bool s_connectEvent = false;
-static volatile bool s_disconnectEvent = false;
-static volatile uint16_t s_mtuAttPayloadEvent = 0;
+// BLE callback 与 Arduino loop 运行在不同 FreeRTOS task 上。volatile 不能构成
+// C++ 跨线程同步，因此 mailbox 必须用 atomic；callback store，poll exchange。
+static std::atomic<uint8_t> s_pendingCmd{0};
+static std::atomic<bool> s_connectEvent{false};
+static std::atomic<bool> s_disconnectEvent{false};
+static std::atomic<uint16_t> s_mtuAttPayloadEvent{0};
+
+static void clearGattPointers()
+{
+    s_server = nullptr;
+    s_chControl = nullptr;
+    s_chStatus = nullptr;
+    s_chMetadata = nullptr;
+    s_chData = nullptr;
+}
 
 class LcrServerCallbacks : public BLEServerCallbacks {
 public:
     void onConnect(BLEServer*) override
     {
-        s_connectEvent = true;
+        s_connectEvent.store(true, std::memory_order_release);
     }
     void onDisconnect(BLEServer*) override
     {
-        s_disconnectEvent = true;
+        s_disconnectEvent.store(true, std::memory_order_release);
     }
 #if defined(CONFIG_NIMBLE_ENABLED)
     void onMtuChanged(BLEServer*, ble_gap_conn_desc*, uint16_t mtu) override
     {
-        if (mtu > 23) s_mtuAttPayloadEvent = (uint16_t)(mtu - 3);
+        if (mtu > 23)
+            s_mtuAttPayloadEvent.store((uint16_t)(mtu - 3), std::memory_order_release);
     }
 #elif defined(CONFIG_BLUEDROID_ENABLED)
     void onMtuChanged(BLEServer*, esp_ble_gatts_cb_param_t* param) override
     {
         if (param && param->mtu.mtu > 23)
-            s_mtuAttPayloadEvent = (uint16_t)(param->mtu.mtu - 3);
+            s_mtuAttPayloadEvent.store((uint16_t)(param->mtu.mtu - 3),
+                                       std::memory_order_release);
     }
 #endif
 };
@@ -78,7 +92,8 @@ public:
     void onWrite(BLECharacteristic* ch) override
     {
         const String v = ch->getValue();
-        if (v.length() > 0) s_pendingCmd = (uint8_t)v[0];
+        if (v.length() > 0)
+            s_pendingCmd.store((uint8_t)v[0], std::memory_order_release);
     }
 };
 
@@ -150,25 +165,30 @@ bool RadioManager::bleInitCommon(const char* metadataJson, uint32_t byteCount,
     // 新 session 必须清理上次连接留下的协商状态/mailbox。
     m_attPayload = kConservativeDataPayload;
     m_nextTxMs = 0;
-    s_pendingCmd = 0;
-    s_connectEvent = false;
-    s_disconnectEvent = false;
-    s_mtuAttPayloadEvent = 0;
+    s_pendingCmd.store(0, std::memory_order_release);
+    s_connectEvent.store(false, std::memory_order_release);
+    s_disconnectEvent.store(false, std::memory_order_release);
+    s_mtuAttPayloadEvent.store(0, std::memory_order_release);
     s_clientConnected = false;
     s_streamActive = false;
+    clearGattPointers();
 
     m_state = RadioState::StartingBle;
     radioLockNotifyRadioActive(true);
 
     if (!BLEDevice::init("LCR-Analyzer")) {
-        m_state = RadioState::Error;
+        m_errorCode = 1;
+        m_state = RadioState::Off;
         radioLockNotifyRadioActive(false);
         return false;
     }
+
     s_server = BLEDevice::createServer();
     if (!s_server) {
         BLEDevice::deinit(false);
-        m_state = RadioState::Error;
+        clearGattPointers();
+        m_errorCode = 1;
+        m_state = RadioState::Off;
         radioLockNotifyRadioActive(false);
         return false;
     }
@@ -177,8 +197,9 @@ bool RadioManager::bleInitCommon(const char* metadataJson, uint32_t byteCount,
     BLEService* svc = s_server->createService(kLcrBleServiceUuid);
     if (!svc) {
         BLEDevice::deinit(false);
-        s_server = nullptr;
-        m_state = RadioState::Error;
+        clearGattPointers();
+        m_errorCode = 1;
+        m_state = RadioState::Off;
         radioLockNotifyRadioActive(false);
         return false;
     }
@@ -194,9 +215,9 @@ bool RadioManager::bleInitCommon(const char* metadataJson, uint32_t byteCount,
                                          BLECharacteristic::PROPERTY_NOTIFY);
     if (!s_chControl || !s_chStatus || !s_chMetadata || !s_chData) {
         BLEDevice::deinit(false);
-        s_server = nullptr;
-        s_chControl = s_chStatus = s_chMetadata = s_chData = nullptr;
-        m_state = RadioState::Error;
+        clearGattPointers();
+        m_errorCode = 1;
+        m_state = RadioState::Off;
         radioLockNotifyRadioActive(false);
         return false;
     }
@@ -240,21 +261,20 @@ void RadioManager::stopBle()
     m_state = RadioState::StoppingBle;
     s_streamActive = false;
 
-    BLEAdvertising* adv = BLEDevice::getAdvertising();
-    if (adv) adv->stop();
+    // 只有 stack 真正 initialized 时才允许解引用其 advertising singleton。
+    // 这也保护未来的初始化失败重构，不让 stop path 去访问半初始化/已释放对象。
+    if (BLEDevice::getInitialized()) {
+        BLEAdvertising* adv = BLEDevice::getAdvertising();
+        if (adv) adv->stop();
+        BLEDevice::deinit(false);
+    }
 
-    // release_memory=false is intentional and required. Arduino-ESP32 documents
-    // release_memory=true as preventing reinitialization; using true caused the
-    // deterministic second-upload StoreProhibited lifecycle failure.
-    BLEDevice::deinit(false);
-
-    s_server = nullptr;
-    s_chControl = s_chStatus = s_chMetadata = s_chData = nullptr;
+    clearGattPointers();
     s_clientConnected = false;
-    s_pendingCmd = 0;
-    s_connectEvent = false;
-    s_disconnectEvent = false;
-    s_mtuAttPayloadEvent = 0;
+    s_pendingCmd.store(0, std::memory_order_release);
+    s_connectEvent.store(false, std::memory_order_release);
+    s_disconnectEvent.store(false, std::memory_order_release);
+    s_mtuAttPayloadEvent.store(0, std::memory_order_release);
     m_attPayload = kConservativeDataPayload;
     m_nextTxMs = 0;
     m_state = RadioState::Off;
@@ -359,28 +379,21 @@ void RadioManager::poll()
 {
     if (m_state == RadioState::Off) return;
 
-    // Process callback mailbox first. Disconnect wins over connect if both were
-    // observed before this tick, because no data may be sent to a stale link.
-    if (s_disconnectEvent) {
-        s_disconnectEvent = false;
-        s_connectEvent = false;
+    // Disconnect wins over connect if both were posted before this tick. atomic
+    // exchange also closes the callback/main-task data race that volatile leaves.
+    if (s_disconnectEvent.exchange(false, std::memory_order_acq_rel)) {
+        s_connectEvent.store(false, std::memory_order_release);
         noteClientDisconnected();
-    } else if (s_connectEvent) {
-        s_connectEvent = false;
+    } else if (s_connectEvent.exchange(false, std::memory_order_acq_rel)) {
         noteClientConnected();
     }
 
-    const uint16_t att = s_mtuAttPayloadEvent;
-    if (att) {
-        s_mtuAttPayloadEvent = 0;
-        noteAttPayload(att);
-    }
+    const uint16_t att = s_mtuAttPayloadEvent.exchange(0, std::memory_order_acq_rel);
+    if (att) noteAttPayload(att);
 
-    if (s_pendingCmd) {
-        const uint8_t cmd = s_pendingCmd;
-        s_pendingCmd = 0;
-        handleCommand(cmd);
-    }
+    const uint8_t cmd = s_pendingCmd.exchange(0, std::memory_order_acq_rel);
+    if (cmd) handleCommand(cmd);
+
     if (m_state == RadioState::Sending && s_streamActive) sendSomeFrames();
 }
 
@@ -405,7 +418,7 @@ void RadioManager::noteClientDisconnected()
     m_bytesSent = 0;
     m_nextSeq = 0;
     m_attPayload = kConservativeDataPayload;
-    s_mtuAttPayloadEvent = 0;
+    s_mtuAttPayloadEvent.store(0, std::memory_order_release);
 
     if (m_state == RadioState::Connected || m_state == RadioState::Sending ||
         m_state == RadioState::Error) {
