@@ -542,6 +542,7 @@ static bool lcr_derive_z(const MeasResult &m, ZDerived &z) {
     z.type = 'L';
     z.cs = z.cp = NAN;
   }
+  return true;
 }
 
 // 以下显式打印函数保持原样（仅上层显式调用时输出，API 不调用）
