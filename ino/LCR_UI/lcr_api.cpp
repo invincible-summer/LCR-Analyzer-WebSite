@@ -152,7 +152,7 @@ static void destroyQueues()
 static void lcrWorkerTask(void*)
 {
     // 1. 正常模式诊断关闭（诊断开关只影响打印，不影响测量）
-    lcr_api_set_diagnostics(false);
+    lcr_api_set_diagnostics(true);
 
     // 2. DNT 整体初始化（ADC/LCD_CAM/74HC595/校准装载，内部打印已门控）
     const bool ok = lcr_api_init();

@@ -532,16 +532,21 @@ static bool lcr_derive_z(const MeasResult &m, ZDerived &z) {
   z.rp = (fabs(z.G) > 1e-15) ? 1.0 / z.G : NAN;
   z.cp = (w > 0.0 && z.B > 0.0) ? z.B / w : NAN;
   z.lp = (w > 0.0 && z.B < 0.0) ? -1.0 / (w * z.B) : NAN;
-  if (fabs(phi_y) < LCR_RESISTIVE_TOL_DEG || fabs(phi_y) > 180.0 - LCR_RESISTIVE_TOL_DEG) {
+  // 判型统一使用校准/OS 修正后重算的相位(z.phi_y_deg)与电纳(z.B)，
+// 与修正后的数值同源；phi_y(修正前)仅用于日志和上层换算参考
+if (fabs(z.phi_y_deg) < LCR_RESISTIVE_TOL_DEG || fabs(z.phi_y_deg) > 180.0 - LCR_RESISTIVE_TOL_DEG) {
     z.type = 'R';
     z.cs = z.ls = z.cp = z.lp = NAN;
-  } else if (z.B > 0.0) {
+}
+else if (z.B > 0.0) {
     z.type = 'C';
     z.ls = z.lp = NAN;
-  } else {
+}
+else {
     z.type = 'L';
     z.cs = z.cp = NAN;
-  }
+}
+
   return true;
 }
 

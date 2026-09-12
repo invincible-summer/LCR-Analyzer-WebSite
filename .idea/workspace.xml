@@ -4,7 +4,10 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="6c74433d-4df1-4012-a0f0-f58d13804302" name="更改" comment="" />
+    <list default="true" id="6c74433d-4df1-4012-a0f0-f58d13804302" name="更改" comment="">
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ino/LCR_UI/DO_NOT_TOUCH_lcr_measure.h" beforeDir="false" afterPath="$PROJECT_DIR$/ino/LCR_UI/DO_NOT_TOUCH_lcr_measure.h" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />

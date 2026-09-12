@@ -92,6 +92,8 @@ void setup()
 
     // 注意：启动时不初始化 BLE（测量期间射频静默）——seal 后才允许
     Serial.println("LCR-UI ready. BLE stays OFF until a sweep is sealed.");
+   
+
     screens.begin(&screenMenu);        // 进入主菜单
 }
 
