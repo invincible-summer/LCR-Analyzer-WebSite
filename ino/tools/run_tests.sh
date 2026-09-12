@@ -40,6 +40,27 @@ for t in test_sweep test_rollover test_component test_csv test_misc test_input; 
     fi
 done
 
+# Repeat-upload regression is partly a lifecycle invariant rather than a host-
+# executable BLE test. Lock the source contract so the old irreversible path
+# cannot silently return during later refactors.
+echo "== static BLE lifecycle invariants =="
+RADIO="$SRC/radio_manager.cpp"
+if grep -q 'BLEDevice::deinit(true)' "$RADIO"; then
+    echo "** BLE lifecycle FAILED: deinit(true) prevents reinitialization **"
+    FAIL=1
+fi
+if ! grep -q 'BLEDevice::deinit(false)' "$RADIO" \
+   || ! grep -q 'm_attPayload = kConservativeDataPayload' "$RADIO" \
+   || ! grep -q 's_connectEvent' "$RADIO" \
+   || ! grep -q 'kTxIntervalMs' "$RADIO"; then
+    echo "** BLE lifecycle FAILED: missing repeat-session/MTU/mailbox/pacing guard **"
+    FAIL=1
+fi
+if grep -R -n -E '^[[:space:]]*radio\.poll\(\);' "$SRC"/screen_*.cpp; then
+    echo "** BLE lifecycle FAILED: screen must not double-pump radio.poll() **"
+    FAIL=1
+fi
+
 FIXDIR="$HERE/../../frontend/src/lib/__tests__/fixtures"
 echo "== emit golden CSV fixtures (v2) =="
 g++ -std=c++17 -O2 -Wall -Wextra -Werror=return-type \
