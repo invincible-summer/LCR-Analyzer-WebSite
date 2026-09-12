@@ -55,5 +55,5 @@ int main()
     CHECK(d != nullptr);
     CHECK(d->sealedUptimeMs == 0x00000009u);
 
-    return test_finish();
+    return testSummary("test_rollover");
 }
