@@ -12,7 +12,8 @@
 //   * 主 loop 是唯一 poll() owner；单次 pump 最多发 1 帧，并按 15 ms pacing，
 //     防止连续 notify 淹没 NimBLE host/controller queue；
 //   * Data characteristic 的底层 notify error 通过 atomic mailbox 回到主 loop，
-//     立即停止本轮 stream，允许浏览器发 RESTART_TRANSFER 自动重传；
+//     即使错误发生在最后一帧排队之后也必须进入 Error，允许浏览器发
+//     RESTART_TRANSFER 自动重传；
 //   * 初始化失败路径必须回到真正的 Off 状态，禁止留下“Error 但 BLE 已 deinit”
 //     的伪状态，否则下一次 start/stop 会访问已经失效的 advertising 对象。
 // ============================================================================
@@ -381,6 +382,9 @@ void RadioManager::sendSomeFrames()
     ++m_nextSeq;  // uint16_t 自然 modulo 2^16；前端必须使用相同 wrap 语义。
 
     if (m_bytesSent >= m_bytesTotal) {
+        // “全部已提交给 BLE stack”与“客户端已经收到”不是同一个语义。这里可以
+        // 停止继续排队，但 Data onStatus 若随后报告最后一帧失败，poll() 必须仍
+        // 把 Connected 翻到 Error；前端最终 byte_count/CRC 或 error status 会重传。
         s_streamActive = false;
         m_state = RadioState::Connected;
         notifyStatus();
@@ -424,7 +428,8 @@ void RadioManager::poll()
     if (att) noteAttPayload(att);
 
     const uint8_t notifyErr = s_notifyErrorEvent.exchange(0, std::memory_order_acq_rel);
-    if (notifyErr && m_state == RadioState::Sending) {
+    if (notifyErr &&
+        (m_state == RadioState::Sending || m_state == RadioState::Connected)) {
         m_errorCode = notifyErr;
         s_streamActive = false;
         m_state = RadioState::Error;
