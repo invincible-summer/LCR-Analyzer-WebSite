@@ -13,7 +13,7 @@
 //   0       2     magic = ASCII 'L','C'
 //   2       1     protocol = 1
 //   3       1     dataset kind (0 = ONE_PORT_Z, 1 = TWO_PORT_H)
-//   4       2     seq, uint16 little-endian
+//   4       2     seq, uint16 little-endian（mod 2^16）
 //   6       2     payload_len, uint16 little-endian
 //   8       N     CSV bytes
 // ============================================================================
@@ -45,8 +45,15 @@ enum class BleCommand : uint8_t {
 static constexpr uint8_t kLcrBleFrameMagic0 = 'L';
 static constexpr uint8_t kLcrBleFrameMagic1 = 'C';
 static constexpr uint8_t kLcrBleFrameHeaderLen = 8;
-// ATT 保守通知负载：未协商 MTU 时按 MTU=23 → ATT payload 20 → CSV 12 字节
+// ATT 通知单包上限 = negotiated ATT_MTU - 3。未协商时 MTU=23，因此
+// characteristic value 最多 20 字节，本协议扣除 8 字节帧头后可装 12 字节 CSV。
 static constexpr uint16_t kLcrBleConservativeAttPayload = 20;
+// 即使协商到更大的 MTU，单帧 CSV 仍限制为 128 字节：总通知长度最多 136 字节。
+// 这样既显著减少通知数量，也给 ESP32 BLE host/controller 与 Web Bluetooth
+// 留出稳定余量；更大的数据集通过多帧连续传输而不是扩大单包。
+static constexpr uint16_t kLcrBleMaxCsvPayload = 128;
+// seq 字段是 uint16，因此在线上按 modulo 2^16 递增；0xffff 的下一帧为 0。
+static constexpr uint32_t kLcrBleSeqSpace = 65536UL;
 
 // kind 字节
 static constexpr uint8_t kLcrBleKindOnePort = 0;
