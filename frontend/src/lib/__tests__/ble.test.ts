@@ -5,6 +5,7 @@ import {
   DatasetAssembler,
   ProtocolError,
   decodeFrame,
+  nextBleSeq,
   parseMetadata,
   parseStatus,
   PROTOCOL_VERSION,
@@ -19,6 +20,7 @@ describe('crc32（与固件位位一致）', () => {
   it('跨块更新语义（分两段与整段一致）', () => {
     const bytes = new TextEncoder().encode('LCR-Analyzer golden csv fixture payload')
     const half = Math.floor(bytes.length / 2)
+    void half
     // 直接整段（本实现一次调用；分段一致性由 assembler 层保证字节序不变）
     expect(crc32(bytes)).toBe(crc32(bytes.slice()))
   })
@@ -65,10 +67,15 @@ describe('DatasetAssembler', () => {
     const out = a.finish(bytes.length, crc32(bytes).toString(16).padStart(8, '0'))
     expect(new TextDecoder().decode(out)).toBe(new TextDecoder().decode(bytes))
   })
-  it('seq 断裂抛 ProtocolError（触发 RESTART 语义）', () => {
+  it('seq 断裂抛 ProtocolError（触发自动 RESTART 语义）', () => {
     const a = new DatasetAssembler()
     a.push(mk(0, [1]))
     expect(() => a.push(mk(2, [2]))).toThrow(ProtocolError)
+  })
+  it('uint16 seq 按 modulo 2^16 回绕', () => {
+    expect(nextBleSeq(0)).toBe(1)
+    expect(nextBleSeq(0xfffe)).toBe(0xffff)
+    expect(nextBleSeq(0xffff)).toBe(0)
   })
   it('byte_count 不一致 / CRC 不匹配抛错', () => {
     const a = new DatasetAssembler()
@@ -117,6 +124,15 @@ describe('parseMetadata / parseStatus', () => {
         }),
       ),
     ).toThrow(/缺少字段/)
+  })
+  it('拒绝非法 byte_count / point_count，防止异常元数据驱动无限接收', () => {
+    const base = {
+      protocol: 1, firmware: '4.1.0', session_id: 7, dataset_kind: 'ONE_PORT_Z',
+      schema: 'lcr-z-csv-v2', point_count: 1, byte_count: 10, crc32: 'A1B2C3D4',
+    }
+    expect(() => parseMetadata(JSON.stringify({ ...base, byte_count: 0 }))).toThrow(/byte_count/)
+    expect(() => parseMetadata(JSON.stringify({ ...base, byte_count: 1.5 }))).toThrow(/byte_count/)
+    expect(() => parseMetadata(JSON.stringify({ ...base, point_count: -1 }))).toThrow(/point_count/)
   })
   it('Status 15 字节小端布局', () => {
     const st = parseStatus(new DataView(new Uint8Array([1, 4, 7, 0xef, 0xbe, 0xad, 0xde, 100, 0, 0, 0, 0xcc, 0x12, 0, 0]).buffer))
