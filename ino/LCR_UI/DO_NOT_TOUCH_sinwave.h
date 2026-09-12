@@ -32,14 +32,14 @@
 static uint32_t dither_rng_state = 0x2545F491;
 
 // --- 定义 GPIO ---
-#define PIN_D0 18
-#define PIN_D1 8
-#define PIN_D2 9
-#define PIN_D3 10
-#define PIN_D4 11
-#define PIN_D5 12
-#define PIN_D6 13
-#define PIN_D7 14
+#define PIN_D0 6
+#define PIN_D1 7
+#define PIN_D2 15
+#define PIN_D3 16
+#define PIN_D4 17
+#define PIN_D5 18
+#define PIN_D6 8
+#define PIN_D7 9
 
 // --- 全局硬件变量 ---
 // ★ 描述符必须留在内部 RAM（GDMA 取描述符只认内部 RAM），只有数据 buffer 进 PSRAM
