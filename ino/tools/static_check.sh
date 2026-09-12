@@ -11,8 +11,8 @@
 #         与 profile 一致，且 ST7735S 4-wire SCL 不得超过 datasheet 上限
 # Gate G  BLE/测量互斥：radio_lock 在编排层与射频层都有接线
 # Gate H  版本/schema 一致（fw_version.h / CSV_SCHEMA_V2 / 前端 fixture）
-# Gate I  固件依赖冻结：Arduino-ESP32 3.3.11 + TFT_eSPI 2.5.44；S3 TFT
-#         direct-register SPI host 必须 compile-time gate 为 SPI_PORT=2
+# Gate I  固件依赖冻结：Arduino-ESP32 3.3.11 + 已发布 TFT_eSPI 2.5.43；
+#         必须显式 USE_FSPI_PORT 且 S3 direct-register SPI_PORT==2
 # Gate J  Worker 可靠性：跨 task flag 使用 atomic、completion 不丢包、DNT
 #         可能不写出参的局部结构必须零初始化并显式失败映射
 # 用法：  bash ino/tools/static_check.sh
@@ -27,7 +27,6 @@ MANIFEST="$HERE/dnt_manifest.txt"
 FAIL=0
 fail() { echo "** FAIL: $1 **"; FAIL=1; }
 
-# 生产源码 = sketch 目录下的 .cpp/.h/.ino（DNT 文件本身除外）
 prod_files() {
     find "$SRC" -maxdepth 1 -type f \( -name '*.cpp' -o -name '*.h' -o -name '*.ino' \) \
         ! -name 'DO_NOT_TOUCH_*' ! -name '*.example' | sort
@@ -66,7 +65,6 @@ if [ "$CNT" -eq 1 ] && grep -q '#include "DO_NOT_TOUCH_lcr_api.h"' "$SRC/lcr_api
 else
     fail "DO_NOT_TOUCH_lcr_api.h 的非 DNT include 点必须唯一（lcr_api.cpp），实际 $CNT 处"
 fi
-# 也不允许 include 其它 DNT 头
 OTHERDNT=$(prod_files | xargs grep -n '#include "DO_NOT_TOUCH_' 2>/dev/null \
            | grep -v 'DO_NOT_TOUCH_lcr_api.h' || true)
 if [ -n "$OTHERDNT" ]; then
@@ -101,25 +99,17 @@ import re, sys
 profile_path, build_path = sys.argv[1], sys.argv[2]
 src = open(profile_path, encoding='utf-8').read()
 build = open(build_path, encoding='utf-8').read()
-
 PIN_FIELDS = {'tftCs','tftDc','tftRst','spiSck','spiMosi','spiMiso',
               'keyUp','keyDown','keyBack','keyOk','encA','encB','encSw'}
-FORBIDDEN = set([1,2,8,9,10,11,12,13,14,15,16,17,18,   # DNT 测量链
-                 0,3,45,46,                              # strapping
-                 19,20,                                  # USB
-                 26,27,28,29,30,31,32,                   # 模组内 Flash/PSRAM
-                 33,34,35,36,37,                         # N16R8 八线 PSRAM
-                 43,44])                                 # UART0
+FORBIDDEN = set([1,2,8,9,10,11,12,13,14,15,16,17,18,
+                 0,3,45,46,19,20,26,27,28,29,30,31,32,
+                 33,34,35,36,37,43,44])
 vals = {}
 for m in re.finditer(r'\.(\w+)\s*=\s*(-?\d+)\s*,', src):
     vals[m.group(1)] = int(m.group(2))
 bad = [(f, vals[f]) for f in PIN_FIELDS if f in vals and vals[f] >= 0 and vals[f] in FORBIDDEN]
 if bad:
     raise SystemExit(f'conflicting pins: {bad}')
-
-# TFT_eSPI is compile-time configured. Enforce that the duplicated -D values
-# cannot drift away from BoardProfile, otherwise documentation/UI and actual
-# hardware writes would refer to different pins.
 macro_to_field = {
     'TFT_CS':'tftCs', 'TFT_DC':'tftDc', 'TFT_RST':'tftRst',
     'TFT_SCLK':'spiSck', 'TFT_MOSI':'spiMosi', 'TFT_MISO':'spiMiso',
@@ -131,14 +121,12 @@ for macro, field in macro_to_field.items():
     actual = int(mm.group(1))
     if field not in vals or actual != vals[field]:
         raise SystemExit(f'{macro}={actual} != board_profile {field}={vals.get(field)}')
-
 fm = re.search(r'-DSPI_FREQUENCY=(\d+)', build)
 if not fm or 'tftSpiHz' not in vals:
     raise SystemExit('missing SPI_FREQUENCY or tftSpiHz')
 freq = int(fm.group(1))
 if freq != vals['tftSpiHz']:
     raise SystemExit(f'SPI_FREQUENCY={freq} != board_profile tftSpiHz={vals["tftSpiHz"]}')
-# ST7735S v1.3 Table 7: TSCYCW >= 66 ns => <= 15.151515... MHz.
 if freq > 15_151_515:
     raise SystemExit(f'ST7735S SCL {freq} exceeds 66ns write-cycle limit')
 if vals.get('spiMiso') != -1:
@@ -166,11 +154,13 @@ grep -q 'define LCR_FW_VERSION' "$SRC/fw_version.h" \
 
 echo "== Gate I: ESP32-S3/TFT dependency compatibility =="
 CI="$ROOT/.github/workflows/ci.yml"
+BUILD="$HERE/build_check.sh"
 if grep -q 'esp32:esp32@3.3.11' "$CI" \
-   && grep -q 'TFT_eSPI@2.5.44' "$CI" \
+   && grep -q 'TFT_eSPI@2.5.43' "$CI" \
+   && grep -q -- '-DUSE_FSPI_PORT' "$BUILD" \
    && grep -q 'SPI_PORT != 2' "$SRC/display.cpp" \
    && grep -q '15151515UL' "$SRC/display.cpp"; then
-    echo "OK (core 3.3.11 + TFT_eSPI 2.5.44; SPI_PORT=2 + timing compile gates)"
+    echo "OK (core 3.3.11 + TFT_eSPI 2.5.43 + USE_FSPI_PORT; SPI_PORT=2 gate)"
 else
     fail "ESP32-S3/TFT 依赖或 SPI host/timing gate 漂移"
 fi
