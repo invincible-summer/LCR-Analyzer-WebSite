@@ -1,14 +1,11 @@
 // ============================================================================
 // radio_manager.h —— 射频生命周期管理器（全局唯一 BLE 入口）
 // ----------------------------------------------------------------------------
-// 强 invariant（plan.md §6.1，radio_lock 承载、debug 断言 + host 单测）：
-//   MeasurementEngine.state ∈ {PREPARE..RESULT_READY} => RadioState == Off
-//   RadioState ∈ {StartingBle..Sending} => Engine IDLE && ADC released
-//                                           && Excitation stopped
-//
-// 生命周期：只在拿到 sealed dataset 后才 startBleForSealedDataset()；
-// 测量开始前必须 stopBle()（disconnect -> deinit -> radio-off confirmed）。
-// Wi-Fi 首版不使用：固件不初始化 Wi-Fi，采集期间整个 RF 子系统静默。
+// 强 invariant：测量活动期间 RadioState 必须是 Off；sealed dataset 后才允许
+// 启动 BLE。stopBle() 使用 BLEDevice::deinit(false)：关闭 host/controller，
+// 但绝不释放 BT controller memory，因为 Arduino-ESP32 明确规定
+// deinit(true) 会“prevents reinitialization”，与第二次上传需求相冲突。
+// BLE 回调只记录轻量事件；GATT/advertising/notify 状态迁移都在 poll() 中。
 // ============================================================================
 
 #pragma once
@@ -30,18 +27,16 @@ enum class RadioState : uint8_t {
 
 const char* radioStateText(RadioState s);
 
-// BleTransfer 的 GATT/通知细节在本实现文件内聚合（radio_manager.cpp）
 class RadioManager {
 public:
     // dataset 必须已 seal；测量活动期调用会被拒绝（返回 false）
     bool startBleForSealedDataset(const OnePortDataset& d);
     bool startBleForSealedDataset(const TwoPortDataset& d);
 
-    void poll();                       // BLE 事件泵：控制命令/分片发送/状态
-    void stopBle();                    // disconnect -> deinit -> Off
+    void poll();                       // 唯一 BLE event/tx pump（主 loop 调一次）
+    void stopBle();                    // stop adv/stream -> deinit(false) -> Off
     RadioState state() const { return m_state; }
 
-    // 传输统计（Status 特征同步显示）
     uint32_t bytesSent() const { return m_bytesSent; }
     uint32_t bytesTotal() const { return m_bytesTotal; }
     bool transferComplete() const;
@@ -55,14 +50,13 @@ private:
     void sendSomeFrames();
     void notifyStatus();
 
-    // BLE 回调侧状态迁移（定义在 radio_manager.cpp）
 public:
+    // 只由 poll() 根据 callback mailbox 调用；函数本身不在 BLE callback 栈执行。
     void noteClientConnected();
     void noteClientDisconnected();
     void noteAttPayload(uint16_t attPayload);
 
 private:
-
     RadioState m_state = RadioState::Off;
     const uint8_t* m_csv = nullptr;
     uint32_t m_csvLen = 0;
@@ -71,8 +65,9 @@ private:
     uint16_t m_nextSeq = 0;
     uint32_t m_sessionId = 0;
     MeasurementKind m_kind = MeasurementKind::OnePortImpedance;
+    // CSV data bytes per notification (ATT payload minus 8-byte LCR frame header).
     uint16_t m_attPayload = kLcrBleConservativeAttPayload - kLcrBleFrameHeaderLen;
-    volatile bool m_cmdQueue[8] = {false, false, false, false, false, false, false, false};
+    uint32_t m_nextTxMs = 0;           // notification pacing deadline
     uint8_t m_errorCode = 0;
 };
 
