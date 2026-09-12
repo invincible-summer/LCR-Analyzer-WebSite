@@ -7,7 +7,7 @@
 # Gate C  DNT API 只有一个应用层入口（ino/LCR_UI/lcr_api.cpp）
 # Gate D  禁止绕过 API 直接调用 DNT 低层符号（out_freq/lcr_adc_/...）
 # Gate E  禁止恢复错误硬件假设（PCM5102/I2S 激励/自写 ADC 链）
-# Gate F  board_profile UI 引脚不得占用 DNT/受限 GPIO；TFT 编译 flags 必须
+# Gate F  board_profile UI 引脚不得占用最终 DNT/受限 GPIO；TFT 编译 flags 必须
 #         与 profile 一致，且 ST7735S 4-wire SCL 不得超过 datasheet 上限
 # Gate G  BLE/测量互斥：radio_lock 在编排层与射频层都有接线
 # Gate H  版本/schema 一致（fw_version.h / CSV_SCHEMA_V2 / 前端 fixture）
@@ -47,6 +47,12 @@ fi
 MAN_BAD=$(cd "$SRC" && sha256sum -c "$MANIFEST" 2>&1 >/dev/null | grep -v ': OK' || true)
 if [ -n "$MAN_BAD" ]; then
     echo "$MAN_BAD"
+    echo "-- current DNT sha256 (for explicit hardware-team re-lock only) --"
+    (cd "$SRC" && sha256sum DO_NOT_TOUCH_freq_calc.h DO_NOT_TOUCH_hong.h \
+        DO_NOT_TOUCH_lcr_adc.h DO_NOT_TOUCH_lcr_api.h DO_NOT_TOUCH_lcr_calib_core.h \
+        DO_NOT_TOUCH_lcr_calib.h DO_NOT_TOUCH_lcr_diag.h DO_NOT_TOUCH_lcr_measure.h \
+        DO_NOT_TOUCH_lcr_tone.h DO_NOT_TOUCH_sinwave.h \
+        DO_NOT_TOUCH_EXAMPLE.ino.example)
     fail "DO_NOT_TOUCH 文件被修改（Gate A manifest 不匹配）"
 else
     echo "OK (11 files unchanged)"
@@ -104,9 +110,14 @@ src = open(profile_path, encoding='utf-8').read()
 build = open(build_path, encoding='utf-8').read()
 PIN_FIELDS = {'tftCs','tftDc','tftRst','spiSck','spiMosi','spiMiso',
               'keyUp','keyDown','keyBack','keyOk','encA','encB','encSw'}
-FORBIDDEN = set([1,2,8,9,10,11,12,13,14,15,16,17,18,
-                 0,3,45,46,19,20,26,27,28,29,30,31,32,
-                 33,34,35,36,37,43,44])
+# Final measurement wiring from the hardware-owned DO_NOT_TOUCH files:
+# ADC GPIO1/2; LCD_CAM DAC D0..D7 = 6/7/15/16/17/18/8/9;
+# 74HC595 SRCLK/SER/RCLK = 21/19/20.  These are forbidden to all UI pins.
+DNT_FINAL = {1,2,6,7,8,9,15,16,17,18,19,20,21}
+# ESP32-S3-WROOM-1-N16R8 / board-level restrictions independent of DNT.
+PLATFORM_RESERVED = {0,3,45,46,26,27,28,29,30,31,32,
+                     33,34,35,36,37,43,44}
+FORBIDDEN = DNT_FINAL | PLATFORM_RESERVED
 vals = {}
 for m in re.finditer(r'\.(\w+)\s*=\s*(-?\d+)\s*,', src):
     vals[m.group(1)] = int(m.group(2))
@@ -140,7 +151,7 @@ if freq > 15_151_515:
     raise SystemExit(f'ST7735S SCL {freq} exceeds 66ns write-cycle limit')
 if vals['spiMiso'] != -1:
     raise SystemExit('ST7735S product path is write-only; spiMiso must remain PIN_UNUSED/-1')
-print('OK (UI pins safe; TFT flags match profile; SPI <= 15.15 MHz)')
+print('OK (UI pins avoid final DNT wiring; TFT flags match profile; SPI <= 15.15 MHz)')
 PYG
 
 echo "== Gate G: BLE/measurement mutex wiring =="
