@@ -61,11 +61,14 @@ double medianOf(double* v, size_t n)
     return 0.5 * (v[n / 2 - 1] + v[n / 2]);
 }
 
-inline bool clearlyNegativeReal(const AppZPoint& p)
+inline bool clearlyNegativeResistance(const AppZPoint& p)
 {
     const double scale = fmax(1.0, isfinite(p.magOhm) ? fabs(p.magOhm)
                                                         : hypot(p.reOhm, p.imOhm));
-    return p.reOhm < -1e-6 * scale;
+    // 避免把“电抗占主导、仅 Rs/DCR 因噪声略为负”的点直接判成有源。
+    // ACTIVE 需要负实部显著且实部至少与电抗同量级；接近 180deg 的点
+    // 由下方 near180 强证据单独捕获。
+    return p.reOhm < -1e-6 * scale && fabs(p.reOhm) >= fabs(p.imOhm);
 }
 
 }  // namespace
@@ -88,24 +91,18 @@ ComponentEstimate summarizeComponent(const AppZPoint* z, const AppCalcResult* ca
     ComponentEstimate e;
     if (!z || !calc || n == 0) { e.reason = "NO DATA"; return e; }
 
-    // 详情点的“有效”只表示硬件确实测出了有限 Z。calc/type 错误不能把
-    // 中位数频点当作“没测出来”。这严格实现 UI 的 fallback 语义。
     const uint16_t mid = n / 2;
     for (uint16_t i = 0; i < n; ++i) {
         if (!zPointMeasured(z[i])) continue;
         ++e.nMeasured;
-        if (e.detailIndex < 0) e.detailIndex = (int8_t)i; // 低频首个备选
-        if (clearlyNegativeReal(z[i])) ++e.nNegativeReal;
+        if (e.detailIndex < 0) e.detailIndex = (int8_t)i;
+        if (clearlyNegativeResistance(z[i])) ++e.nNegativeReal;
         if (calcBasicValid(calc[i])) ++e.nCalcValid;
         if (calcBasicValid(calc[i]) && calc[i].type != z[i].apiType)
             ++e.nTypeMismatch;
     }
     if (mid < n && zPointMeasured(z[mid])) e.detailIndex = (int8_t)mid;
 
-    // 对无源 R/C/L，一端口驱动点阻抗应为正实函数。这里仅在测量本身
-    // 提供明确负实部证据时把结果从 UNKNOWN 提升为 ACTIVE：
-    // 1) 任一频点相位落入 +/-180deg 的负阻窗口；或
-    // 2) 超过一半已测频点具有显著 Re(Z)<0。
     bool near180 = false;
     for (uint16_t i = 0; i < n; ++i)
         if (classifyImpedanceNature(z[i]) == ImpedanceNature::NegativeResistive)
@@ -122,7 +119,6 @@ ComponentEstimate summarizeComponent(const AppZPoint* z, const AppCalcResult* ca
         return e;
     }
 
-    // 只把 Z 测量、calc 都成功且两层判型一致的点用于被动器件聚合。
     static constexpr int kMaxPts = 8;
     int idx[kMaxPts];
     int nv = 0;
@@ -132,7 +128,6 @@ ComponentEstimate summarizeComponent(const AppZPoint* z, const AppCalcResult* ca
         idx[nv++] = (int)i;
     }
     e.nValid = (uint8_t)nv;
-    if (nv < 3) { e.reason = "N_VALID<3"; return e; }
 
     int cntR = 0, cntC = 0, cntL = 0;
     for (int k = 0; k < nv; ++k) {
@@ -142,6 +137,7 @@ ComponentEstimate summarizeComponent(const AppZPoint* z, const AppCalcResult* ca
         else if (t == 'L') ++cntL;
     }
     e.nR = (uint8_t)cntR; e.nC = (uint8_t)cntC; e.nL = (uint8_t)cntL;
+    if (nv < 3) { e.reason = "N_VALID<3"; return e; }
 
     char best = 0;
     int bestCnt = 0;
