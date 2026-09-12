@@ -210,9 +210,9 @@ hdr = open(sys.argv[2], encoding='utf-8').read()
 # The only permitted runtime while-loop is the finite, zero-tick event-queue
 # drain. It does not wait for hardware state. Any other while-loop in this
 # screen requires explicit review because the UI contract is event-driven.
-for cond in re.findall(r'\bwhile\s*\(([^\n]*)\)', sig):
-    if 'lcrServiceTakeEvent(ev)' not in cond:
-        raise SystemExit(f'blocking/unreviewed while loop in screen_siggen.cpp: {cond.strip()}')
+for line in sig.splitlines():
+    if re.search(r'\bwhile\s*\(', line) and 'while (lcrServiceTakeEvent(ev))' not in line:
+        raise SystemExit(f'blocking/unreviewed while loop in screen_siggen.cpp: {line.strip()}')
 if re.search(r'\bdelay\s*\(', sig):
     raise SystemExit('screen_siggen.cpp contains runtime delay')
 
