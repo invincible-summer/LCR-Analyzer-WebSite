@@ -9,6 +9,26 @@
 #include <Arduino.h>
 #include <stdio.h>
 
+// ESP32-S3 has two user GP-SPI controllers (SPI2/SPI3); this firmware uses
+// SPI2 for the TFT. TFT_eSPI <=2.5.43 selected SPI_PORT=FSPI on S3, while
+// Arduino-ESP32 3.x defines FSPI=0 as a logical bus index. TFT_eSPI's direct
+// register path expects the peripheral number 2, so that combination writes
+// through addresses near 0x10 and causes StoreProhibited at tft.init().
+// Upstream 2.5.44 fixes the S3 default to SPI_PORT=2. Keep this compile-time
+// guard so dependency drift cannot silently reintroduce the field crash.
+#if defined(CONFIG_IDF_TARGET_ESP32S3)
+  #if !defined(SPI_PORT) || (SPI_PORT != 2)
+    #error "ESP32-S3 TFT must use TFT_eSPI SPI_PORT=2 (requires TFT_eSPI >= 2.5.44 with this build)"
+  #endif
+#endif
+
+// ST7735S v1.3, Table 7 (4-line serial): minimum write clock cycle is 66 ns,
+// hence fSCL <= 1/66 ns ~= 15.15 MHz. The product build is intentionally
+// capped at 10 MHz; reject accidental overclocking at compile time.
+#if defined(SPI_FREQUENCY) && (SPI_FREQUENCY > 15151515UL)
+  #error "ST7735S 4-wire write clock exceeds datasheet 66 ns minimum cycle"
+#endif
+
 TFT_eSPI tft = TFT_eSPI();
 
 // 本文件大量使用主题色常量，引入 ui 命名空间简化书写
@@ -17,6 +37,9 @@ using namespace ui;
 // ---------------------------------------------------------------------------
 void ui::begin()
 {
+    Serial.printf("TFT init: TFT_eSPI %s, SPI_PORT=%d, SCLK=%d MOSI=%d CS=%d DC=%d RST=%d @ %lu Hz\n",
+                  TFT_ESPI_VERSION, SPI_PORT, TFT_SCLK, TFT_MOSI, TFT_CS, TFT_DC,
+                  TFT_RST, (unsigned long)SPI_FREQUENCY);
     tft.init();
     tft.setRotation(kBoard.tftRotation);
     tft.fillScreen(C_BG);
