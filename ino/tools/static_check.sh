@@ -107,9 +107,15 @@ FORBIDDEN = set([1,2,8,9,10,11,12,13,14,15,16,17,18,
 vals = {}
 for m in re.finditer(r'\.(\w+)\s*=\s*(-?\d+)\s*,', src):
     vals[m.group(1)] = int(m.group(2))
+# BoardProfile deliberately uses a named sentinel rather than magic -1.
+if re.search(r'\.spiMiso\s*=\s*PIN_UNUSED\s*,', src):
+    vals['spiMiso'] = -1
 bad = [(f, vals[f]) for f in PIN_FIELDS if f in vals and vals[f] >= 0 and vals[f] in FORBIDDEN]
 if bad:
     raise SystemExit(f'conflicting pins: {bad}')
+missing = sorted(f for f in PIN_FIELDS if f not in vals)
+if missing:
+    raise SystemExit(f'unparsed pin fields: {missing}')
 macro_to_field = {
     'TFT_CS':'tftCs', 'TFT_DC':'tftDc', 'TFT_RST':'tftRst',
     'TFT_SCLK':'spiSck', 'TFT_MOSI':'spiMosi', 'TFT_MISO':'spiMiso',
@@ -119,8 +125,8 @@ for macro, field in macro_to_field.items():
     if not mm:
         raise SystemExit(f'missing {macro} in build_check.sh')
     actual = int(mm.group(1))
-    if field not in vals or actual != vals[field]:
-        raise SystemExit(f'{macro}={actual} != board_profile {field}={vals.get(field)}')
+    if actual != vals[field]:
+        raise SystemExit(f'{macro}={actual} != board_profile {field}={vals[field]}')
 fm = re.search(r'-DSPI_FREQUENCY=(\d+)', build)
 if not fm or 'tftSpiHz' not in vals:
     raise SystemExit('missing SPI_FREQUENCY or tftSpiHz')
@@ -129,7 +135,7 @@ if freq != vals['tftSpiHz']:
     raise SystemExit(f'SPI_FREQUENCY={freq} != board_profile tftSpiHz={vals["tftSpiHz"]}')
 if freq > 15_151_515:
     raise SystemExit(f'ST7735S SCL {freq} exceeds 66ns write-cycle limit')
-if vals.get('spiMiso') != -1:
+if vals['spiMiso'] != -1:
     raise SystemExit('ST7735S product path is write-only; spiMiso must remain PIN_UNUSED/-1')
 print('OK (UI pins safe; TFT flags match profile; SPI <= 15.15 MHz)')
 PYG
