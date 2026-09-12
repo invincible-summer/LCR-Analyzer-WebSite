@@ -5,10 +5,12 @@
 //   2. GATT connect → 读 Metadata → 订阅 Status/Data notifications；
 //   3. 发送 START_TRANSFER；
 //   4. 按 seq 重组字节流，校验 byte_count + CRC32 + protocol/schema；
-//   5. TextDecoder('utf-8') 得到 CSV，返回 dataset —— 拟合交给 parseZCsv。
+//   5. seq gap / 非法帧 / CRC / 停滞自动 ABORT + RESTART；GATT 断线自动重连；
+//   6. TextDecoder('utf-8') 得到 CSV，返回 dataset —— 拟合交给 parseZCsv。
 //
-// 浏览器能力检测在页面加载时进行：不支持 Web Bluetooth（或非 secure
-// context）时上层按钮禁用并给明确提示，不当成普通「连接失败」。
+// BLE 单 notification 有 ATT_MTU-3 上限，因此固件自动把整份 CSV 分成许多
+// 小帧；前端不假定一次通知能装完整数据集。浏览器能力检测在页面加载时进行：
+// 不支持 Web Bluetooth（或非 secure context）时上层按钮禁用并给明确提示。
 // 本文件不 import 任何拟合器/解析器（除协议层）。
 
 import {
@@ -28,6 +30,22 @@ import {
 export type DeviceDataset =
   | { kind: 'ONE_PORT_Z'; csvText: string; metadata: DatasetMetadata; rawBytes: Uint8Array }
   | { kind: 'TWO_PORT_H'; csvText: string; metadata: DatasetMetadata; rawBytes: Uint8Array }
+
+const MAX_TRANSFER_ATTEMPTS = 4 // 1 次 START + 最多 3 次 RESTART
+const MAX_RECONNECT_ATTEMPTS = 2
+const TRANSFER_STALL_TIMEOUT_MS = 15_000
+const RETRY_DRAIN_MS = 120
+const RECONNECT_BASE_DELAY_MS = 250
+const RECEIVE_POLL_MS = 50
+
+class GattDisconnectedError extends ProtocolError {
+  constructor() {
+    super('GATT 连接中断')
+    this.name = 'GattDisconnectedError'
+  }
+}
+
+const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms))
 
 /** Web Bluetooth 可用性（secure context + API 存在） */
 export function webBluetoothSupported(): boolean {
@@ -80,14 +98,20 @@ async function readMetadata(server: BluetoothRemoteGATTServer): Promise<DatasetM
   return parseMetadata(new TextDecoder('utf-8').decode(value))
 }
 
+function expectedKindByte(meta: DatasetMetadata): number {
+  return meta.dataset_kind === 'ONE_PORT_Z' ? 0 : 1
+}
+
+function errorText(err: unknown): string {
+  return err instanceof Error ? err.message : String(err)
+}
+
 /**
- * 接收一个封存数据集：读 metadata → 订阅 data/status → START →
- * seq 重组 → byte_count/CRC32 校验 → CSV 文本。
- * 中途断线 / seq gap / CRC 错误：抛错（调用方可重连后 RESTART）。
- * onProgress：assembler 每收到新 payload 后回调（received/total 字节），
- * 供 store 把 progress 从 0 单调推进到 1（plan.md §14.3）。
+ * 在一个已经建立的 GATT connection 上接收整份数据。通知分帧由 seq 重组；
+ * seq gap、坏帧、CRC 错误或 15 s 无新增字节都会在同一连接内自动
+ * ABORT_TRANSFER → drain → RESTART_TRANSFER，最多 3 次重试。
  */
-export async function receiveDataset(
+async function receiveDatasetOnConnection(
   session: LcrDeviceSession,
   onProgress?: (received: number, total: number) => void,
 ): Promise<DeviceDataset> {
@@ -99,62 +123,169 @@ export async function receiveDataset(
   const controlCh = await svc.getCharacteristic(LCR_CONTROL_UUID)
 
   const assembler = new DatasetAssembler()
+  const frameKind = expectedKindByte(meta)
   let stopped = false
-  const failures: unknown[] = []
+  let linkFailure: unknown = null
+  let attemptFailure: unknown = null
+  let acceptingData = false
+  let waitingForSeq0 = true
+  let lastProgressAt = 0
 
   const onDisconnected = () => {
-    if (!stopped) failures.push(new ProtocolError('GATT 连接中断'))
+    if (!stopped) linkFailure = new GattDisconnectedError()
   }
   session.device.addEventListener('gattserverdisconnected', onDisconnected)
 
   const onData = (e: Event) => {
+    if (!acceptingData || attemptFailure || linkFailure) return
     const ch = e.target as BluetoothRemoteGATTCharacteristic
     if (!ch.value) return
     try {
       const frame = decodeFrame(ch.value.buffer)
-      if (frame) {
-        assembler.push(frame)
-        onProgress?.(assembler.bytesReceived, meta.byte_count)
+      if (!frame) throw new ProtocolError('收到非法/截断 BLE Data 帧')
+      if (frame.kind !== frameKind)
+        throw new ProtocolError(`dataset kind 不匹配：期望 ${frameKind}，收到 ${frame.kind}`)
+
+      // RESTART command 进入设备主 loop 前，BLE host 里可能还有上一轮通知。
+      // 每轮只从 seq=0 的新流开始；其它旧帧直接丢弃，避免它们污染重组器。
+      if (waitingForSeq0) {
+        if (frame.seq !== 0) return
+        waitingForSeq0 = false
       }
+
+      assembler.push(frame)
+      if (assembler.bytesReceived > meta.byte_count)
+        throw new ProtocolError(
+          `收到数据超过 byte_count：${assembler.bytesReceived} > ${meta.byte_count}`,
+        )
+      lastProgressAt = Date.now()
+      onProgress?.(assembler.bytesReceived, meta.byte_count)
     } catch (err) {
-      failures.push(err)
+      attemptFailure = err
     }
   }
-  await dataCh.addEventListener('characteristicvaluechanged', onData)
+  dataCh.addEventListener('characteristicvaluechanged', onData)
   await dataCh.startNotifications()
   await statusCh.startNotifications()
 
   try {
-    await controlCh.writeValueWithResponse(new Uint8Array([BleCommand.StartTransfer]))
+    let lastAttemptError: unknown = null
 
-    // 等待整份字节流到齐（或失败）。设备按 4 帧/poll 泵出，12KB/12B 帧
-    // 最坏 ~700 帧；轮询间隔 100ms 足够宽松。
-    const deadline = Date.now() + 120_000
-    while (assembler.bytesReceived < meta.byte_count) {
-      if (failures.length) throw failures[0]
-      if (Date.now() > deadline) throw new ProtocolError('接收超时（120s）')
-      await new Promise((r) => setTimeout(r, 100))
+    for (let attempt = 0; attempt < MAX_TRANSFER_ATTEMPTS; ++attempt) {
+      assembler.reset()
+      attemptFailure = null
+      acceptingData = true
+      waitingForSeq0 = true
+      lastProgressAt = Date.now()
+
+      const command = attempt === 0 ? BleCommand.StartTransfer : BleCommand.RestartTransfer
+      try {
+        await controlCh.writeValueWithResponse(new Uint8Array([command]))
+
+        while (assembler.bytesReceived < meta.byte_count) {
+          if (linkFailure) throw linkFailure
+          if (attemptFailure) throw attemptFailure
+          if (Date.now() - lastProgressAt > TRANSFER_STALL_TIMEOUT_MS)
+            throw new ProtocolError(`接收停滞超过 ${TRANSFER_STALL_TIMEOUT_MS / 1000}s`)
+          await sleep(RECEIVE_POLL_MS)
+        }
+
+        acceptingData = false
+        if (linkFailure) throw linkFailure
+        if (attemptFailure) throw attemptFailure
+
+        // byte_count 到齐后立即做整份 CRC；任何丢通知、重复或乱序最终都不能
+        // 越过这个门槛。CRC 失败会进入下面的自动 RESTART。
+        const bytes = assembler.finish(meta.byte_count, meta.crc32)
+        const csvText = new TextDecoder('utf-8').decode(bytes)
+        const kind = meta.dataset_kind
+        return kind === 'ONE_PORT_Z'
+          ? { kind, csvText, metadata: meta, rawBytes: bytes }
+          : { kind: 'TWO_PORT_H', csvText, metadata: meta, rawBytes: bytes }
+      } catch (err) {
+        acceptingData = false
+        lastAttemptError = err
+        if (linkFailure) throw linkFailure
+        if (attempt + 1 >= MAX_TRANSFER_ATTEMPTS) {
+          throw new ProtocolError(
+            `BLE 数据传输在自动重试 ${MAX_TRANSFER_ATTEMPTS - 1} 次后仍失败：${errorText(err)}`,
+          )
+        }
+
+        // 先让设备停止当前 stream，再给已经进入 host/controller queue 的旧通知
+        // 一个短 drain 窗口。下一轮 waitingForSeq0 还会进一步过滤残留帧。
+        try {
+          await controlCh.writeValueWithResponse(new Uint8Array([BleCommand.AbortTransfer]))
+        } catch {
+          if (linkFailure) throw linkFailure
+        }
+        await sleep(RETRY_DRAIN_MS)
+      }
     }
-    // 再等一小拍，确保设备侧状态稳定
-    await new Promise((r) => setTimeout(r, 50))
-    if (failures.length) throw failures[0]
 
-    const bytes = assembler.finish(meta.byte_count, meta.crc32)
-    const csvText = new TextDecoder('utf-8').decode(bytes)
-    const kind = meta.dataset_kind
-    return kind === 'ONE_PORT_Z'
-      ? { kind, csvText, metadata: meta, rawBytes: bytes }
-      : { kind: 'TWO_PORT_H', csvText, metadata: meta, rawBytes: bytes }
+    throw lastAttemptError ?? new ProtocolError('BLE 数据传输失败')
   } finally {
     stopped = true
+    acceptingData = false
     try {
       await controlCh.writeValueWithResponse(new Uint8Array([BleCommand.AbortTransfer]))
     } catch {
-      /* 传输完成后的 abort 失败可忽略 */
+      /* 已完成或链路已断，abort 失败可忽略 */
     }
     await dataCh.stopNotifications().catch(() => undefined)
     await statusCh.stopNotifications().catch(() => undefined)
-    await dataCh.removeEventListener('characteristicvaluechanged', onData)
+    dataCh.removeEventListener('characteristicvaluechanged', onData)
     session.device.removeEventListener('gattserverdisconnected', onDisconnected)
   }
+}
+
+/**
+ * 接收一个封存数据集：读 metadata → 订阅 notifications → 自动分帧重组与重试。
+ *
+ * 稳定性策略分两层：
+ * 1. 同一 GATT 连接内：seq/CRC/停滞自动 RESTART，最多 3 次；
+ * 2. 真实 GATT 断线：不重新弹设备 chooser，使用已经授权的 BluetoothDevice
+ *    自动 reconnect，最多 2 次，再重新读 metadata 并从 seq 0 开始。
+ *
+ * onProgress 对重传/重连保持单调，不会因为内部 assembler reset 让 UI 进度倒退。
+ */
+export async function receiveDataset(
+  session: LcrDeviceSession,
+  onProgress?: (received: number, total: number) => void,
+): Promise<DeviceDataset> {
+  let reportedReceived = 0
+  let reportedTotal = 0
+  const monotonicProgress = (received: number, total: number) => {
+    if (reportedTotal !== total) {
+      reportedTotal = total
+      reportedReceived = 0
+    }
+    reportedReceived = Math.min(total, Math.max(reportedReceived, received))
+    onProgress?.(reportedReceived, total)
+  }
+
+  let lastError: unknown = null
+  for (let reconnectAttempt = 0; reconnectAttempt <= MAX_RECONNECT_ATTEMPTS; ++reconnectAttempt) {
+    try {
+      return await receiveDatasetOnConnection(session, monotonicProgress)
+    } catch (err) {
+      lastError = err
+      const gatt = session.device.gatt
+      const disconnected = err instanceof GattDisconnectedError || gatt?.connected === false
+      if (!disconnected || reconnectAttempt >= MAX_RECONNECT_ATTEMPTS || !gatt) throw err
+
+      await sleep(RECONNECT_BASE_DELAY_MS * (reconnectAttempt + 1))
+      try {
+        session.server = await gatt.connect()
+      } catch (reconnectErr) {
+        lastError = reconnectErr
+        if (reconnectAttempt >= MAX_RECONNECT_ATTEMPTS - 1)
+          throw new ProtocolError(
+            `GATT 自动重连失败：${errorText(reconnectErr)}`,
+          )
+      }
+    }
+  }
+
+  throw lastError ?? new ProtocolError('BLE 数据接收失败')
 }
