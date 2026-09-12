@@ -323,9 +323,12 @@ static void lcrWorkerTask(void*)
         }
 
         s_jobInFlight.store(false, std::memory_order_release);
-        pushEvent(ev);
+        // StopTone completion 是“取消流程已完全收尾”的发布边界。必须先清
+        // cancel，再把 completion 放入队列；否则 UI 可先观察到完成事件，
+        // 随即提交的新测量仍有机会被旧 cancel 标志错误丢弃。
         if (job.kind == LcrJobKind::StopTone)
             s_cancelReq.store(false, std::memory_order_release);
+        pushEvent(ev);
     }
 }
 
