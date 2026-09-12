@@ -7,9 +7,14 @@
 # Gate C  DNT API 只有一个应用层入口（ino/LCR_UI/lcr_api.cpp）
 # Gate D  禁止绕过 API 直接调用 DNT 低层符号（out_freq/lcr_adc_/...）
 # Gate E  禁止恢复错误硬件假设（PCM5102/I2S 激励/自写 ADC 链）
-# Gate F  board_profile UI 引脚不得占用 DNT 测量 GPIO / 受限引脚
+# Gate F  board_profile UI 引脚不得占用 DNT/受限 GPIO；TFT 编译 flags 必须
+#         与 profile 一致，且 ST7735S 4-wire SCL 不得超过 datasheet 上限
 # Gate G  BLE/测量互斥：radio_lock 在编排层与射频层都有接线
 # Gate H  版本/schema 一致（fw_version.h / CSV_SCHEMA_V2 / 前端 fixture）
+# Gate I  固件依赖冻结：Arduino-ESP32 3.3.11 + TFT_eSPI 2.5.44；S3 TFT
+#         direct-register SPI host 必须 compile-time gate 为 SPI_PORT=2
+# Gate J  Worker 可靠性：跨 task flag 使用 atomic、completion 不丢包、DNT
+#         可能不写出参的局部结构必须零初始化并显式失败映射
 # 用法：  bash ino/tools/static_check.sh
 #         DNT_UPDATE_MANIFEST=1 bash ino/tools/static_check.sh  # 硬件团队更新后重锁
 # ============================================================================
@@ -17,6 +22,7 @@ set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SRC="$HERE/../LCR_UI"
+ROOT="$HERE/../.."
 MANIFEST="$HERE/dnt_manifest.txt"
 FAIL=0
 fail() { echo "** FAIL: $1 **"; FAIL=1; }
@@ -89,11 +95,13 @@ else
     echo "OK"
 fi
 
-echo "== Gate F: board_profile UI pins avoid DNT/reserved GPIO =="
-python3 - "$SRC/board_profile.cpp" << 'PYG' || fail "board_profile 引脚与 DNT/受限 GPIO 冲突"
+echo "== Gate F: board_profile pins + TFT compile flags + ST7735S timing =="
+python3 - "$SRC/board_profile.cpp" "$HERE/build_check.sh" << 'PYG' || fail "board_profile/TFT flags 与硬件约束不一致"
 import re, sys
-src = open(sys.argv[1], encoding='utf-8').read()
-# 仅解析“引脚类字段”的赋值（.field = <int>,）——排除 tftSpiHz/宽高/偏移等
+profile_path, build_path = sys.argv[1], sys.argv[2]
+src = open(profile_path, encoding='utf-8').read()
+build = open(build_path, encoding='utf-8').read()
+
 PIN_FIELDS = {'tftCs','tftDc','tftRst','spiSck','spiMosi','spiMiso',
               'keyUp','keyDown','keyBack','keyOk','encA','encB','encSw'}
 FORBIDDEN = set([1,2,8,9,10,11,12,13,14,15,16,17,18,   # DNT 测量链
@@ -102,15 +110,40 @@ FORBIDDEN = set([1,2,8,9,10,11,12,13,14,15,16,17,18,   # DNT 测量链
                  26,27,28,29,30,31,32,                   # 模组内 Flash/PSRAM
                  33,34,35,36,37,                         # N16R8 八线 PSRAM
                  43,44])                                 # UART0
-bad = []
+vals = {}
 for m in re.finditer(r'\.(\w+)\s*=\s*(-?\d+)\s*,', src):
-    field, val = m.group(1), int(m.group(2))
-    if field in PIN_FIELDS and val >= 0 and val in FORBIDDEN:
-        bad.append((field, val))
+    vals[m.group(1)] = int(m.group(2))
+bad = [(f, vals[f]) for f in PIN_FIELDS if f in vals and vals[f] >= 0 and vals[f] in FORBIDDEN]
 if bad:
-    print('conflicting pins:', bad)
-    sys.exit(1)
-print('OK (no UI pin on DNT/reserved GPIO)')
+    raise SystemExit(f'conflicting pins: {bad}')
+
+# TFT_eSPI is compile-time configured. Enforce that the duplicated -D values
+# cannot drift away from BoardProfile, otherwise documentation/UI and actual
+# hardware writes would refer to different pins.
+macro_to_field = {
+    'TFT_CS':'tftCs', 'TFT_DC':'tftDc', 'TFT_RST':'tftRst',
+    'TFT_SCLK':'spiSck', 'TFT_MOSI':'spiMosi', 'TFT_MISO':'spiMiso',
+}
+for macro, field in macro_to_field.items():
+    mm = re.search(r'-D' + re.escape(macro) + r'=(-?\d+)', build)
+    if not mm:
+        raise SystemExit(f'missing {macro} in build_check.sh')
+    actual = int(mm.group(1))
+    if field not in vals or actual != vals[field]:
+        raise SystemExit(f'{macro}={actual} != board_profile {field}={vals.get(field)}')
+
+fm = re.search(r'-DSPI_FREQUENCY=(\d+)', build)
+if not fm or 'tftSpiHz' not in vals:
+    raise SystemExit('missing SPI_FREQUENCY or tftSpiHz')
+freq = int(fm.group(1))
+if freq != vals['tftSpiHz']:
+    raise SystemExit(f'SPI_FREQUENCY={freq} != board_profile tftSpiHz={vals["tftSpiHz"]}')
+# ST7735S v1.3 Table 7: TSCYCW >= 66 ns => <= 15.151515... MHz.
+if freq > 15_151_515:
+    raise SystemExit(f'ST7735S SCL {freq} exceeds 66ns write-cycle limit')
+if vals.get('spiMiso') != -1:
+    raise SystemExit('ST7735S product path is write-only; spiMiso must remain PIN_UNUSED/-1')
+print('OK (UI pins safe; TFT flags match profile; SPI <= 15.15 MHz)')
 PYG
 
 echo "== Gate G: BLE/measurement mutex wiring =="
@@ -126,9 +159,37 @@ grep -q 'define LCR_FW_VERSION' "$SRC/fw_version.h" \
     && grep -q 'define LCR_BLE_PROTOCOL_VERSION 1' "$SRC/fw_version.h" \
     && grep -q 'define LCR_Z_CSV_SCHEMA_VERSION 2' "$SRC/fw_version.h" \
     && grep -q 'define LCR_H_CSV_SCHEMA_VERSION 2' "$SRC/fw_version.h" \
-    && [ -f "$HERE/../../protocol/CSV_SCHEMA_V2.md" ] \
-    && grep -q 'schema=lcr-z-csv-v2' "$HERE/../../frontend/src/lib/__tests__/fixtures/golden_oneport.csv" \
+    && [ -f "$ROOT/protocol/CSV_SCHEMA_V2.md" ] \
+    && grep -q 'schema=lcr-z-csv-v2' "$ROOT/frontend/src/lib/__tests__/fixtures/golden_oneport.csv" \
     && echo "OK (fw 4.1.0 / protocol 1 / z-schema v2 / h-schema v2 / docs+fixture)" \
     || fail "版本或 schema 契约不一致"
+
+echo "== Gate I: ESP32-S3/TFT dependency compatibility =="
+CI="$ROOT/.github/workflows/ci.yml"
+if grep -q 'esp32:esp32@3.3.11' "$CI" \
+   && grep -q 'TFT_eSPI@2.5.44' "$CI" \
+   && grep -q 'SPI_PORT != 2' "$SRC/display.cpp" \
+   && grep -q '15151515UL' "$SRC/display.cpp"; then
+    echo "OK (core 3.3.11 + TFT_eSPI 2.5.44; SPI_PORT=2 + timing compile gates)"
+else
+    fail "ESP32-S3/TFT 依赖或 SPI host/timing gate 漂移"
+fi
+
+echo "== Gate J: Worker synchronization + no-unwritten-output reads =="
+API="$SRC/lcr_api.cpp"
+if grep -q '#include <atomic>' "$API" \
+   && grep -q 'std::atomic<bool> s_ready' "$API" \
+   && ! grep -q 'volatile bool s_ready' "$API" \
+   && grep -q 'xQueueSend(s_eventQ, &ev, portMAX_DELAY)' "$API" \
+   && grep -Fq 'LcrZPoint t[3]{};' "$API" \
+   && grep -Fq 'LcrWPoint t[3]{};' "$API" \
+   && grep -Fq 'LcrZPoint p{};' "$API" \
+   && grep -Fq 'LcrCalcResult c{};' "$API" \
+   && grep -Fq 'LcrCalStatus st{};' "$API" \
+   && grep -q 'outputsWritten' "$API"; then
+    echo "OK (atomic flags; reliable completion; DNT failure outputs guarded)"
+else
+    fail "Worker 同步/completion/出参失败路径保护不完整"
+fi
 
 exit $FAIL
