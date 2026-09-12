@@ -51,9 +51,14 @@ if grep -q 'BLEDevice::deinit(true)' "$RADIO"; then
 fi
 if ! grep -q 'BLEDevice::deinit(false)' "$RADIO" \
    || ! grep -q 'm_attPayload = kConservativeDataPayload' "$RADIO" \
-   || ! grep -q 's_connectEvent' "$RADIO" \
+   || ! grep -q 'std::atomic<bool> s_connectEvent' "$RADIO" \
+   || ! grep -q 'exchange(false, std::memory_order_acq_rel)' "$RADIO" \
    || ! grep -q 'kTxIntervalMs' "$RADIO"; then
-    echo "** BLE lifecycle FAILED: missing repeat-session/MTU/mailbox/pacing guard **"
+    echo "** BLE lifecycle FAILED: missing repeat-session/MTU/atomic-mailbox/pacing guard **"
+    FAIL=1
+fi
+if grep -q -E 'static volatile (bool|uint8_t|uint16_t) s_(connectEvent|disconnectEvent|pendingCmd|mtuAttPayloadEvent)' "$RADIO"; then
+    echo "** BLE lifecycle FAILED: volatile is not cross-task synchronization **"
     FAIL=1
 fi
 if grep -R -n -E '^[[:space:]]*radio\.poll\(\);' "$SRC"/screen_*.cpp; then
