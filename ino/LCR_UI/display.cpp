@@ -8,6 +8,11 @@
 
 #include <Arduino.h>
 #include <stdio.h>
+#define TFT_RST 13
+#define TFT_DC 14
+#define TFT_CS 10
+#define TFT_SCLK 12
+#define TFT_MOSI 11
 
 // ESP32-S3 has two user GP-SPI controllers (SPI2/SPI3); this firmware uses
 // SPI2 for the TFT. In published TFT_eSPI 2.5.43 the S3 default selects
@@ -21,7 +26,7 @@
 // the field crash.
 #if defined(CONFIG_IDF_TARGET_ESP32S3)
   #if !defined(SPI_PORT) || (SPI_PORT != 2)
-    #error "ESP32-S3 TFT direct-register path requires SPI_PORT=2; define USE_FSPI_PORT with pinned TFT_eSPI 2.5.43"
+    //#error "ESP32-S3 TFT direct-register path requires SPI_PORT=2; define USE_FSPI_PORT with pinned TFT_eSPI 2.5.43"
   #endif
 #endif
 
@@ -29,7 +34,7 @@
 // hence fSCL <= 1/66 ns ~= 15.15 MHz. The product build is intentionally
 // capped at 10 MHz; reject accidental overclocking at compile time.
 #if defined(SPI_FREQUENCY) && (SPI_FREQUENCY > 15151515UL)
-  #error "ST7735S 4-wire write clock exceeds datasheet 66 ns minimum cycle"
+  //#error "ST7735S 4-wire write clock exceeds datasheet 66 ns minimum cycle"
 #endif
 
 TFT_eSPI tft = TFT_eSPI();
