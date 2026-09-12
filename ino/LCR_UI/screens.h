@@ -186,8 +186,11 @@ private:
     void pumpEvents();
 
     DigitEditor m_freq;                       // 频率 5 位（10~10000 Hz）
-    bool m_running = false;
-    bool m_pending = false;                   // 有 SetTone/StopTone 事件未回
+    bool m_running = false;                   // 仅 StopTone completion 后才清 false
+    bool m_pending = false;                   // 有 SetTone/StopTone completion 未回
+    bool m_exitRequested = false;             // Back 后异步等 StopTone，再 pop
+    uint32_t m_pendingId = 0;                 // completion 必须 id+kind 同时匹配
+    LcrJobKind m_pendingKind = LcrJobKind::ServiceInit;
     double m_actualHz = 0;
     uint32_t m_errUntilMs = 0;
 };

@@ -5,8 +5,8 @@
 # v4.1.0：host 测试不再模拟另一套 ADC —— 物理测量全部在 DO_NOT_TOUCH API
 # 之后的真实硬件上。host 侧只测“编排 + 纯数学/格式化”，测量后端用
 # MockLcrService（ino/test/test_mocks.h）注入。
-# 覆盖 plan.md §17.1 的 18 项：频率网格/chunk/取消/seal/CSV/CRC/BLE 帧/
-# metadata v2/H 换算/单元件判型与聚合。
+# 覆盖频率网格/chunk/取消/seal/CSV/CRC/BLE 帧/metadata v2/H 换算/
+# 单元件判型与聚合，并覆盖 StopTone quiet-guard 跨 millis() 回绕。
 # 用法：  bash ino/tools/run_tests.sh
 # ============================================================================
 set -euo pipefail
@@ -17,7 +17,6 @@ TEST="$HERE/../test"
 OUT="${TMPDIR:-/tmp}/lcr_host_tests"
 mkdir -p "$OUT"
 
-# 纯逻辑模块（host 可编译，无 Arduino 依赖）
 PURE=(
     measurement_types.cpp
     sweep_engine.cpp
@@ -29,9 +28,10 @@ PURE_SRC=()
 for f in "${PURE[@]}"; do PURE_SRC+=("$SRC/$f"); done
 
 FAIL=0
-for t in test_sweep test_component test_csv test_misc; do
+for t in test_sweep test_rollover test_component test_csv test_misc; do
     echo "== build+run $t =="
-    g++ -std=c++17 -O2 -Wall -I"$SRC" -I"$TEST" \
+    g++ -std=c++17 -O2 -Wall -Wextra -Werror=return-type \
+        -I"$SRC" -I"$TEST" \
         "$TEST/$t.cpp" "${PURE_SRC[@]}" -o "$OUT/$t"
     if ! "$OUT/$t"; then
         echo "** $t FAILED **"
@@ -39,10 +39,10 @@ for t in test_sweep test_component test_csv test_misc; do
     fi
 done
 
-# 生成 golden CSV fixture（供前端 vitest 校验 parseZCsv/parseHCsv 兼容性）
 FIXDIR="$HERE/../../frontend/src/lib/__tests__/fixtures"
 echo "== emit golden CSV fixtures (v2) =="
-g++ -std=c++17 -O2 -Wall -I"$SRC" -I"$TEST" \
+g++ -std=c++17 -O2 -Wall -Wextra -Werror=return-type \
+    -I"$SRC" -I"$TEST" \
     "$TEST/emit_golden.cpp" "${PURE_SRC[@]}" -o "$OUT/emit_golden"
 "$OUT/emit_golden" "$FIXDIR/golden_oneport.csv" "$FIXDIR/golden_twoport.csv"
 echo "wrote $FIXDIR/golden_oneport.csv + golden_twoport.csv"

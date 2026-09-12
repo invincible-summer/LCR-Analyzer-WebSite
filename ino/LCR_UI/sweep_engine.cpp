@@ -14,6 +14,14 @@ static constexpr size_t kOnePortMinFit = 4;
 // 双口画曲线的最低有效点数（parseHCsv 至少需要 2 点）
 static constexpr size_t kTwoPortMinPlot = 2;
 
+// millis()/uint32_t deadline comparison. Valid for deadlines less than 2^31 ms
+// into the future; kQuietGuardMs is only 20 ms. This remains correct when
+// nowMs wraps from 0xffffffff to 0, unlike plain nowMs >= deadline.
+static bool deadlineReached(uint32_t nowMs, uint32_t deadlineMs)
+{
+    return (int32_t)(nowMs - deadlineMs) >= 0;
+}
+
 // ---------------------------------------------------------------------------
 // chunk 规划：偶数 N 全 2 点；奇数 N（>=3）为若干 2 点块 + 末块 3 点。
 // 第 k 块的起始网格下标恒为 2k（2 点块各消费 2 个下标）。
@@ -108,6 +116,7 @@ SweepStatus SweepEngine::start(const SweepConfig& cfg)
     // 先取一次真实校准状态（seal 时写进 v2 头部，不杜撰）
     if (!submitJob(LcrJobKind::ReadCalibrationStatus, 0, 0, 0)) {
         radioLockNotifyMeasurementActive(false);
+        m_state = SweepState::Error;
         return SweepStatus::Error;
     }
     m_state = SweepState::Measuring;
@@ -140,9 +149,10 @@ void SweepEngine::poll(uint32_t nowMs)
 #ifdef LCR_DEBUG_INVARIANTS
     if (!radioLockInvariantOk() &&
         (m_state == SweepState::Measuring || m_state == SweepState::Stopping)) {
-        m_state = SweepState::Error;
-        m_cancelReq = false;
-        return;
+        // 不可直接置 Error 后退出：此时 DNT job/激励可能仍在运行。
+        // 转入正常 cancel -> StopTone 收尾路径，直到停激励事件确认后才解锁。
+        m_cancelReq = true;
+        m_svc.requestCancel();
     }
 #endif
 
@@ -170,7 +180,7 @@ void SweepEngine::poll(uint32_t nowMs)
     if (m_state == SweepState::Stopping) {
         if (!m_stopDone && m_pendingId == 0)          // StopTone 提交失败的
             submitJob(LcrJobKind::StopTone, 0, 0, 0); // 有界重试
-        else if (m_stopDone && nowMs >= m_quietDeadlineMs)
+        else if (m_stopDone && deadlineReached(nowMs, m_quietDeadlineMs))
             finishSeal(nowMs);          // StopTone 完成 + 静默到期 -> seal
         return;
     }
@@ -184,7 +194,13 @@ void SweepEngine::handleEvent(const LcrEvent& ev, uint32_t nowMs)
 
     switch (ev.kind) {
     case LcrJobKind::ReadCalibrationStatus:
-        m_cal = ev.cal;
+        // 当前 DNT 对非空 out 固定成功；若未来契约扩展，失败不能伪装成 cal:0/10。
+        if (ev.backendStatus == 0) {
+            m_cal = ev.cal;
+        } else {
+            m_cancelReq = true;
+            m_svc.requestCancel();
+        }
         break;
 
     case LcrJobKind::SweepZChunk:
@@ -259,7 +275,7 @@ void SweepEngine::finishSeal(uint32_t nowMs)
     }
 
     const uint32_t sessionId =
-        (nowMs & 0xFFFFFFFFul) ^ (++m_sessionCounter * 2654435761u);
+        nowMs ^ (++m_sessionCounter * 2654435761u);
 
     if (m_cfg.kind == MeasurementKind::OnePortImpedance) {
         OnePortDataset& d = m_data1;
@@ -273,7 +289,7 @@ void SweepEngine::finishSeal(uint32_t nowMs)
                                               d.calibrationState, d.csv,
                                               sizeof(d.csv));
         d.crc32 = (d.csvLen > 0) ? crc32Of((const uint8_t*)d.csv, d.csvLen) : 0;
-        d.sealedUnixMs = nowMs;
+        d.sealedUptimeMs = nowMs;
         d.sealed = d.csvLen > 0;
         if (!d.sealed)                       m_state = SweepState::Error;
         else if (d.nPoints < kOnePortMinFit) m_state = SweepState::Insufficient;
@@ -290,7 +306,7 @@ void SweepEngine::finishSeal(uint32_t nowMs)
                                               d.calibrationState, d.csv,
                                               sizeof(d.csv));
         d.crc32 = (d.csvLen > 0) ? crc32Of((const uint8_t*)d.csv, d.csvLen) : 0;
-        d.sealedUnixMs = nowMs;
+        d.sealedUptimeMs = nowMs;
         d.sealed = d.csvLen > 0;
         if (!d.sealed)                       m_state = SweepState::Error;
         else if (d.nPoints < kTwoPortMinPlot) m_state = SweepState::Insufficient;

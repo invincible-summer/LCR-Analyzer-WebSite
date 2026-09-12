@@ -33,19 +33,23 @@
 //   不得声称瞬间停止。
 //
 // 哪些字段是 DNT 原样返回、哪些只是纯数学转换：
-//   * AppZPoint 的 fAct/reOhm/imOhm/magOhm/phaseDeg/D/Q/apiType 与
-//     AppWPoint 的 hMag/hDb/phaseDeg、AppCalcResult 全部字段、
-//     AppCalSummary 全部字段 —— DNT 原样拷贝，应用层不做任何修改；
+//   * 成功点的 AppZPoint fAct/reOhm/imOhm/magOhm/phaseDeg/D/Q/apiType、
+//     AppWPoint hMag/hDb/phaseDeg、成功 calc 的 AppCalcResult 数值、
+//     AppCalSummary 均直接来自 DNT；
 //   * AppWPoint.reH/imH —— 仅由 DNT 的 hMag/phaseDeg 做纯数学换算：
 //       phaseRad = phaseDeg * pi / 180
 //       reH = hMag * cos(phaseRad);  imH = hMag * sin(phaseRad)
 //     这不是新测量，只是数据表示转换（复数 H = Vout/Vin 的直角坐标）；
 //   * z[i].apiStatus —— LcrZPoint 本身不带状态字；DNT sweep 失败点以
-//     type='E' + NaN 标记，本层只把这些标记翻译成
-//     LCR_API_ERR_MEASURE(-3)，不杜撰其它错误码。
+//     type='E' + NaN 标记，本层翻译为 LCR_API_ERR_MEASURE(-3)；
+//   * DNT 在 ERR_PARAM 等“出参未写”路径上，本层绝不读取未定义结构体，
+//     而是显式填 NaN/'E' 并保留真实错误码；MeasureAndCalcZ 若 Z 测量失败，
+//     calc 不会被调用，calc 数值为 NaN，calc.apiStatus 镜像该前置失败码。
 //
 // 队列约束：job/event 队列都有固定上限（lcr_api.cpp 中为 4/4），
-// 测量期间不做无界 heap 分配。
+// 测量期间不做无界 heap 分配。job submit 对 UI 是非阻塞的；completion
+// event 属可靠控制面，不允许静默丢弃。event queue 满时只阻塞专用 Worker，
+// 让出 CPU 给 loop task 取事件，从而保持 UI 主循环非阻塞且避免状态机永久等待。
 // ============================================================================
 
 #pragma once
@@ -55,7 +59,8 @@
 
 // ---------------------------------------------------------------------------
 // 应用层状态码（服务层语义）。
-// DNT 的 LcrApiStatus（>=0 成功 / <0 错误码）原样放在事件的 backendStatus。
+// backendStatus 对已执行 DNT job 保存 DNT 返回值；被取消、未执行的 job
+// 使用本枚举中的服务层状态。
 // ---------------------------------------------------------------------------
 enum class AppLcrStatus : int {
     Ok = 0,
@@ -63,11 +68,11 @@ enum class AppLcrStatus : int {
     NotReady = 2,      // Worker 未完成 lcr_api_init()
     QueueFull = 3,     // job 队列满（UI 提交过快）
     Cancelled = 4,     // 因 requestCancel 被丢弃的 job
-    BackendError = 5,  // DNT 返回错误（详见 backendStatus）
+    BackendError = 5,  // DNT 初始化失败等服务层错误
 };
 
 // ---------------------------------------------------------------------------
-// 单口阻抗点：字段与 DNT LcrZPoint 一一对应（原样返回）
+// 单口阻抗点：成功时字段与 DNT LcrZPoint 一一对应；失败时数值为 NaN
 // ---------------------------------------------------------------------------
 struct AppZPoint {
     double fReq;       // 请求频率（Hz）
@@ -78,8 +83,8 @@ struct AppZPoint {
     double phaseDeg;   // arg(Z)（度）
     double D;          // 损耗角正切
     double Q;          // 品质因数
-    char apiType;      // DNT 判型：R / C / L；E = 该点失败
-    int apiStatus;     // 0 = DNT 成功；-3 = DNT sweep 失败标记（见文件头）
+    char apiType;      // DNT 判型：R / C / L；E = 该点失败/不可用
+    int apiStatus;     // 0 = 成功；<0 = DNT/本 wrapper 保留的真实失败码
 };
 
 // ---------------------------------------------------------------------------
@@ -93,20 +98,20 @@ struct AppWPoint {
     double phaseDeg;   // arg(H)（度，DNT 原样）
     double reH;        // = hMag*cos(phaseRad) —— 纯数学换算，非新测量
     double imH;        // = hMag*sin(phaseRad) —— 纯数学换算，非新测量
-    int apiStatus;     // 0 = DNT 成功；-3 = DNT sweep 失败标记
+    int apiStatus;     // 0 = 成功；<0 = DNT/本 wrapper 保留的真实失败码
 };
 
 // ---------------------------------------------------------------------------
-// 单元件换算结果：字段与 DNT LcrCalcResult 一一对应（原样返回）。
+// 单元件换算结果：成功时字段与 DNT LcrCalcResult 一一对应。
 // 注意：对 lcr_api_measure_z 的结果调用换算时 apply_calib 必须为
 // false —— measure 链已完成校准，再校准一次等于二次校准。
 // ---------------------------------------------------------------------------
 struct AppCalcResult {
-    char type;         // R / C / L
+    char type;         // R / C / L；前置失败时 E
     double rs, cs, ls; // 串联模型参数
     double rp, cp, lp; // 并联模型参数
     double D, Q;
-    int apiStatus;     // DNT 换算 API 返回值原样
+    int apiStatus;     // calc 成功/失败码；若未执行 calc，则镜像前置 Z 失败码
 };
 
 // ---------------------------------------------------------------------------
@@ -150,8 +155,8 @@ struct LcrEvent {
     uint32_t id;             // 对应 job 的 id
     LcrJobKind kind;
 
-    int backendStatus;       // DNT LcrApiStatus 原样（sweep 为成功点数 n_ok）
-    uint8_t pointCount;      // z[]/w[] 中有效槽位数（chunk: 2/3）
+    int backendStatus;       // DNT 返回值；未执行的 cancelled job 为 AppLcrStatus
+    uint8_t pointCount;      // z[]/w[] 中槽位数（chunk: 2/3；single: 1）
 
     AppZPoint z[3];          // SweepZChunk / MeasureAndCalcZ(z[0])
     AppWPoint w[3];          // SweepWChunk

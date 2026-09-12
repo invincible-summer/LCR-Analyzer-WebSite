@@ -88,7 +88,7 @@ struct OnePortDataset {
     uint32_t sessionId;
     char calibrationState[CAL_STATE_MAX]; // lcr_api_cal_status 真实摘要
     char measurementBackend[BACKEND_NAME_MAX];
-    uint64_t sealedUnixMs;                // 封存时刻（uptime ms）
+    uint32_t sealedUptimeMs;              // 封存时的 millis()/uptime（非 Unix epoch）
     bool sealed;
 };
 
@@ -103,7 +103,7 @@ struct TwoPortDataset {
     uint32_t sessionId;
     char calibrationState[CAL_STATE_MAX]; // 双口 W 链为 raw/no calib -> raw_w_path
     char measurementBackend[BACKEND_NAME_MAX];
-    uint64_t sealedUnixMs;
+    uint32_t sealedUptimeMs;              // 同上：uint32_t uptime，与 millis() 回绕一致
     bool sealed;
 };
 
