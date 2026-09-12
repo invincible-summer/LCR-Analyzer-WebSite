@@ -40,11 +40,13 @@ for t in test_sweep test_rollover test_component test_csv test_misc test_input; 
     fi
 done
 
-# Repeat-upload regression is partly a lifecycle invariant rather than a host-
-# executable BLE test. Lock the source contract so the old irreversible path
-# cannot silently return during later refactors.
-echo "== static BLE lifecycle invariants =="
+# Repeat-upload/fragmentation regression is partly a lifecycle invariant rather
+# than a host-executable BLE test. Lock the source contract so irreversible
+# deinit, unbounded notify bursts, MTU inheritance or missing notify-error
+# recovery cannot silently return during later refactors.
+echo "== static BLE lifecycle + fragmentation invariants =="
 RADIO="$SRC/radio_manager.cpp"
+PROTO="$SRC/ble_protocol.h"
 if grep -q 'BLEDevice::deinit(true)' "$RADIO"; then
     echo "** BLE lifecycle FAILED: deinit(true) prevents reinitialization **"
     FAIL=1
@@ -52,12 +54,18 @@ fi
 if ! grep -q 'BLEDevice::deinit(false)' "$RADIO" \
    || ! grep -q 'm_attPayload = kConservativeDataPayload' "$RADIO" \
    || ! grep -q 'std::atomic<bool> s_connectEvent' "$RADIO" \
+   || ! grep -q 'std::atomic<uint8_t> s_notifyErrorEvent' "$RADIO" \
    || ! grep -q 'exchange(false, std::memory_order_acq_rel)' "$RADIO" \
-   || ! grep -q 'kTxIntervalMs' "$RADIO"; then
-    echo "** BLE lifecycle FAILED: missing repeat-session/MTU/atomic-mailbox/pacing guard **"
+   || ! grep -q 'BLEDevice::setMTU(kPreferredMtu)' "$RADIO" \
+   || ! grep -q 'kPreferredMtu = 185' "$RADIO" \
+   || ! grep -q 'kTxIntervalMs = 15' "$RADIO" \
+   || ! grep -q 'kLcrBleMaxCsvPayload' "$RADIO" \
+   || ! grep -q 'kLcrBleMaxCsvPayload = 128' "$PROTO" \
+   || ! grep -q 'kLcrBleSeqSpace = 65536UL' "$PROTO"; then
+    echo "** BLE lifecycle FAILED: missing repeat-session/MTU/fragment/pacing/retry guard **"
     FAIL=1
 fi
-if grep -q -E 'static volatile (bool|uint8_t|uint16_t) s_(connectEvent|disconnectEvent|pendingCmd|mtuAttPayloadEvent)' "$RADIO"; then
+if grep -q -E 'static volatile (bool|uint8_t|uint16_t) s_(connectEvent|disconnectEvent|pendingCmd|mtuAttPayloadEvent|notifyErrorEvent)' "$RADIO"; then
     echo "** BLE lifecycle FAILED: volatile is not cross-task synchronization **"
     FAIL=1
 fi
