@@ -1,10 +1,9 @@
 // ============================================================================
-// screens.h —— 界面框架：Screen 基类 / 屏幕栈 / 四个用户入口
+// screens.h —— 界面框架：Screen 基类 / 屏幕栈 / 用户入口
 // ----------------------------------------------------------------------------
 // * Screen：onEnter 全量重绘；onEvent 处理输入；onTick 推进非阻塞状态机。
-// * 界面层不直接知道 ADC/激励/校准细节，只经 ILcrService/SweepEngine 工作。
-// * 128x160 ST7735S portrait 是产品 UI 坐标系；每个 screen 用 tft.width()/
-//   tft.height() 做边界，不再按 160x128 横屏硬编码。
+// * 界面层不直接触碰 ADC/激励/校准，只经 ILcrService/SweepEngine。
+// * 128x160 ST7735S portrait 是产品 UI 坐标系。
 // ============================================================================
 
 #pragma once
@@ -51,24 +50,23 @@ private:
     int m_top = -1;
 };
 
-// 主菜单：Component / One-Port / Two-Port / Signal Generator 全部正常可见。
 class MainMenuScreen : public Screen {
 public:
     void onEnter() override;
     void onEvent(InputEvent e) override;
     void onTick() override;
-
 private:
     void drawItem(int i, bool selected);
     int m_sel = 0;
 };
 
+// 模式 1：未知单元件识别。5 个频点用于判型；结果页显示一个有明确 fAct 的
+// 代表测点及串/并联等效参数。UNKNOWN 仍保留中位频率单点详情。
 class ComponentScreen : public Screen {
 public:
     void onEnter() override;
     void onEvent(InputEvent e) override;
     void onTick() override;
-
 private:
     enum class Phase { Config, Run, Result };
     bool startMeasure();
@@ -90,10 +88,34 @@ private:
     uint32_t m_pendingId = 0;
     AppZPoint m_z[5];
     AppCalcResult m_calc[5];
-    uint8_t m_nPts = 0;
     bool m_cancelReq = false;
     ComponentEstimate m_est{};
     uint32_t m_errUntilMs = 0;
+};
+
+// 模式 2：用户输入一个频率，只做一次 MeasureAndCalcZ。运行期完全异步；
+// 测量结束后仍等待 StopTone completion 才解除 measurement lock。
+class SinglePointScreen : public Screen {
+public:
+    void onEnter() override;
+    void onEvent(InputEvent e) override;
+    void onTick() override;
+private:
+    enum class Phase { Config, Measuring, Stopping, Result };
+    bool startMeasure();
+    bool submitStop();
+    void pumpEvents();
+    void drawConfig();
+    void drawRun(const char* text);
+    void drawResult();
+
+    DigitEditor m_freq;
+    Phase m_phase = Phase::Config;
+    uint32_t m_pendingId = 0;
+    bool m_cancelReq = false;
+    double m_requestedHz = 1000.0;
+    AppZPoint m_z{};
+    AppCalcResult m_calc{};
 };
 
 class OnePortScreen : public Screen {
@@ -101,7 +123,6 @@ public:
     void onEnter() override;
     void onEvent(InputEvent e) override;
     void onTick() override;
-
 private:
     enum class Phase { Config, Run, Ready, Ble };
     bool startSweep();
@@ -110,7 +131,6 @@ private:
     void updateRun(bool stopping);
     void drawReady();
     void drawBle();
-
     DigitEditor m_f0, m_f1, m_ppd;
     int m_field = 0;
     Phase m_phase = Phase::Config;
@@ -122,7 +142,6 @@ public:
     void onEnter() override;
     void onEvent(InputEvent e) override;
     void onTick() override;
-
 private:
     enum class Phase { Config, Run, Ready, Ble };
     bool startSweep();
@@ -132,7 +151,6 @@ private:
     void drawReady();
     void drawBle();
     void drawPreview();
-
     DigitEditor m_f0, m_f1, m_ppd;
     int m_field = 0;
     BodePlot m_plot;
@@ -140,14 +158,11 @@ private:
     uint32_t m_errUntilMs = 0;
 };
 
-// Signal Generator 仍使用异步 SetTone/StopTone completion 状态机；只把入口从
-// 隐藏手势改为主菜单第 4 项，硬件安全/非阻塞语义不变。
 class SigGenScreen : public Screen {
 public:
     void onEnter() override;
     void onEvent(InputEvent e) override;
     void onTick() override;
-
 private:
     void startOutput();
     void stopOutput();
@@ -155,7 +170,6 @@ private:
     void drawFreq();
     void drawStatus();
     void pumpEvents();
-
     DigitEditor m_freq;
     bool m_running = false;
     bool m_pending = false;
@@ -169,8 +183,8 @@ private:
 extern ScreenManager screens;
 extern MainMenuScreen screenMenu;
 extern ComponentScreen screenComponent;
+extern SinglePointScreen screenSinglePoint;
 extern OnePortScreen screenOnePort;
 extern TwoPortScreen screenTwoPort;
 extern SigGenScreen screenSigGen;
-
 extern SweepEngine sweep;
