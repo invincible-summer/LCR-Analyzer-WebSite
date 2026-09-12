@@ -100,10 +100,10 @@ jobs:
           curl -fsSL https://raw.githubusercontent.com/arduino/arduino-cli/master/install.sh | BINDIR=/usr/local/bin sh
           arduino-cli config init --additional-urls https://espressif.github.io/arduino-esp32/package_esp32_index.json
           arduino-cli core update-index
-      - name: Install esp32 core 3.3.11 + TFT_eSPI 2.5.43
+      - name: Install esp32 core 3.3.11 + TFT_eSPI 2.5.44
         run: |
           arduino-cli core install esp32:esp32@3.3.11
-          arduino-cli lib install TFT_eSPI@2.5.43
+          arduino-cli lib install TFT_eSPI@2.5.44
       - name: Static gates (no Classic BT / GPIO centralized / no stubs)
         run: bash ino/tools/static_check.sh
       - name: ESP32-S3 production compile
