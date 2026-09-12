@@ -5,6 +5,7 @@
 #include "display.h"
 
 #include "board_profile.h"
+#include "digit_editor_math.h"
 
 #include <Arduino.h>
 #include <stdio.h>
@@ -14,35 +15,21 @@
 #define TFT_SCLK 12
 #define TFT_MOSI 11
 
-// ESP32-S3 has two user GP-SPI controllers (SPI2/SPI3); this firmware uses
-// SPI2 for the TFT. In published TFT_eSPI 2.5.43 the S3 default selects
-// SPI_PORT=FSPI, while Arduino-ESP32 3.x defines FSPI=0 as a logical bus
-// index. TFT_eSPI's S3 direct-register path needs peripheral number 2, so the
-// default combination can write through addresses near 0x10 and cause the
-// observed StoreProhibited at tft.init(). TFT_eSPI 2.5.43 already supports
-// USE_FSPI_PORT, whose S3 path explicitly selects SPI_PORT=2; build_check.sh
-// makes that option mandatory. Upstream later changed the S3 default itself
-// to 2. Keep this compile-time guard so configuration drift cannot reintroduce
-// the field crash.
+// ESP32-S3 + TFT_eSPI 2.5.43 direct-register path requires peripheral 2.
 #if defined(CONFIG_IDF_TARGET_ESP32S3)
   #if !defined(SPI_PORT) || (SPI_PORT != 2)
-    //#error "ESP32-S3 TFT direct-register path requires SPI_PORT=2; define USE_FSPI_PORT with pinned TFT_eSPI 2.5.43"
+    //#error "ESP32-S3 TFT direct-register path requires SPI_PORT=2; define USE_FSPI_PORT"
   #endif
 #endif
 
-// ST7735S v1.3, Table 7 (4-line serial): minimum write clock cycle is 66 ns,
-// hence fSCL <= 1/66 ns ~= 15.15 MHz. The product build is intentionally
-// capped at 10 MHz; reject accidental overclocking at compile time.
+// ST7735S v1.3 Table 7: 4-line serial minimum write clock cycle 66 ns.
 #if defined(SPI_FREQUENCY) && (SPI_FREQUENCY > 15151515UL)
   //#error "ST7735S 4-wire write clock exceeds datasheet 66 ns minimum cycle"
 #endif
 
 TFT_eSPI tft = TFT_eSPI();
-
-// 本文件大量使用主题色常量，引入 ui 命名空间简化书写
 using namespace ui;
 
-// ---------------------------------------------------------------------------
 void ui::begin()
 {
     Serial.printf("TFT init: TFT_eSPI %s, SPI_PORT=%d, SCLK=%d MOSI=%d CS=%d DC=%d RST=%d @ %lu Hz\n",
@@ -53,7 +40,6 @@ void ui::begin()
     tft.fillScreen(C_BG);
 }
 
-// ---------------------------------------------------------------------------
 void ui::topBar(const char* title, bool bleOn)
 {
     const int W = tft.width();
@@ -62,14 +48,11 @@ void ui::topBar(const char* title, bool bleOn)
     tft.setTextFont(1);
     tft.setTextColor(C_FG, C_PANEL);
     tft.drawString(title, 4, 5);
-
-    // 右侧 BLE 状态标记：射频开启（advertising/连接）时点亮
     tft.setTextColor(bleOn ? C_OK : C_DIM, C_PANEL);
     tft.drawRightString(bleOn ? "BLE*" : "BLE", W - 4, 5, 1);
-    tft.drawFastHLine(0, H, W, C_AXIS);   // 顶栏底部分隔线
+    tft.drawFastHLine(0, H, W, C_AXIS);
 }
 
-// ---------------------------------------------------------------------------
 void ui::bottomHint(const char* hint)
 {
     const int W = tft.width();
@@ -80,7 +63,6 @@ void ui::bottomHint(const char* hint)
     tft.drawCentreString(hint, W / 2, y + 2, 1);
 }
 
-// ---------------------------------------------------------------------------
 void ui::progressBar(int x, int y, int w, int h, double frac, uint16_t color)
 {
     if (frac < 0) frac = 0;
@@ -89,23 +71,21 @@ void ui::progressBar(int x, int y, int w, int h, double frac, uint16_t color)
     tft.fillRect(x + 2, y + 2, (int)((w - 4) * frac), h - 4, color);
 }
 
-// ---------------------------------------------------------------------------
 void ui::row(int x, int y, int w, const char* label, const char* value, uint16_t color)
 {
     tft.setTextFont(1);
     tft.setTextColor(C_DIM, C_BG);
-    tft.drawString(label, x, y + 4);            // 标签与数值垂直居中对齐
+    tft.drawString(label, x, y + 4);
     tft.setTextFont(2);
     tft.setTextColor(color, C_BG);
     tft.drawRightString(value, x + w, y, 2);
 }
 
-// ---------------------------------------------------------------------------
 const char* ui::fmtEng(double v, const char* unit, char* buf, int len, int prec)
 {
     static const char* pre[] = {"G", "M", "k", "", "m", "u", "n"};
-    double s = v < 0 ? -v : v;                // 跟踪缩放后的幅值
-    int scale = 3;                             // 前缀表下标：3 对应 ''（10^0）
+    double s = v < 0 ? -v : v;
+    int scale = 3;
     while (s >= 1000.0 && scale > 0) { s /= 1000.0; v /= 1000.0; --scale; }
     while (s > 0.0 && s < 1.0 && scale < 6) { s *= 1000.0; v *= 1000.0; ++scale; }
     snprintf(buf, len, "%.*g%s%s", prec, v, pre[scale], unit);
@@ -122,20 +102,17 @@ const char* ui::fmtFreq(double hz, char* buf, int len)
 
 const char* ui::fmtDeg(double deg, char* buf, int len)
 {
-    snprintf(buf, len, "%+.1fdeg", deg);   // 内置字体无 ° 符号，用 deg
+    snprintf(buf, len, "%+.1fdeg", deg);
     return buf;
 }
 
-// ============================================================================
-// DigitEditor
-// ---------------------------------------------------------------------------
 void DigitEditor::setup(int32_t vmin, int32_t vmax, int ndigits, int32_t v)
 {
     m_vmin = vmin;
     m_vmax = vmax;
     m_ndigits = ndigits > 7 ? 7 : ndigits;
     m_value = clampValue(v);
-    m_pos = m_ndigits - 1;                    // 光标默认在个位
+    m_pos = m_ndigits - 1;
     syncFromValue();
 }
 
@@ -153,24 +130,16 @@ bool DigitEditor::onEvent(InputEvent e)
     switch (e) {
     case InputEvent::Up:
         if (m_pos > 0) { --m_pos; return true; }
-        return false;                          // 已在最左位：交还界面层
+        return false;
     case InputEvent::Down:
         if (m_pos < m_ndigits - 1) { ++m_pos; return true; }
-        return false;                          // 已在最右位：交还界面层
+        return false;
     case InputEvent::EncInc:
-    case InputEvent::EncDec: {
-        // 当前位 0-9 循环：9 加 1 回 0（不进位），0 减 1 回 9（不借位）
-        const bool up = (e == InputEvent::EncInc);
-        const int8_t d = (int8_t)m_digits[m_pos];
-        // 权 = 10^(ndigits-1-pos)
-        int32_t p = 1;
-        for (int i = 0; i < m_ndigits - 1 - m_pos; ++i) p *= 10;
-        const int32_t step =
-            up ? (d == 9 ? -9 : 1) : (d == 0 ? 9 : -1);
-        m_value = clampValue(m_value + step * p);
+    case InputEvent::EncDec:
+        m_value = digitEditorStep(m_value, m_vmin, m_vmax, m_ndigits, m_pos,
+                                  e == InputEvent::EncInc ? 1 : -1);
         syncFromValue();
         return true;
-    }
     default:
         return false;
     }
@@ -192,28 +161,23 @@ void DigitEditor::draw(int x, int y, int fontH, bool focused) const
 
     for (int i = 0; i < m_ndigits; ++i) {
         const int dx = x + i * (dw + gap);
-        // 前导零画成暗色（更接近仪器风格），从首个非零位起亮色
         bool leading = true;
         for (int j = 0; j < i; ++j) if (m_digits[j] != 0) { leading = false; break; }
         if (m_digits[i] != 0 || i == m_ndigits - 1) leading = false;
-        const uint16_t col = focused ? ui::C_FG : (leading ? ui::C_GRID : ui::C_DIM);
+        const uint16_t col = focused ? C_FG : (leading ? C_GRID : C_DIM);
 
         tft.setTextFont(font);
-        tft.setTextColor(col, ui::C_BG);
+        tft.setTextColor(col, C_BG);
         char s[2] = {(char)('0' + m_digits[i]), 0};
         tft.drawString(s, dx, y);
 
-        if (focused && i == m_pos) {          // 当前编辑位：下方高亮光标条
-            tft.fillRect(dx - 2, y + digitH + 4, dw + 4, 5, ui::C_ACCENT);
-        } else if (focused) {
-            tft.fillRect(dx - 2, y + digitH + 4, dw + 4, 5, ui::C_GRID);
-        }
+        if (focused && i == m_pos)
+            tft.fillRect(dx - 2, y + digitH + 4, dw + 4, 5, C_ACCENT);
+        else if (focused)
+            tft.fillRect(dx - 2, y + digitH + 4, dw + 4, 5, C_GRID);
     }
 }
 
-// ============================================================================
-// Checkbox
-// ---------------------------------------------------------------------------
 void Checkbox::setup(const char* labelOff, const char* labelOn, bool v)
 {
     m_labelOff = labelOff;
@@ -233,11 +197,9 @@ bool Checkbox::onEvent(InputEvent e)
 void Checkbox::draw(int x, int y, bool focused) const
 {
     const int box = 16;
-    // 勾选框
     if (focused) tft.drawRect(x - 2, y - 2, box + 4, box + 4, C_ACCENT);
     tft.drawRect(x, y, box, box, C_FG);
     if (m_value) tft.fillRect(x + 3, y + 3, box - 6, box - 6, C_OK);
-    // 文本
     tft.setTextFont(2);
     tft.setTextColor(focused ? C_FG : C_DIM, C_BG);
     tft.drawString(m_value ? m_labelOn : m_labelOff, x + box + 8, y);
