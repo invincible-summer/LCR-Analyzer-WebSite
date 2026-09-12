@@ -1,17 +1,8 @@
 // ============================================================================
-// component_meter.h —— 单元件 R/C/L 汇总判型（host 可编译）
+// component_meter.h —— 未知单元件 R/C/L/有源判型与结果聚合（host 可编译）
 // ----------------------------------------------------------------------------
-// v4.1.0 重构后的职责（plan.md §6）：
-//   * 输入是 DNT API 的逐点结果（AppZPoint = lcr_api_measure_z 原样，
-//     AppCalcResult = lcr_api_calc(f_act, z_re, z_im, false) 原样）；
-//   * 判型 = 各点 apiType 的一致性判据（DNT 已经在每个点给出 R/C/L），
-//     本层不再做第二套三模型拟合，也不再使用旧链的 raw-ADC 质量权重
-//     （residualRmsA/B、amplitudeA/B 属于已删除的自写 sine-fit 链，
-//     DNT API 未暴露这些量，禁止填假值或用 0 代替）；
-//   * 数值 = 只对 API calc 的有效结果做鲁棒中位数聚合：
-//       R: median(rs)   C: median(cs)   L: median(ls)，DCR = median(rs)
-//   * L 的 DCR < 0 时不做 max(0,dcr) 钳位 —— 项目物理模型要求 DCR>=0，
-//     负值判为测量/校准/模型异常，置 dcrWarn 由 UI 显示 WARN。
+// 输入仍只来自 DNT API：AppZPoint + AppCalcResult。本层不采 ADC、不生成
+// 激励、不重新拟合阻抗，只做 API 结果一致性、异常诊断与鲁棒聚合。
 // ============================================================================
 
 #pragma once
@@ -20,22 +11,50 @@
 
 #include <stdint.h>
 
+enum class ImpedanceNature : uint8_t {
+    Invalid = 0,
+    Resistive,
+    Capacitive,
+    Inductive,
+    NegativeResistive,
+};
+
+// 与 DNT 的 1 degree 阻性窗口一致。只有相位接近 +/-180 degree 才返回
+// NegativeResistive；其它负实部但明显带电抗的点仍按电抗符号显示 C/L。
+ImpedanceNature classifyImpedanceNature(const AppZPoint& p,
+                                        double resistiveTolDeg = 1.0);
+const char* impedanceNatureText(ImpedanceNature n);
+
 struct ComponentEstimate {
-    enum class Type : uint8_t { Resistor, Capacitor, Inductor, Unknown };
+    enum class Type : uint8_t { Resistor, Capacitor, Inductor, Active, Unknown };
     Type type = Type::Unknown;
 
     double rOhm = 0.0;     // Resistor: median(rs)
     double cFarad = 0.0;   // Capacitor: median(cs)
     double lHenry = 0.0;   // Inductor: median(ls)
-    double dcrOhm = 0.0;   // Inductor: median(rs)；负值 -> dcrWarn
-    uint8_t nValid = 0;        // API 测量+换算都有效的点数
-    uint8_t nConsistent = 0;   // 与最终判型一致的点数
-    bool dcrWarn = false;      // DCR<0：测量/校准/模型异常（UI 显示 WARN）
-    const char* reason = "";   // UNKNOWN 时的一句话原因
+    double dcrOhm = 0.0;   // Inductor: median(rs), negative -> dcrWarn
+
+    uint8_t nMeasured = 0;     // 真正得到有限 Z 的点；不要求 calc/type 正确
+    uint8_t nCalcValid = 0;    // calc 成功且 rs 有限
+    uint8_t nTypeMismatch = 0; // Z apiType 与 calc.type 不一致
+    uint8_t nValid = 0;        // 判型使用的 Z+calc 一致有效点
+    uint8_t nConsistent = 0;   // 与最终被动判型一致的点数
+    uint8_t nR = 0, nC = 0, nL = 0;
+    uint8_t nNegativeReal = 0; // 明确负实部证据点数
+
+    // recognized: 与中位聚合值最接近的真实测点；其 fAct 是 UI 显示
+    // “当前数值对应频率”的真源。unknown/active: 使用 detailIndex。
+    int8_t representativeIndex = -1;
+    double representativeFreqHz = 0.0;
+
+    // UNKNOWN 详情点：优先原计划的中位数频率；只要该频点真正测得 Z，
+    // 即使 calc/type 数据错误也保留。只有根本未测得才从低频向高频找首个测得点。
+    int8_t detailIndex = -1;
+
+    bool dcrWarn = false;
+    const char* reason = "";
 };
 
-// pts/calc 一一对应（n 点）；只使用 apiStatus==0 且数值有限的点。
 ComponentEstimate summarizeComponent(const AppZPoint* z, const AppCalcResult* calc,
                                      uint16_t n);
-
 const char* componentTypeText(ComponentEstimate::Type t);
