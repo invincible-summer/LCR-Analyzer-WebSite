@@ -50,9 +50,9 @@
 #define LCR_RESISTIVE_TOL_DEG 1.0
 
 // ---- MUX 引脚（硬件 v3：2 片级联 74HC595）----
-#define HC595_PIN_SRCLK 15
-#define HC595_PIN_SER 16
-#define HC595_PIN_RCLK 17
+#define HC595_PIN_SRCLK 21
+#define HC595_PIN_SER 19
+#define HC595_PIN_RCLK 20
 
 #define HC595_BIT_W0 1
 #define HC595_BIT_W1 2
