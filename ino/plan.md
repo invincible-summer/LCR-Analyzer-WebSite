@@ -1,182 +1,176 @@
 # ESP32-S3 LCR 固件 2026-09-12 运行时 / UI / BLE 修复与验收计划
 
-状态：**实现已落在 `fix/ino-ui-ble-20260912` / PR #5。本文件是实现后的最终架构 review 与验收规范；最新 head 的六个 CI job 全绿后方可合并 `main`。实体开发板验证是独立硬件门禁。不得创建 Tag。**
+状态：**实现位于 `fix/ino-ui-ble-20260912` / PR #5。本文件是实现后的最终架构 review 与验收规范；只有最新 head 的六个 CI job 全部成功后才允许合并 `main`。实体开发板验证是独立发布门禁。不得创建 Tag。**
 
-审计基线：`main@56504745a4a010f940996d6efb83ad281e4b3f3e`。本轮修改限定于应用层输入/UI/BLE、测试、静态门禁与硬件/协议文档；任何 `DO_NOT_TOUCH_*` 测量实现、CSV schema、Try1/Try2/Try3 数学算法均不得因本轮问题被改写。BLE 本轮增强保持 protocol v1 **线格式不变**：仍是同一组 UUID、同一 8-byte Data header、同一 START/RESTART/ABORT/STATUS 命令与整份 CSV CRC32；改变的是 MTU 适配、分片、节流和自动恢复实现。
+审计基线：`main@56504745a4a010f940996d6efb83ad281e4b3f3e`。修改边界限定于输入/UI/BLE transport、测试、静态门禁与文档；`DO_NOT_TOUCH_*` 测量实现、CSV schema、Try1/Try2/Try3 数学算法均不得被本轮改写。BLE 本轮增强保持 protocol v1 **wire format 不变**：UUID、8-byte Data header、START/RESTART/ABORT/STATUS、整份 CSV CRC32 均保持兼容。
 
-## 1. 报告问题、根因与落实结果
+## 1. 本轮问题与落实结论
 
-这批现象不是一个共同 bug，而是输入解码、ST7735S 几何/UI、双端口显示语义、BLE 生命周期/吞吐和功能可达性五类问题叠加。
-
-| 报告项 | 审计结论 | 最终实现 |
+| 报告项 | 根因 | 最终实现 |
 |---|---|---|
-| 编码器旋转抖动 | 旧 `input.cpp` 只挂 A 相 `CHANGE`，B 相只在 A 边沿瞬时判向；B 接点抖动/丢边会改变方向判断 | A/B 两相都挂 `CHANGE`；完整 2-bit Gray 转移表；相邻反跳自然抵消；非法双比特跳变清半格；host regression 覆盖 CW/CCW/bounce/glitch |
-| TFT UI 错位 | `board_profile.cpp` 声明面板 128×160，却 `rotation=1` 令 UI 按 160×128 横屏运行；screen 又有横屏绝对坐标 | 产品 UI 固定 ST7735S portrait `128×160`、`rotation=0`；Menu/Component/One-Port/Two-Port/Signal Generator 按 `tft.width()/height()` 约束布局 |
-| 运行一段时间 `StoreProhibited` | `EXCCAUSE=0x1d`、`EXCVADDR=0x11c` 是低地址非法 store；无匹配 ELF 不能把 `PC=0x42069edf` 猜成某行源码。仓库同时存在可证明的 BLE 重复生命周期错误：`deinit(true)` 后再次 init | 只用 `deinit(false)`；初始化失败回真实 `Off`；GATT 指针 deinit 后清空；callback 只发 atomic mailbox；BLE start/stop 打印 heap/PSRAM；若仍复现必须用同构建 ELF/addr2line 定位 |
-| 单元件扫频最低 50 Hz | 仅 Component UI 把 F0 写死为 50；产品核心最小频率已是 10 Hz | F0 统一使用 `INSTRUMENT_F_MIN_HZ=10`，F1 继续受 10 kHz 产品上限约束 |
-| 双端口增益单位 | 真源 `H=Vout/Vin` 是无量纲复比；网站 parser 已正确计算 `20log10|H|` | 保留 canonical CSV `f,re_h,im_h`；TFT 显示 `GAIN dB / PHASE deg` |
-| 双端口 TFT 无相位 | BodePlot 有 phase 能力但旧 Two-Port 只画 gain | 从复 H 计算 `atan2(ImH,ReH)`；仅显示侧 unwrap；上传值保持原始复 H |
-| 双端口上传不稳 | screen 与主 loop 双 `radio.poll()`；旧发送路径突发 notify；MTU 跨连接残留；错误后缺自动恢复 | 主 loop 唯一 pump；连接级 MTU reset；128 B CSV 分片；15 ms pacing；Data notify error mailbox；同连接自动 ABORT+RESTART；真实断线自动 reconnect |
-| Signal Generator 无法正常进入 | 功能本身已是异步 SetTone/StopTone，但菜单入口被隐藏 | 主菜单第 4 项正式暴露；仍坚持真实 StopTone completion 后才退出 |
-| 第二次 BLE 上传稳定崩溃 | 旧 `stopBle()` 使用 `BLEDevice::deinit(true)`；Arduino-ESP32 明确该路径释放 BT stack memory 并阻止再次初始化 | 改 `deinit(false)`；静态门禁禁止回归；每 session/连接重新初始化协商状态与 GATT 对象 |
+| 编码器旋转抖动 | 旧实现只监听 A 相 CHANGE、瞬时读取 B 判向，不能可靠过滤 B 相反跳/漏边 | A/B 双相 CHANGE + 完整 2-bit Gray 状态机；4 quarter-step 归一成一个 UI detent；非法双比特跳变清半格；host tests 覆盖 CW/CCW/bounce/glitch |
+| TFT UI 错位 | 面板是 128×160，却按 rotation=1 的 160×128 横屏设计 | 产品 UI 固定 portrait 128×160 / rotation=0；Menu/Component/One-Port/Two-Port/Signal Generator 全部按真实几何重排 |
+| StoreProhibited / 第二次 BLE 稳定崩溃 | 旧 `BLEDevice::deinit(true)` 会释放 BT stack memory，之后 reinit 不受支持；另有 double-pump、突发 notify、MTU 残留等风险 | `deinit(false)`；GATT pointer 清理；atomic mailbox；主 loop 唯一 radio pump；连接级 MTU reset；notify error 回主 loop；heap/PSRAM 观测 |
+| Component 最低 50 Hz | UI 局部硬编码，核心频率下限实际是 10 Hz | 统一使用 `INSTRUMENT_F_MIN_HZ=10` |
+| Two-Port 增益单位/相位 | H 是无量纲复比，TFT 旧实现只画幅值且语义混乱 | canonical CSV 保持 `f,re_h,im_h`；TFT 显示 gain[dB] + phase[deg]，phase 只在显示侧 unwrap |
+| Signal Generator 难以进入 | 页面本身状态机可用，但菜单入口被隐藏 | 成为第四个正式菜单项；保留异步 SetTone/StopTone 与 completion 驱动退出 |
+| BLE 大数据/上传不稳定 | BLE notification 有 MTU 单包上限；旧前端没有真正自动重传/重连 | MTU-aware fragmentation + 128 B cap + 15 ms pacing + seq/CRC + 自动 ABORT/RESTART + 自动 GATT rebuild/reconnect |
 
-## 2. 硬件与数据手册约束
+## 2. 硬件与显示约束
 
-开发板为 ESP32-S3-WROOM-1-N16R8（16 MB Flash / 8 MB PSRAM）。板载 Micro USB 通过 CH340X + 数字隔离走 UART0 GPIO43/44；产品构建保持 `USB CDC On Boot = Disabled/default`。GPIO26–32 属模组内 Flash/PSRAM，GPIO33–37 在 N16R8 八线存储总线下不能作为普通 UI GPIO。
+开发板为 ESP32-S3-WROOM-1-N16R8。最终 DNT 测量引脚真源为：ADC GPIO1/2；LCD_CAM DAC D0..D7=`6,7,15,16,17,18,8,9`；74HC595=`21,19,20`。TFT 使用被 DNT 释放的 GPIO10..14：CS10、MOSI11、SCLK12、RST13、DC14，write-only，10 MHz。ST7735S 产品坐标固定为 128×160 portrait。
 
-当前 DNT 真源以代码为准：ADC GPIO1/2；LCD_CAM DAC D0..D7 = GPIO6,7,15,16,17,18,8,9；74HC595 = GPIO21,19,20。因此最终测量保留集是 `{1,2,6,7,8,9,15,16,17,18,19,20,21}`。TFT 使用被 DNT 释放的 `CS=GPIO10, MOSI=11, SCLK=12, RST=13, DC=14`，write-only，无 MISO。
+本轮没有修改任何 `DO_NOT_TOUCH_*` 文件。CI 曾发现 `dnt_manifest.txt` 中 `DO_NOT_TOUCH_lcr_diag.h` / `DO_NOT_TOUCH_lcr_measure.h` 两条 hash 已经落后于 PR **基线自身**；核对 branch blob 与 `main@56504745...` 相同后，仅重新锁定 manifest 到基线既有 DNT 内容，恢复“之后不允许漂移”的 Gate A 语义，而不是借机改测量代码。
 
-ST7735S 产品唯一 UI 坐标系为 portrait `W=128,H=160`、`tftRotation=0`。4-wire serial 最小 write clock cycle 66 ns，对应约 15.15 MHz；产品固定 10 MHz。若实体模块仍有固定整体平移，只允许在确认玻璃/GM strap/TFT_eSPI init variant 后统一修改 offset，不允许 screen 各自补偿。
+## 3. 输入/UI 的接口约束
 
-本轮 CI 曾暴露 Gate A manifest 中 `DO_NOT_TOUCH_lcr_diag.h` 与 `DO_NOT_TOUCH_lcr_measure.h` 的 hash 已落后于 PR 基线本身；分支对应 DNT blob 与 `main@56504745...` 完全相同，**没有修改 DNT 内容**。因此只把 `dnt_manifest.txt` 重锁到基线已有 blob 的真实 SHA-256，恢复“当前已批准 DNT 内容不可再漂移”的门禁语义。
+`Input` 是 EC11 唯一归一化层，screen 永远只消费 `EncInc/EncDec`。当前一完整 Gray cycle 对应一个 UI detent；若实体 EC11 具体料号的 pulse/detent 比与该假设不同，只能在输入层统一调整，不得在各页面分别补偿。
 
-## 3. 输入接口语义与 EC11 差异处理
+UI 唯一逻辑几何为 128×160。新增控件必须从 `tft.width()/height()` 与控件实际宽度推导位置，禁止恢复 160×128 magic coordinate。Two-Port 数据唯一真源仍是复 H，TFT/网站都只做显示派生。
 
-`Input` 对外契约不变：screen 只收到 `EncInc/EncDec`，不感知 A/B 细节。实现用 `(A<<1)|B` 四状态；有效相邻 Gray 转移贡献 ±1 quarter-step，反向 bounce 自动抵消，`00<->11`、`01<->10` 等双比特跳变判为非法并丢弃半格累计。
+## 4. BLE 上限的确定结论
 
-当前 4 quarter-step 发布一个 UI detent，用于保持旧固件的既有机械手感。仓库只有通用 EC11 数据手册，没有在 BOM 中钉死具体 pulse/detent 料号；若实物属于不同组合，只允许在输入层统一调整 transition→detent 归一化，不能让各 screen 自己补偿。实体板必须覆盖慢/快 CW、CCW、轻触/重触，并确认一机械格恰好一个 UI 事件。
+BLE 的关键上限是**单个 ATT notification 的 characteristic value 长度**，不是“整份数据只能传这么多”。ESP32 默认 ATT MTU=23；MTU 可配置至 517，但连接实际 MTU由双方协商，不能假定客户端一定接受请求值。GATT notification 的最大 value 为 `negotiated ATT_MTU - 3`。
 
-## 4. 128×160 UI 与双端口数据语义
-
-顶栏固定 18 px，底部 hint 占最后 12 px；业务内容只使用中间区域。DigitEditor 横坐标由屏宽和控件宽度推导；进度条宽度由 `tft.width()` 推导。主菜单固定四入口：Component、One-Port Z、Two-Port H、Signal Generator。
-
-Two-Port canonical dataset 永远是无量纲复 H。TFT sealed preview 左轴 gain[dB]、右轴 phase[deg]；phase 为连续绘线允许显示侧 unwrap，但上传 `re_h/im_h` 不做 unwrap、不添加派生列。网站继续从复 H 推导 dB/degree，保持现有正确实现。
-
-## 5. BLE 上限确认：上限在“单个 ATT notification”，不是当前 12 KiB 整份数据集
-
-### 5.1 协议/栈的真实限制
-
-BLE GATT notification 不是任意长度消息。对当前 ESP32/Arduino BLE 栈，单次 characteristic notification 的有效 value 受当前连接 ATT MTU 约束：**最大 characteristic value = negotiated ATT_MTU - 3**。ESP32 默认 MTU 为 23；Espressif 文档和 Arduino-ESP32 API 允许配置到 517，但实际连接值必须由双方协商，不能假定 peer 一定接受较大的 MTU。
-
-因此默认 MTU23 时：
+LCR v1 Data frame 自身有 8-byte header，因此默认 MTU23 时：
 
 ```text
-ATT_MTU                   = 23 B
-ATT notification value    = 23 - 3 = 20 B
-LCR v1 application header = 8 B
-CSV data / notification   = 12 B
+ATT MTU                    23 B
+notification value max     20 B (= 23 - 3)
+LCR frame header            8 B
+CSV payload / frame        12 B
 ```
 
-项目不把“MTU 最大值”当作稳定性目标。固件请求 preferred MTU=185；只有当前连接实际收到 `onMtuChanged` 后才扩大 payload。即使协商到 185 或更大，本项目仍把 **CSV data cap 固定为 128 B/frame**，即一个 Data notification 最多 `8+128=136 B`。peer 不协商时则自动退回 12 B/frame。
+固件现在请求 preferred MTU=185，但**只有本连接实际收到 `onMtuChanged` 后**才使用更大 payload；协商失败/未发生时一直走 12 B/frame 保守路径。即使协商到 185 或更大，项目仍主动把 CSV payload 限为 **128 B/frame**，所以 Data notification 最大 136 B。这样避免把 MTU 517 当作必须追求的吞吐目标，把 RAM、BLE host/controller queue 和 Web Bluetooth event queue 压力控制在可预测范围。
 
-### 5.2 当前产品数据集上限
+当前 `OnePortDataset` / `TwoPortDataset` CSV 静态 buffer 各为 **12 KiB**，Sweep 最大 257 点；因此当前产品首先受 12 KiB dataset buffer 限制，而不是 BLE 总字节数限制。Status 总字节计数使用 uint32；Data `seq` 是 uint16，现已在固件和前端都定义为 modulo 65536，`65535 -> 0` 为合法连续序列。
 
-One-Port 和 Two-Port 的 canonical CSV buffer 各为 **12 KiB**，Sweep 最大 257 点。因此当前产品首先受到 dataset 静态 buffer 的 12 KiB 上限，而不是 BLE “整份消息”上限。Status 的 `byte_count/bytes_sent/bytes_total` 是 uint32；Data `seq` 是 uint16，但现在 sender 与 receiver 都按 modulo 65536 解释，`65535 -> 0` 为合法连续序列。
-
-以满 12 KiB 为例，仅计算 15 ms 软件 pacing、不含连接调度/浏览器开销：
+满 12 KiB 数据流的纯 pacing 量级（不含 connection interval / RF / 浏览器调度）：
 
 ```text
-保守 MTU23:  12288 / 12  = 1024 frames，约 15.36 s pacing 下限
-128 B/frame: 12288 / 128 =   96 frames，约  1.44 s pacing 下限
+MTU23 保守路径: 12288 / 12  = 1024 frames × 15 ms ≈ 15.36 s
+128 B 路径:     12288 / 128 =   96 frames × 15 ms ≈  1.44 s
 ```
 
-因此当前实现不存在“数据大于一个 BLE notification 就传不了”的问题；整份 CSV 从设计上就是多帧字节流。
+结论：**有单包上限；当前整份 12 KiB 数据集不存在必须一次塞入 BLE 的设计需求。正确实现就是自动分片传输。**
 
-## 6. BLE 稳定传输实现约束
+## 5. 发送端 transport 语义
 
-`RadioManager` 是 BLE 生命周期唯一 owner；`LCR_UI.loop()` 是 `radio.poll()` 唯一调用点。测量或 Signal Generator 激励期间 BLE 必须 Off；只有真实 StopTone 完成、dataset seal 且用户确认后才能启动射频。
+`RadioManager` 是 BLE 生命周期唯一 owner，`LCR_UI.loop()` 是 `radio.poll()` 唯一 caller。测量或 Signal Generator 输出活动期间 BLE 必须 Off；只有真实 StopTone completion、dataset seal 且用户确认后才允许 radio on。
 
-### 6.1 发送端分片与流控
+发送状态机的硬约束：
 
-固件的发送语义固定如下：
+1. session start / connect / disconnect 都把可用 CSV payload 重置为 12 B，绝不继承上一连接 MTU；
+2. `BLEDevice::setMTU(185)` 只设置 preferred MTU，实际尺寸只服从当前连接 MTU event；
+3. `csvPerFrame = min(negotiatedMTU - 3 - 8, 128)`；未协商就是 12；
+4. 整份 sealed CSV 按 `m_bytesSent` 自动切片，调用层不需要计算帧数；
+5. 每次 `poll()` 最多 notify **1 frame**，frame 间隔至少 **15 ms**；禁止 burst while-loop；
+6. Data characteristic 注册 `onStatus`。任何非 `SUCCESS_NOTIFY` 通过 atomic mailbox 报给主 loop，当前 stream 立即进入 Error；
+7. 最后一帧“已提交给 BLE stack”不等于客户端已收到；若最后一帧随后回 notify failure，Connected 也必须翻回 Error，不能误报完成；
+8. `deinit(false)` 是唯一 stop 路径；deinit 后所有 GATT pointer 清空；禁止 `deinit(true)`；
+9. callback 只能 atomic store，禁止在 BLE callback task 内执行 advertising / notify / deinit 等生命周期操作。
 
-1. Session、connect、disconnect 都先把 CSV payload 回到默认 MTU23 的 **12 B/frame**，绝不继承上一连接 MTU。
-2. `BLEDevice::setMTU(185)` 只表达本机 preferred MTU；实际发送大小只相信本连接 `onMtuChanged`。
-3. `m_attPayload = min(negotiated_MTU-3-8, 128)`；若没有 MTU event 则始终为 12。
-4. 整份 CSV 根据 `m_bytesSent` 自动连续切片，直到 `m_bytesSent == m_bytesTotal`。调用方不需要知道帧数。
-5. 每个 `poll()` **最多发一帧**，两帧之间至少 **15 ms**。不使用 burst loop，不以压满 controller queue 换峰值吞吐。
-6. Data characteristic 注册 `onStatus`；任何非 `SUCCESS_NOTIFY` 结果写入 atomic error mailbox。主 loop 收到后停止当前 stream 并进入 Error。即使最后一帧已经从应用层“提交”后才收到失败 callback，也必须把 `Connected` 翻为 `Error`，不能误报成功。
-7. `seq` 为 uint16 modulo 2^16；payload length 为 uint16；Status 总字节计数为 uint32。
-8. `BLEDevice::deinit(false)` 是唯一 stop 方式；每次 deinit 后所有 GATT raw pointer 清空。禁止 `deinit(true)`。
+## 6. 接收端自动恢复语义
 
-### 6.2 接收端自动恢复
+浏览器接收分成“同连接恢复”和“连接重建”两层，所有 attempt 都针对同一 sealed dataset。
 
-浏览器接收不再把偶发 seq gap/CRC 错误直接抛给用户处理，而是自动完成恢复：
+### 6.1 同一 GATT 连接自动 ABORT + RESTART
 
-**同一 GATT 连接内**：每份数据最多 4 个 attempt（首次 START + 最多 3 次 RESTART）。发生以下任一情况即判定当前 attempt 不可信：
+每个连接允许 **4 个 transfer attempt**：1 次 START + 最多 3 次 RESTART。以下任一情况使当前 attempt 立即失效：
 
-- Data frame magic/长度非法；
-- protocol 或 dataset kind 不一致；
-- seq 不连续；
-- 收到字节超过 metadata `byte_count`；
-- 完整 byte_count 到齐但 CRC32 不匹配；
-- 连续 15 s 没有新增有效数据。
+- Data magic / frame length 非法；
+- protocol 或 dataset kind 不匹配；
+- seq gap；
+- 实收字节超过 metadata `byte_count`；
+- Status session 不匹配或设备报告 BLE error code；
+- byte_count 到齐但整份 CRC32 不匹配；
+- 连续 15 s 无新增有效字节。
 
-恢复顺序固定为：停止接收当前流 → 写 `ABORT_TRANSFER` → 等 120 ms drain 已进入 host/controller/browser queue 的旧通知 → assembler reset → 写 `RESTART_TRANSFER`。新 attempt 只把新的 `seq=0` 作为流起点，在此之前到达的残留旧帧直接丢弃。
+恢复流程固定为：停止接受当前流 → `ABORT_TRANSFER` → 120 ms drain → assembler reset → `RESTART_TRANSFER`。下一 attempt 只接受新的 `seq=0` 作为流起点，在此之前到达的上一轮残留 Data frame 全部丢弃。
 
-**真实 GATT 断线**：不重新弹设备 chooser，而是使用用户已经授权的 `BluetoothDevice.gatt.connect()` 自动重连，最多 2 次。重连后重新读取 Metadata、重新订阅 Status/Data，然后从 seq 0 重传 sealed dataset。
+### 6.2 同连接重试耗尽后自动重建 GATT
 
-最终只有同时满足下面四个条件，数据才能进入 CSV parser / Try1/2/3：
+如果同一个 GATT connection 连续 4 个 attempt 仍失败，不能简单把错误丢给用户。即使 Web Bluetooth 仍显示 `gatt.connected=true`，也认为 ATT/GATT 状态可能已卡住：前端主动 `disconnect()`，然后直接对**已经授权的同一 `BluetoothDevice`**执行 `gatt.connect()`；不会再次弹 chooser。
+
+真实 RF/GATT 断线也走同一路径。`receiveDataset()` 最多使用 **2 次 reconnect**。每次重连后必须重新：
 
 ```text
-protocol/kind correct
-+ seq continuous (including uint16 wrap)
-+ bytesReceived == metadata.byte_count
-+ CRC32(full CSV bytes) == metadata.crc32
+getPrimaryService
+read Metadata
+subscribe Status
+subscribe Data
+START from seq=0
 ```
 
-任何中间 attempt 的内容都不会提交给拟合。Dataset 已 seal，因此重传逐字节确定；内部 assembler 在 retry 时可以清零，但 UI 对外进度使用历史最大接收量，避免视觉进度倒退。
+如果两次 GATT rebuild/reconnect 仍不能完成，才向用户暴露最终传输错误。
 
-### 6.3 callback / task 并发
+### 6.3 数据提交边界
 
-BLE callback 与 Arduino loop 位于不同 FreeRTOS task。connect/disconnect/MTU/control/notify-error mailbox 全部使用 `std::atomic`；callback 只允许轻量 `store`，`RadioManager::poll()` 用 `exchange` 消费。callback 内禁止 `advertising/notify/deinit` 等生命周期操作。
+任何 attempt 的部分数据都不能进入 CSV parser。只有以下条件全部满足才提交：
 
-## 7. StoreProhibited 的结论边界
+```text
+protocol / dataset kind / session state correct
+AND seq continuous (including uint16 wrap)
+AND bytesReceived == metadata.byte_count
+AND CRC32(full CSV raw bytes) == metadata.crc32
+```
 
-现场 `EXCCAUSE=0x1d StoreProhibited` 与 `EXCVADDR=0x0000011c` 表明向无效低地址 store；无现场同构建 ELF/map 时，不能把 `PC=0x42069edf` 猜成具体源码行。本轮可以确定并修复的是 BLE `deinit(true)->reinit`、double-pump、突发 notify、MTU 跨连接污染、callback 重操作和缺少自动恢复等真实缺陷。
+重传期间内部 assembler 可以 reset；对 UI 的 progress 使用历史最大接收量，使用户看到的进度保持单调，不因自动重试从 80% 倒退到 0%。
 
-BLE start/stop 记录 session、bytes、free heap、free PSRAM；MTU 协商后额外记录 `ATT payload` 与实际 `csv/frame`。若实体板仍 panic，必须保留该次构建 ELF 和完整 backtrace，用 Xtensa addr2line 定位，不再凭 PC 地址猜测。
+## 7. StoreProhibited 的定位边界
 
-## 8. 自动化验收与回归门禁
+现场 `EXCCAUSE=0x1d StoreProhibited`、`EXCVADDR=0x0000011c` 能证明低地址非法 store，但没有现场同构建 ELF/map 时不能把 `PC=0x42069edf` 猜成具体源码行。本轮能确定并消除的是 BLE `deinit(true)->reinit`、double-pump、突发 notify、MTU 跨连接污染、callback 重操作、notify failure 未反馈与前端没有自动恢复等真实缺陷。
 
-PR 最新 head 必须通过现有六个 GitHub Actions job。Firmware job 至少锁住：
+固件记录 session id、byte_count、free heap、free PSRAM，以及 MTU event 后的 ATT payload / csv-per-frame。若实体板仍 panic，必须保存该构建 ELF 和完整 backtrace，用 Xtensa addr2line 符号化。
 
-- DNT manifest、GPIO、radio-lock、Signal Generator static gates；
-- ESP32-S3 production compile：Arduino-ESP32 3.3.11 + TFT_eSPI 2.5.43；
+## 8. 自动化门禁
+
+最新 PR head 必须通过六个 GitHub Actions job。Firmware gate 必须锁住：
+
+- DNT SHA manifest 与 GPIO/radio-lock 架构；
+- Arduino-ESP32 3.3.11 + TFT_eSPI 2.5.43 的 ESP32-S3 production compile；
 - 禁止 `BLEDevice::deinit(true)`；
-- 强制 session/connection conservative MTU reset；
+- conservative MTU reset 必须存在；
 - callback mailbox 必须 atomic；
-- Data notify error mailbox 存在；
-- preferred MTU=185；
-- CSV payload cap=128；
-- pacing=15 ms；
+- Data notify error mailbox 必须存在；
+- preferred MTU=185；CSV payload cap=128；pacing=15 ms；
 - seq space=65536；
 - screen 不得二次调用 `radio.poll()`。
 
-前端 Vitest 必须覆盖正常多帧重组、seq gap、CRC/byte_count、uint16 seq wrap，以及“首轮 seq gap → 自动 ABORT+RESTART → 最终收到同一 CSV”的完整恢复路径。TypeScript type-check 与 production build 也必须通过。
+Frontend Vitest 必须覆盖：正常多帧重组、非法 seq、CRC/byte_count、uint16 seq wrap、首轮 seq gap 后自动 `ABORT -> RESTART -> 成功`。TypeScript type-check 与 production build 同样是硬门禁。
 
-最终 diff review 必须再次确认：没有任何 `DO_NOT_TOUCH_*` 内容变化；没有改变 BLE v1 wire layout / UUID / CRC 覆盖范围；没有改变 CSV schema；Two-Port 仍从 `re_h/im_h` 推导 gain/phase；没有给测量、BLE、Signal Generator 引入 busy-wait。
+最终 diff review 要再次确认：PR changed files 中没有任何 `DO_NOT_TOUCH_*`；BLE protocol v1 wire layout / UUID / CRC 范围未改；CSV schema 未改；Try1/2/3 未改；Two-Port 仍从 `re_h/im_h` 派生显示；测量/BLE/Signal Generator 没有新增 busy-wait。
 
-## 9. 实体开发板发布门禁
+## 9. 实体板发布门禁
 
-软件 CI 全绿不能替代物理验证。实体 ESP32-S3-N16R8 + ST7735S 至少执行：
+CI 全绿不能代替 RF/硬件验证。实体 ESP32-S3-N16R8 至少执行：
 
-1. 上电 10 次，128×160 portrait UI 完整，无越界/重叠/固定偏移。
-2. 编码器 CW/CCW 各至少 100 detent（慢速 50 + 快速 50），一格一事件。
-3. Component 从 10 Hz 起始完成已知 R/C/L（含 L+DCR）测量。
-4. One-Port 与 Two-Port 交替完成至少 **20 个 BLE session**：每次 sweep→seal→connect→transfer→CRC pass→Back；不得 panic/reboot。
-5. 传输验证至少包含两类 MTU：能协商较大 MTU时确认串口出现 `csv/frame=128` 或实际协商值；同时至少一次强制/使用 MTU23 兼容路径，确认 12 B/frame 仍能完整传输 12 KiB 级流。
-6. 至少 3 次在传输中主动断开客户端，确认网页自动 reconnect 后完整恢复且不再次弹 chooser；至少 3 次人为制造/测试 RESTART 路径，最终 CRC 一致。
-7. 重复第二次、第三次上传尤其检查 `# BLE session start/stop` heap/PSRAM，不得出现单调不可恢复内存下降。
-8. Two-Port TFT gain/phase 与网站同一 CSV 的数值语义一致。
-9. Signal Generator 10 Hz / 1 kHz / 10 kHz start/stop；SetTone pending 和 running 时 Back 均非阻塞且必须 StopTone completion 后退出。
-10. 30 分钟以上 soak：idle、sweep、cancel、BLE upload、Signal Generator 交替；不得出现 StoreProhibited、WDT、断线后无法恢复或传输静默卡死。
+1. 上电 10 次，完整 128×160 UI；
+2. 编码器 CW/CCW 各 100 detent（慢 50 + 快 50），无多跳/反跳；
+3. Component 从 10 Hz 起始测已知 R/C/L（含 L+DCR）；
+4. One-Port / Two-Port 交替至少 **20 个 BLE session**，每次 sweep→seal→transfer→CRC pass→Back；
+5. 至少验证一次 MTU23 保守路径（12 B/frame）能完整传输接近 12 KiB 数据；有较大 MTU 时确认协商后 frame payload 按实际 MTU 扩大且不超过 128；
+6. 至少 3 次传输中主动断开客户端，确认自动 reconnect、不重新弹 chooser、最终 CRC pass；
+7. 至少 3 次触发 RESTART 路径；若可注入连续错误，验证 4 个同连接 attempt 失败后自动 GATT rebuild；
+8. 第二次、第三次上传重点记录 heap/PSRAM，不能单调下降；
+9. Signal Generator 10 Hz / 1 kHz / 10 kHz start/stop，pending/running 时 Back 都必须 StopTone completion 后退出；
+10. ≥30 分钟 idle/sweep/cancel/BLE/siggen soak，不得 StoreProhibited、WDT、无法恢复断线或 silent stall。
 
-建议实板记录每个 BLE session：session id、byte_count、协商 ATT payload、csv/frame、总用时、重试次数、CRC、start/stop heap/PSRAM。这样若仍有偶发问题，可以区分 RF 质量、MTU/吞吐、内存生命周期与应用状态机，而不是把所有异常归为“蓝牙不稳”。
+每个 BLE session 建议记录：session id、byte_count、ATT payload、csv/frame、总时长、transfer retry 次数、GATT reconnect 次数、CRC、start/stop heap/PSRAM。这样才能区分 RF、MTU、host queue、GATT state 与内存生命周期问题。
 
 ## 10. 最终 review 结论与合并规则
 
-本轮 BLE review 的核心结论是：**有单包上限，但当前产品没有“12 KiB 数据集必须一次塞进 BLE”的设计错误。正确方案是 MTU-aware fragmentation + 有界发送节流 + end-to-end CRC + 自动 retry/reconnect。**现已按该模型落实，并同时补上未来长流的 uint16 seq wrap 语义。
+本轮 BLE review 的确定结论是：**BLE 有单 notification 的 MTU 上限；当前产品没有“12 KiB 整份数据超过 BLE 总上限”的问题。最终方案必须是 MTU-aware 自动分片、有界 pacing、seq/byte_count/CRC 端到端校验，以及失败后的自动 retry + GATT rebuild/reconnect。当前实现已按这个模型收敛。**
 
-保留的正确部分包括 DNT 测量核心、CSV schema、BLE v1 wire format、网站 Two-Port dB/phase 推导、Signal Generator 异步 SetTone/StopTone。修改集中在真正需要增强的 BLE transport policy 与接收恢复，不为了“重构”去改正确的测量/拟合逻辑。
+保留不需要修改的正确部分：DNT 测量核心、CSV schema、BLE v1 wire format、Try1/2/3、网站 Two-Port dB/phase 推导、Signal Generator 的异步 SetTone/StopTone。修改只落在真正有问题的 UI/input/BLE transport 与测试门禁。
 
-合并策略：**只有 PR #5 最新 head 的六个 CI job 全部 `success`，完成最终 diff review 后才 squash merge 到 `main`；不创建 Tag。**实体板门禁未完成前，只能声称软件实现和自动化已通过，不能声称现场 RF/硬件已经百分之百无故障。
+合并规则：**只有 PR #5 最新 head 六个 CI job 全部 success，并完成最终 diff review 后才 squash merge `main`；不创建 Tag。**实体板门禁未完成前只能声明“软件与自动化通过”，不能声明现场 RF/硬件已百分之百无故障。
 
 ### 参考真源
 
-- Espressif ESP-FAQ / ESP-AT BLE 文档：默认 ATT MTU=23、可配置到 517、双方协商取实际值；GATT server notification 单次 data length 最大为 `MTU-3`。
-- Espressif Arduino-ESP32 BLE `BLEDevice.cpp`：`setMTU()` 接受 >23 且 <=517；`deinit(false)` 保留以后重新初始化能力，`release_memory=true` 会阻止 reinitialization。
-- Espressif Arduino-ESP32 BLE `BLECharacteristic`：notify/status callback 语义，包括 `SUCCESS_NOTIFY` 与 GATT/无客户端/无订阅等错误状态。
-- 仓库 `ino/LCR_UI/{ble_protocol.h,radio_manager.cpp,dataset.h}`：本项目 Data frame、MTU 适配、12 KiB dataset、CRC/Status 真源。
-- 仓库 `frontend/src/lib/ble/{protocol.ts,lcrDevice.ts}`：浏览器 seq 重组、CRC 校验、自动 RESTART/reconnect 真源。
-- Sitronix ST7735S Datasheet v1.3；课程《开发板硬件手册》；仓库 `DO_NOT_TOUCH_*` 与 EC11 数据手册：显示、板卡和测量硬件约束。
+- Espressif ESP-FAQ / ESP-AT BLE：默认 MTU=23、可设置到 517、连接实际值取协商结果；notification 单次 data length 最大 `MTU-3`。
+- Espressif Arduino-ESP32 `BLEDevice.cpp`：`setMTU()` 范围语义；`deinit(false)` / release-memory 生命周期语义。
+- Espressif Arduino-ESP32 `BLECharacteristic`：notify 与 `SUCCESS_NOTIFY` / GATT error callback 状态。
+- 仓库 `ino/LCR_UI/{ble_protocol.h,radio_manager.cpp,dataset.h}`：本项目帧、分片、12 KiB dataset、Status/CRC 真源。
+- 仓库 `frontend/src/lib/ble/{protocol.ts,lcrDevice.ts}`：seq wrap、自动 restart、自动 GATT rebuild/reconnect 真源。
+- Sitronix ST7735S Datasheet、课程开发板手册、仓库 `DO_NOT_TOUCH_*` 与 EC11 数据手册：显示、板卡与测量硬件真源。
