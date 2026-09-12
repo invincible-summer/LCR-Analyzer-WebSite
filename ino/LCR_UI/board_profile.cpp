@@ -18,11 +18,11 @@ const BoardProfile kBoard = {
     // plan.md §10.4 候选映射（待实物 continuity 确认后冻结）：
     //   SCK=H4-4(GPIO4) MOSI=H4-5(GPIO5) CS=H4-6(GPIO6) DC=H4-7(GPIO7)
     //   RST=H5-18(GPIO21)；MISO 不使用
-    .tftCs   = 6,
-    .tftDc   = 7,
-    .tftRst  = 21,
-    .spiSck  = 4,
-    .spiMosi = 5,
+    .tftCs   = 10,
+    .tftDc   = 14,
+    .tftRst  = 13,
+    .spiSck  = 12,
+    .spiMosi = 11,
     .spiMiso = PIN_UNUSED,   // 屏幕只写
     // ST7735S datasheet: 写时钟周期最小 66ns（~15.15MHz 上限）-> 首版 10MHz；
     // 升频前必须逻辑分析仪 + 实屏压力测试。
