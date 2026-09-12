@@ -15,6 +15,8 @@
 #         必须显式 USE_FSPI_PORT 且 S3 direct-register SPI_PORT==2
 # Gate J  Worker 可靠性：跨 task flag 使用 atomic、completion 不丢包、DNT
 #         可能不写出参的局部结构必须零初始化并显式失败映射
+# Gate K  Signal-generator 退出必须非阻塞，且 StopTone completion 前不得把
+#         radio/measurement lock 伪装成已释放；completion 必须 id+kind 匹配
 # 用法：  bash ino/tools/static_check.sh
 #         DNT_UPDATE_MANIFEST=1 bash ino/tools/static_check.sh  # 硬件团队更新后重锁
 # ============================================================================
@@ -75,7 +77,7 @@ fi
 echo "== Gate D: no low-level DNT symbols outside DO_NOT_TOUCH files =="
 PAT='lcr_adc_|lcr_measure_|out_freq|out_sin|stop_sin|adc_continuous_|lcd_cam|gdma_|HC595_PIN_'
 VIOL=$(prod_files | xargs grep -n -E "$PAT" 2>/dev/null \
-        | grep -v '^ *//' | grep -v ':\s*//' || true)
+           | grep -v '^ *//' | grep -v ':\s*//' || true)
 if [ -n "$VIOL" ]; then
     echo "$VIOL"
     fail "应用层出现 DNT 低层符号（必须经 lcr_api wrapper）"
@@ -187,5 +189,56 @@ if grep -q '#include <atomic>' "$API" \
 else
     fail "Worker 同步/completion/出参失败路径保护不完整"
 fi
+
+echo "== Gate K: signal-generator exit is async and stop-confirmed =="
+SIG="$SRC/screen_siggen.cpp"
+HDR="$SRC/screens.h"
+python3 - "$SIG" "$HDR" << 'PYK' || fail "Signal-generator 退出路径可能阻塞或提前宣告停机"
+import re, sys
+sig = open(sys.argv[1], encoding='utf-8').read()
+hdr = open(sys.argv[2], encoding='utf-8').read()
+
+# Runtime UI path must remain event-driven: no local busy wait/sleep loops.
+if re.search(r'\bwhile\s*\(', sig):
+    raise SystemExit('screen_siggen.cpp contains runtime while loop')
+if re.search(r'\bdelay\s*\(', sig):
+    raise SystemExit('screen_siggen.cpp contains runtime delay')
+
+required_hdr = ['m_exitRequested', 'm_pendingId', 'm_pendingKind']
+for token in required_hdr:
+    if token not in hdr:
+        raise SystemExit(f'missing SigGen state field: {token}')
+
+required_sig = [
+    'm_exitRequested = true;',
+    'ev.id != m_pendingId || ev.kind != m_pendingKind',
+    'm_pendingKind = LcrJobKind::SetTone;',
+    'm_pendingKind = LcrJobKind::StopTone;',
+    'if (m_pending) return;',
+    'if (m_running) {',
+    'screens.pop();',
+]
+for token in required_sig:
+    if token not in sig:
+        raise SystemExit(f'missing async-stop contract token: {token}')
+
+# Back handler must not unlock radio or synchronously wait. Hardware-safe unlock
+# is allowed only in completion handling (SetTone failure or StopTone done).
+m = re.search(r'case InputEvent::Back:(.*?)(?:default:)', sig, re.S)
+if not m:
+    raise SystemExit('cannot locate Back handler')
+back = m.group(1)
+if 'radioLockNotifyMeasurementActive(false)' in back:
+    raise SystemExit('Back handler releases measurement lock before StopTone completion')
+if re.search(r'\bwhile\s*\(|\bdelay\s*\(', back):
+    raise SystemExit('Back handler blocks UI')
+
+# Exactly two release sites are intentional: failed SetTone (no output created)
+# and completed StopTone. A new site requires explicit review of physical truth.
+if sig.count('radioLockNotifyMeasurementActive(false)') != 2:
+    raise SystemExit('unexpected measurement-lock release site count')
+
+print('OK (Back is nonblocking; pending completion uses id+kind; unlock is completion-driven)')
+PYK
 
 exit $FAIL
