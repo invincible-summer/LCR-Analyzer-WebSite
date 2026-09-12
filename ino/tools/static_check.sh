@@ -14,7 +14,8 @@
 # Gate I  固件依赖冻结：Arduino-ESP32 3.3.11 + 已发布 TFT_eSPI 2.5.43；
 #         必须显式 USE_FSPI_PORT 且 S3 direct-register SPI_PORT==2
 # Gate J  Worker 可靠性：跨 task flag 使用 atomic、completion 不丢包、DNT
-#         可能不写出参的局部结构必须零初始化并显式失败映射
+#         可能不写出参的局部结构必须零初始化并显式失败映射；StopTone 的
+#         cancel 清理必须先于 completion 发布
 # Gate K  Signal-generator 退出必须非阻塞，且 StopTone completion 前不得把
 #         radio/measurement lock 伪装成已释放；completion 必须 id+kind 匹配
 # 用法：  bash ino/tools/static_check.sh
@@ -189,6 +190,14 @@ if grep -q '#include <atomic>' "$API" \
 else
     fail "Worker 同步/completion/出参失败路径保护不完整"
 fi
+python3 - "$API" << 'PYJ' || fail "StopTone completion 发布早于 cancel 状态清理"
+import sys
+src = open(sys.argv[1], encoding='utf-8').read()
+needle = '''if (job.kind == LcrJobKind::StopTone)\n            s_cancelReq.store(false, std::memory_order_release);\n        pushEvent(ev);'''
+if needle not in src:
+    raise SystemExit('StopTone must clear cancel state before publishing completion')
+print('OK (StopTone clears cancel before completion publication)')
+PYJ
 
 echo "== Gate K: signal-generator exit is async and stop-confirmed =="
 SIG="$SRC/screen_siggen.cpp"
