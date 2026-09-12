@@ -1,10 +1,5 @@
 // ============================================================================
-// screen_menu.cpp —— 主菜单（四个可见入口）
-// ----------------------------------------------------------------------------
-//   1 Component R/C/L     单元件自动识别与测量
-//   2 One-Port Z Sweep    单端口扫频 -> BLE -> 网站拟合
-//   3 Two-Port H Sweep    双端口扫频 -> BLE -> 网站曲线
-//   4 Signal Generator    诊断信号发生器（正常菜单入口，不再使用隐藏手势）
+// screen_menu.cpp —— 主菜单（五个可见入口）
 // ============================================================================
 
 #include "screens.h"
@@ -17,41 +12,36 @@ MainMenuScreen screenMenu;
 
 namespace {
 const char* const kItems[] = {
-    "1 Component R/C/L",
-    "2 One-Port Z Sweep",
-    "3 Two-Port H Sweep",
-    "4 Signal Generator",
+    "1 Unknown Component",
+    "2 Single Freq LCR",
+    "3 One-Port Z Sweep",
+    "4 Two-Port H Sweep",
+    "5 Signal Generator",
 };
-constexpr int kNItems = 4;
-constexpr int kItemY0 = 34;
-constexpr int kItemDY = 25;
+constexpr int kNItems = 5;
+constexpr int kItemY0 = 30;
+constexpr int kItemDY = 23;
 }  // namespace
 
-// ---------------------------------------------------------------------------
 void MainMenuScreen::drawItem(int i, bool selected)
 {
     const int W = tft.width();
     const int y = kItemY0 + i * kItemDY;
-
     tft.fillRect(5, y, W - 10, 20, selected ? ui::C_PANEL : ui::C_BG);
     tft.fillRect(5, y, 3, 20, selected ? ui::C_ACCENT : ui::C_GRID);
-
-    tft.setTextFont(1);  // 128px 宽度下使用 font1，避免长菜单项越界
+    tft.setTextFont(1);
     tft.setTextColor(selected ? ui::C_FG : ui::C_DIM,
                      selected ? ui::C_PANEL : ui::C_BG);
     tft.drawString(kItems[i], 12, y + 6);
 }
 
-// ---------------------------------------------------------------------------
 void MainMenuScreen::onEnter()
 {
     tft.fillScreen(ui::C_BG);
     ui::topBar("LCR METER", radio.state() != RadioState::Off);
-
     tft.setTextFont(1);
     tft.setTextColor(ui::C_DIM, ui::C_BG);
-    tft.drawString("10Hz-10kHz", 6, 21);
-
+    tft.drawString("10Hz-10kHz", 6, 20);
     for (int i = 0; i < kNItems; ++i) drawItem(i, i == m_sel);
     ui::bottomHint("ENC:SEL OK:ENTER");
 }
@@ -70,10 +60,11 @@ void MainMenuScreen::onEvent(InputEvent e)
         break;
     case InputEvent::Ok:
         switch (m_sel) {
-        case 0: screens.push(&screenComponent); break;
-        case 1: screens.push(&screenOnePort);   break;
-        case 2: screens.push(&screenTwoPort);   break;
-        case 3: screens.push(&screenSigGen);    break;
+        case 0: screens.push(&screenComponent);   break;
+        case 1: screens.push(&screenSinglePoint); break;
+        case 2: screens.push(&screenOnePort);     break;
+        case 3: screens.push(&screenTwoPort);     break;
+        case 4: screens.push(&screenSigGen);      break;
         }
         return;
     default:
@@ -88,7 +79,6 @@ void MainMenuScreen::onEvent(InputEvent e)
 
 void MainMenuScreen::onTick()
 {
-    // 射频状态变化时刷新顶栏（其余区域无需重绘）
     static RadioState last = RadioState::Off;
     if (radio.state() != last) {
         last = radio.state();

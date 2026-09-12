@@ -1,14 +1,9 @@
 // ============================================================================
 // fw_version.h —— 固件 / 协议 / 数据模式版本（单一出处）
 // ----------------------------------------------------------------------------
-// 任何改变下列语义的提交必须 bump 对应版本号，而不是悄悄改字段：
-//   * Z = V/I 定义、H = Vout/Vin 定义、phase 正方向、CSV 单位
-//   * BLE frame layout、CRC 覆盖范围、数据集完成/封存语义
-//   * CSV 头部元数据键集合（v2：measurement_backend / calibration_state，
-//     删除了 v1 杜撰的 drive_vrms=1.05 与 calibration_id=factory-none）
-// 版本号契约详见 protocol/BLE_PROTOCOL_V1.md 与 protocol/CSV_SCHEMA_V1/V2.md。
+// 本 PR 只改变本地 UI/交互和诊断开关，不改变 BLE frame、CSV schema、Z/H
+// 定义或校准语义，因此保持 4.1.0，避免把纯 UI 改动误宣告为数据契约升级。
 // ============================================================================
-
 #pragma once
 
 #define LCR_FW_VERSION "4.1.0"

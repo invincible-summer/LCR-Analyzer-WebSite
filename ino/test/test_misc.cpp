@@ -1,10 +1,10 @@
 // ============================================================================
-// test_misc.cpp —— BLE 帧/seq/status + radio_lock 互斥 + 状态文本
-// （plan.md §17.1 第 17 项 + Gate G 的 host 侧运行时验证）
+// test_misc.cpp —— BLE/frame + radio lock + decimal digit carry/borrow
 // ============================================================================
 #include "check.h"
 
 #include "ble_protocol.h"
+#include "digit_editor_math.h"
 #include "measurement_types.h"
 #include "radio_lock.h"
 
@@ -14,7 +14,6 @@ int main()
 {
     radioLockReset();
 
-    // ---- 17. BLE 帧 seq（LE）+ 编解码往返 --------------------------------
     {
         uint8_t buf[64];
         const uint8_t payload[4] = {1, 2, 3, 4};
@@ -29,19 +28,16 @@ int main()
         CHECK(lcrBleDecodeFrame(buf, n, proto, kind, seq, plen, pl));
         CHECK(proto == 1);
         CHECK(kind == kLcrBleKindTwoPort);
-        CHECK(seq == 0x0034);                       // seq LE 往返
+        CHECK(seq == 0x0034);
         CHECK(plen == 4);
         CHECK(memcmp(pl, payload, 4) == 0);
-        // seq 高字节在 buf[5]（>255 的 seq）
         lcrBleEncodeFrame(buf, sizeof(buf), 1, 0, 1000, payload, 4);
         CHECK(buf[4] == 0xE8 && buf[5] == 0x03);
-        // 非法帧
         CHECK(!lcrBleDecodeFrame(buf, 5, proto, kind, seq, plen, pl));
         buf[0] = 'X';
         CHECK(!lcrBleDecodeFrame(buf, 12, proto, kind, seq, plen, pl));
     }
 
-    // ---- Status 负载（15B：state/err/session/sent/total）-------------------
     {
         uint8_t st[kLcrBleStatusLen];
         CHECK(lcrBleEncodeStatus(st, sizeof(st), 4, 0, 0x11223344, 100, 512)
@@ -52,22 +48,29 @@ int main()
         CHECK(sent == 100);
     }
 
-    // ---- radio_lock：测量与射频互斥（Gate G 运行时半边）--------------------
     {
         CHECK(radioLockInvariantOk());
         radioLockNotifyMeasurementActive(true);
-        CHECK(radioLockInvariantOk());              // 测量中射频仍 Off：成立
+        CHECK(radioLockInvariantOk());
         radioLockNotifyRadioActive(true);
-        CHECK(!radioLockInvariantOk());             // 测量+射频同时活动：违反
-        radioLockNotifyMeasurementActive(false);    // seal 完成
-        CHECK(radioLockInvariantOk());              // 射频可开
+        CHECK(!radioLockInvariantOk());
+        radioLockNotifyMeasurementActive(false);
+        CHECK(radioLockInvariantOk());
         radioLockNotifyRadioActive(false);
         CHECK(radioLockInvariantOk());
         radioLockReset();
         CHECK(radioLockInvariantOk());
     }
 
-    // ---- 状态文本非空 -------------------------------------------------------
+    // 验收示例：编辑十位。300 的十位 0 再减 1，结果必须是 290：
+    // 当前位显示 9，同时百位借 1。反向 290 十位 +1 必须进位回 300。
+    CHECK(digitEditorStep(300, 0, 999, 3, 1, -1) == 290);
+    CHECK(digitEditorStep(290, 0, 999, 3, 1, +1) == 300);
+    CHECK(digitEditorStep(199, 0, 999, 3, 2, +1) == 200);
+    CHECK(digitEditorStep(200, 0, 999, 3, 2, -1) == 199);
+    CHECK(digitEditorStep(0, 0, 999, 3, 2, -1) == 0);      // lower clamp
+    CHECK(digitEditorStep(999, 0, 999, 3, 2, +1) == 999);  // upper clamp
+
     CHECK(strlen(sweepStateText(SweepState::TransferReady)) > 0);
     CHECK(strcmp(sweepStateText(SweepState::Insufficient), "DATA INSUFFICIENT") == 0);
     CHECK(strcmp(measurementKindText(MeasurementKind::OnePortImpedance),

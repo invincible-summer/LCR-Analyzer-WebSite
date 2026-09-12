@@ -492,7 +492,9 @@ static bool lcr_derive_z(const MeasResult &m, ZDerived &z) {
   double v_gain = lcr_volt_gain_of(g_voltage_range);
   double i_gain = lcr_curr_gain_of(g_current_range);
   double r_tia = lcr_tia_ohm_of(g_tia_range);
-  if (m.ratio_corr <= 0.0) return false;
+  // ★ bugfix(问题3)：NaN-proof 写法。NaN 与任何数比较恒为 false，
+  //   旧式 `<= 0.0` 拦不住 NaN 的 ratio，会让无效数据通过本检查。
+  if (!(m.ratio_corr > 0.0)) return false;
   z.f = m.f_used;
   z.y_mag = m.ratio_corr * v_gain / (i_gain * r_tia);
   double phi_y = m.dphi_deg;
@@ -532,16 +534,21 @@ static bool lcr_derive_z(const MeasResult &m, ZDerived &z) {
   z.rp = (fabs(z.G) > 1e-15) ? 1.0 / z.G : NAN;
   z.cp = (w > 0.0 && z.B > 0.0) ? z.B / w : NAN;
   z.lp = (w > 0.0 && z.B < 0.0) ? -1.0 / (w * z.B) : NAN;
-  if (fabs(phi_y) < LCR_RESISTIVE_TOL_DEG || fabs(phi_y) > 180.0 - LCR_RESISTIVE_TOL_DEG) {
+  // 判型统一使用校准/OS 修正后重算的相位(z.phi_y_deg)与电纳(z.B)，
+// 与修正后的数值同源；phi_y(修正前)仅用于日志和上层换算参考
+if (fabs(z.phi_y_deg) < LCR_RESISTIVE_TOL_DEG || fabs(z.phi_y_deg) > 180.0 - LCR_RESISTIVE_TOL_DEG) {
     z.type = 'R';
     z.cs = z.ls = z.cp = z.lp = NAN;
-  } else if (z.B > 0.0) {
+}
+else if (z.B > 0.0) {
     z.type = 'C';
     z.ls = z.lp = NAN;
-  } else {
+}
+else {
     z.type = 'L';
     z.cs = z.cp = NAN;
-  }
+}
+
   return true;
 }
 
@@ -602,14 +609,32 @@ static void lcr_print_result_line(double f_req, const MeasResult &r) {
 }
 
 // ================== 完整单点测量流水线（打印已门控） ==================
+// ★ bugfix(问题2/3)：无效测量的统一出口。ratio_corr=0 会沿既有检查链
+//   （lcr_derive_z / lcr_w_measure 的 ratio 有效性检查）被上层判为
+//   测量失败（LCR_API_ERR_MEASURE / "measure FAILED" / 扫频点 'E'），
+//   避免无效数据以"成功"状态上报。错误行按本层约定不受诊断开关控制。
+static MeasResult s_invalid_meas_result(double f_req) {
+  MeasResult r;
+  r.f_used = f_req;
+  r.ratio_raw = 0.0;
+  r.ratio_corr = 0.0;
+  r.dphi_deg = 0.0;
+  return r;
+}
 static MeasResult lcr_measure_point(double f_req, bool verbose) {
   // 1) 输出频率
   if (g_lcr_diag) Serial.printf("# SET f = %.4f Hz -> out_freq()\n", f_req);
   double f_act = out_freq(f_req, 20, 20);
-  if (f_act > 0.0) g_sig_freq = f_act;
-  else {
-    g_sig_freq = f_req;
-    if (g_lcr_diag) Serial.println("# WARN: out_freq return invalid, fallback to requested");
+  if (f_act > 0.0) {
+    g_sig_freq = f_act;
+  } else {
+    // ★ bugfix(问题2)：out_freq 失败（-1 频率越界 / -2 无拟合 / -3 缓冲未初始化）
+    //   时激励已被 stop_sin() 停止，继续测量得到的数据与 f_req 无关。
+    //   旧实现兜底 f_req 照常测量并上报"成功"，现直接中止本次测量。
+    g_sig_freq = 0.0;
+    Serial.printf("# ERR: out_freq(%.4g Hz) failed (code %d), measurement aborted\n",
+                  f_req, (int)f_act);
+    return s_invalid_meas_result(f_req);
   }
   if (g_lcr_diag)
     Serial.printf("# actual f = %.4f Hz (err %+.1f ppm vs requested)\n",
@@ -633,6 +658,12 @@ static MeasResult lcr_measure_point(double f_req, bool verbose) {
   uint32_t dur = g_fast_settle ? s_sweep_capture_ms(g_sig_freq) : SAMPLE_DURATION_MS;
   uint32_t elapsed = lcr_adc_capture(dur);
   if (verbose) s_print_diagnostics(elapsed);
+  // ★ bugfix(问题3)：空采集（某通道 0 样本，接线/驱动异常）不做分析，
+  //   防止 N=0 时 0 除产生 NaN 并穿透 ratio 有效性检查。
+  if (lcr_adc_count_a() == 0 || lcr_adc_count_b() == 0) {
+    Serial.println("# ERR: empty capture (chA/chB), measurement aborted");
+    return s_invalid_meas_result(f_req);
+  }
   // 5) 双音分析
   return lcr_tone_analyze(lcr_adc_buf_a(), lcr_adc_count_a(),
                           lcr_adc_buf_b(), lcr_adc_count_b(),
@@ -753,7 +784,8 @@ static bool lcr_w_measure(double f_req, WPoint &wp, bool verbose) {
   MeasResult m = lcr_measure_point(f_req, verbose);
   s_wctrl(false);
   g_w_mode = false;
-  if (m.ratio_corr <= 0.0) return false;
+  // ★ bugfix(问题3)：NaN-proof，见 lcr_derive_z 同处修改
+  if (!(m.ratio_corr > 0.0)) return false;
   double v_g = lcr_volt_gain_of(g_voltage_range);
   double i_g = lcr_curr_gain_of(g_current_range);
   wp.f = m.f_used;
